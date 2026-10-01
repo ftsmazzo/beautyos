@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = {
   title: "BeautyOS",
   description: "Painel operacional da casa",
