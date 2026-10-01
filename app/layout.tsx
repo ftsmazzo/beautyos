@@ -1,4 +1,10 @@
+import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
+
+const sourceSans = Source_Sans_3({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+});
 
 export const metadata = {
   title: "BeautyOS",
@@ -8,7 +14,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body className={sourceSans.className}>{children}</body>
     </html>
   );
 }

@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createHouse } from "@/auth/actions";
 import { currentUser } from "@/auth/session";
 import { databaseReady, db } from "@/db/client";
+import { AuthFrame } from "@/ui/auth-frame";
+import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +21,7 @@ export default async function HomePage({
 
   const params = await searchParams;
   return (
-    <main>
-      <h1>Criar a casa</h1>
-      <p>A primeira pessoa entra como administrador. Uma conta é um negócio.</p>
+    <AuthFrame title="Criar a casa" lede="A primeira pessoa entra como administrador. Uma conta é um negócio.">
       {params.erro ? <p className="error">Preencha nome, e-mail e uma senha com pelo menos 8 caracteres.</p> : null}
       <form action={createHouse}>
         <label>
@@ -40,8 +40,8 @@ export default async function HomePage({
           Senha
           <input name="password" type="password" required minLength={8} autoComplete="new-password" />
         </label>
-        <button type="submit">Criar e entrar</button>
+        <SubmitButton label="Criar e entrar" />
       </form>
-    </main>
+    </AuthFrame>
   );
 }

@@ -12,7 +12,7 @@ export default async function ServicesPage() {
   return (
     <Panel user={user} current="/servicos" title="Serviços">
       <div className="row">
-        <Link className="link" href="/servicos/novo">
+        <Link className="btn" href="/servicos/novo">
           Novo serviço
         </Link>
       </div>

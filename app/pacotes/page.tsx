@@ -12,7 +12,7 @@ export default async function PackagesPage() {
   return (
     <Panel user={user} current="/pacotes" title="Pacotes">
       <div className="row">
-        <Link className="link" href="/pacotes/novo">
+        <Link className="btn" href="/pacotes/novo">
           Novo pacote
         </Link>
       </div>

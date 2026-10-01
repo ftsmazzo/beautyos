@@ -12,7 +12,7 @@ export default async function ProductsPage() {
   return (
     <Panel user={user} current="/produtos" title="Produtos">
       <div className="row">
-        <Link className="link" href="/produtos/novo">
+        <Link className="btn" href="/produtos/novo">
           Novo produto
         </Link>
       </div>

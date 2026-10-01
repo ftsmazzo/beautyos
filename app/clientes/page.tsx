@@ -19,7 +19,7 @@ export default async function ClientsPage({
   return (
     <Panel user={user} current="/clientes" title="Clientes">
       <div className="row">
-        <Link className="link" href="/clientes/novo">
+        <Link className="btn" href="/clientes/novo">
           Novo cliente
         </Link>
         <Link href={removed ? "/clientes" : "/clientes?estado=removidos"}>{removed ? "Ver ativos" : "Ver removidos"}</Link>

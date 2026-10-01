@@ -13,6 +13,7 @@ import {
 } from "@/catalog/queries";
 import { moveStock, saveProduct } from "@/catalog/product-actions";
 import { ErrorNote } from "@/ui/error-note";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -190,61 +191,60 @@ export default async function ProductFormPage({
       </form>
       {product ? (
         <div className="stack">
-          <form action={moveStock}>
-            <input type="hidden" name="id" value={product.id} />
-            <input type="hidden" name="reason" value="compra" />
-            <h2>Compra</h2>
-            <p>Entra no estoque e passa a ser o custo.</p>
-            <div className="split">
-              <label>
-                Quantidade
-                <input name="qty" type="number" min={1} required />
-              </label>
-              <label>
-                Custo unitário
-                <input name="unit" required defaultValue={centsToInput(product.costCents)} />
-              </label>
-              <label>
-                Observação
-                <input name="note" />
-              </label>
-            </div>
-            <SubmitButton label="Lançar compra" />
-          </form>
-          <form action={moveStock}>
-            <input type="hidden" name="id" value={product.id} />
-            <input type="hidden" name="reason" value="ajuste" />
-            <h2>Ajuste</h2>
-            <p>Quantidade negativa tira do estoque.</p>
-            <div className="split">
-              <label>
-                Quantidade
-                <input name="qty" type="number" required />
-              </label>
-              <label>
-                Observação
-                <input name="note" />
-              </label>
-            </div>
-            <SubmitButton label="Lançar ajuste" />
-          </form>
-          <form action={moveStock}>
-            <input type="hidden" name="id" value={product.id} />
-            <input type="hidden" name="reason" value="conferencia" />
-            <h2>Conferência</h2>
-            <p>Informe a quantidade contada. A diferença vira o movimento.</p>
-            <div className="split">
-              <label>
-                Quantidade contada
-                <input name="qty" type="number" min={0} required />
-              </label>
-              <label>
-                Observação
-                <input name="note" />
-              </label>
-            </div>
-            <SubmitButton label="Confirmar contagem" />
-          </form>
+          <div className="row">
+            <Modal label="Compra" title="Compra" tone="teal">
+              <form action={moveStock}>
+                <input type="hidden" name="id" value={product.id} />
+                <input type="hidden" name="reason" value="compra" />
+                <p>Entra no estoque e passa a ser o custo.</p>
+                <label>
+                  Quantidade
+                  <input name="qty" type="number" min={1} required />
+                </label>
+                <label>
+                  Custo unitário
+                  <input name="unit" required defaultValue={centsToInput(product.costCents)} />
+                </label>
+                <label>
+                  Observação
+                  <input name="note" />
+                </label>
+                <SubmitButton label="Lançar compra" />
+              </form>
+            </Modal>
+            <Modal label="Ajuste" title="Ajuste" tone="amber">
+              <form action={moveStock}>
+                <input type="hidden" name="id" value={product.id} />
+                <input type="hidden" name="reason" value="ajuste" />
+                <p>Quantidade negativa tira do estoque.</p>
+                <label>
+                  Quantidade
+                  <input name="qty" type="number" required />
+                </label>
+                <label>
+                  Observação
+                  <input name="note" />
+                </label>
+                <SubmitButton label="Lançar ajuste" />
+              </form>
+            </Modal>
+            <Modal label="Conferência" title="Conferência" tone="rose">
+              <form action={moveStock}>
+                <input type="hidden" name="id" value={product.id} />
+                <input type="hidden" name="reason" value="conferencia" />
+                <p>Informe a quantidade contada. A diferença vira o movimento.</p>
+                <label>
+                  Quantidade contada
+                  <input name="qty" type="number" min={0} required />
+                </label>
+                <label>
+                  Observação
+                  <input name="note" />
+                </label>
+                <SubmitButton label="Confirmar contagem" />
+              </form>
+            </Modal>
+          </div>
           <div className="card">
             <h2>Últimos movimentos</h2>
             {movements.length === 0 ? <p>Nenhum movimento ainda.</p> : null}

@@ -12,8 +12,10 @@ export function SubmitButton({
   className?: string;
 }) {
   const { pending } = useFormStatus();
+  const tone = className === "ghost" ? "quiet" : className;
+  const classes = ["btn", tone].filter(Boolean).join(" ");
   return (
-    <button type="submit" className={className} disabled={pending}>
+    <button type="submit" className={classes} disabled={pending}>
       {pending ? pendingLabel : label}
     </button>
   );

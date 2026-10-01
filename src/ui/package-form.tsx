@@ -128,7 +128,7 @@ export function PackageForm({
           Dividir este total entre as idas
           <input value={splitTotal} onChange={(event) => setSplitTotal(event.target.value)} placeholder="0,00" />
         </label>
-        <button type="button" className="ghost" onClick={splitEven}>
+        <button type="button" className="quiet" onClick={splitEven}>
           Dividir
         </button>
       </div>
@@ -182,14 +182,14 @@ export function PackageForm({
           </label>
           <button
             type="button"
-            className="ghost"
+            className="quiet"
             onClick={() => setRows(rows.filter((_, rowIndex) => rowIndex !== index))}
           >
             Tirar
           </button>
         </div>
       ))}
-      <button type="button" className="ghost" onClick={() => setRows([...rows, { productId: "", qty: "1", price: "" }])}>
+      <button type="button" className="quiet" onClick={() => setRows([...rows, { productId: "", qty: "1", price: "" }])}>
         Incluir produto
       </button>
       <p>{summary}</p>

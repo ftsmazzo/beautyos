@@ -1,4 +1,6 @@
 import { login } from "@/auth/actions";
+import { AuthFrame } from "@/ui/auth-frame";
+import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +11,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   return (
-    <main>
-      <h1>Entrar</h1>
-      <p>Use o e-mail da sua casa.</p>
+    <AuthFrame title="Entrar" lede="Use o e-mail da sua casa.">
       {params.erro ? <p className="error">E-mail ou senha não conferem.</p> : null}
       <form action={login}>
         <label>
@@ -22,8 +22,8 @@ export default async function LoginPage({
           Senha
           <input name="password" type="password" required autoComplete="current-password" />
         </label>
-        <button type="submit">Entrar</button>
+        <SubmitButton label="Entrar" />
       </form>
-    </main>
+    </AuthFrame>
   );
 }

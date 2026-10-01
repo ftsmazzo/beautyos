@@ -12,7 +12,7 @@ export default async function ProfessionalsPage() {
   return (
     <Panel user={user} current="/profissionais" title="Profissionais">
       <div className="row">
-        <Link className="link" href="/profissionais/novo">
+        <Link className="btn" href="/profissionais/novo">
           Novo profissional
         </Link>
       </div>
