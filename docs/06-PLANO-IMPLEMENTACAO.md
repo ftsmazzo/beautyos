@@ -4,7 +4,7 @@
 > Depende de: [PRD](01-PRD.md), [TRD](02-TRD.md), [Fluxo](03-FLUXO-APP.md), [UI](04-UIUX.md), [Esquema](05-ESQUEMA-BACKEND.md)
 
 **Data**: 2026-10-01
-**Status**: base validada na auditoria de 2026-10-01. Código ainda não começou.
+**Status**: fase 0 e fase 1 no ar em 2026-10-01. Fase 2 abre as fichas de serviço, profissional, cliente, produto e pacote. Agenda e comanda ainda não.
 
 ## 1. O que a base precisa ter para rodar
 

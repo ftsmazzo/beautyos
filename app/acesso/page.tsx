@@ -1,8 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAccess } from "@/auth/actions";
 import { currentUser } from "@/auth/session";
 import { databaseReady, db } from "@/db/client";
+import { Panel } from "@/ui/panel";
+import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +35,7 @@ export default async function AccessPage({
   const params = await searchParams;
 
   return (
-    <main>
-      <h1>Equipe de acesso</h1>
+    <Panel user={user} current="/acesso" title="Equipe de acesso">
       <p>Quem entra nesta casa, e com qual papel.</p>
       {params.erro === "email" ? <p className="error">Esse e-mail já existe nesta casa.</p> : null}
       {params.erro === "dados" ? <p className="error">Revise nome, e-mail, senha e papel.</p> : null}
@@ -81,13 +81,8 @@ export default async function AccessPage({
             <option value="cliente">Cliente</option>
           </select>
         </label>
-        <div className="row">
-          <button type="submit">Incluir</button>
-          <Link className="link" href="/inicio">
-            Voltar
-          </Link>
-        </div>
+        <SubmitButton label="Incluir" />
       </form>
-    </main>
+    </Panel>
   );
 }
