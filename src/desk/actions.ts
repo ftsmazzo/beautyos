@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { requireDesk, requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
 import { digits, parseIntField, parseReais, staffPriceCents } from "@/catalog/format";
+import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
 import { addMinutes, dayParam, minutes, periodsFor, placementIssue, stamp } from "@/desk/clock";
@@ -517,4 +518,286 @@ export async function toggleFromOutside(formData: FormData) {
   }
   const { redirect } = await import("next/navigation");
   redirect(`/comandas/${orderId}`);
+}
+
+function fail(code: string) {
+  return { ok: false as const, error: FORM_ERRORS[code] ?? "Não deu para concluir." };
+}
+
+export async function placeAppointment(input: {
+  id: string;
+  professionalId: string;
+  start: string;
+  end: string;
+}) {
+  const user = await requireDesk();
+  const id = idOrNull(input.id);
+  const professionalId = idOrNull(input.professionalId);
+  if (!id || !professionalId || !TIME.test(input.start) || !TIME.test(input.end)) return fail("dados");
+  const length = minutes(input.end) - minutes(input.start);
+  if (length < 15 || minutes(input.end) >= 24 * 60) return fail("hora");
+  try {
+    const own = await scope(user.id, user.role);
+    if (own && own !== professionalId) return fail("fora");
+    await db().begin(async (tx) => {
+      const rows = await tx<{
+        serviceId: string | null;
+        encaixe: boolean;
+        kind: string;
+        orderStatus: string | null;
+        day: string;
+        professionalId: string;
+      }[]>`
+        SELECT a.service_id AS "serviceId", a.encaixe, a.kind, o.status AS "orderStatus",
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+               a.professional_id AS "professionalId"
+        FROM appointments a
+        LEFT JOIN orders o ON o.id = a.order_id
+        WHERE a.id = ${id} AND a.account_id = ${user.accountId}
+      `;
+      const row = rows[0];
+      if (!row) throw new FormError("fora");
+      if (own && own !== row.professionalId) throw new FormError("fora");
+      if (row.orderStatus === "fechada") throw new FormError("fechada");
+      const startsAt = stamp(row.day, input.start);
+      const endsAt = stamp(row.day, input.end);
+      if (row.kind === "horario" && row.serviceId && professionalId !== row.professionalId) {
+        const offer = await tx`
+          SELECT 1 FROM professional_services
+          WHERE professional_id = ${professionalId} AND service_id = ${row.serviceId}
+        `;
+        if (!offer.length) throw new FormError("servico");
+      }
+      if (row.kind === "horario" && !row.encaixe) {
+        const hours = await tx<{ weekday: number; period: number; startTime: string; endTime: string; validFrom: string | null; validUntil: string | null }[]>`
+          SELECT weekday, period, start_time AS "startTime", end_time AS "endTime",
+                 to_char(valid_from, 'YYYY-MM-DD') AS "validFrom",
+                 to_char(valid_until, 'YYYY-MM-DD') AS "validUntil"
+          FROM professional_hours WHERE professional_id = ${professionalId}
+        `;
+        const issue = placementIssue(periodsFor(hours, row.day), input.start, input.end);
+        if (issue) throw new FormError(issue);
+        const clash = await tx`
+          SELECT id FROM appointments
+          WHERE professional_id = ${professionalId}
+            AND id <> ${id}
+            AND status <> 'cancelado'
+            AND starts_at < ${endsAt}
+            AND ends_at > ${startsAt}
+        `;
+        if (clash.length) throw new FormError("ocupado");
+      }
+      await tx`
+        UPDATE appointments
+        SET professional_id = ${professionalId}, starts_at = ${startsAt}, ends_at = ${endsAt}
+        WHERE id = ${id}
+      `;
+      await tx`
+        UPDATE order_lines SET professional_id = ${professionalId}
+        WHERE appointment_id = ${id} AND account_id = ${user.accountId}
+      `;
+    });
+  } catch (error) {
+    if (error instanceof FormError) return fail(error.code);
+    throw error;
+  }
+  return { ok: true as const };
+}
+
+export async function paintSlot(input: { id: string; status: string }) {
+  const user = await requireDesk();
+  const id = idOrNull(input.id);
+  if (!id || !STATUSES.includes(input.status)) return fail("dados");
+  try {
+    const own = await scope(user.id, user.role);
+    await db().begin(async (tx) => {
+      const rows = await tx<{ professionalId: string; orderStatus: string | null }[]>`
+        SELECT a.professional_id AS "professionalId", o.status AS "orderStatus"
+        FROM appointments a
+        LEFT JOIN orders o ON o.id = a.order_id
+        WHERE a.id = ${id} AND a.account_id = ${user.accountId} AND a.kind = 'horario'
+      `;
+      if (!rows[0]) throw new FormError("fora");
+      if (own && own !== rows[0].professionalId) throw new FormError("fora");
+      if (input.status === "cancelado") {
+        if (rows[0].orderStatus === "fechada") throw new FormError("fechada");
+        await tx`UPDATE appointments SET status = 'cancelado' WHERE id = ${id}`;
+        await tx`DELETE FROM order_lines WHERE appointment_id = ${id} AND account_id = ${user.accountId}`;
+      } else {
+        await tx`UPDATE appointments SET status = ${input.status} WHERE id = ${id}`;
+      }
+    });
+  } catch (error) {
+    if (error instanceof FormError) return fail(error.code);
+    throw error;
+  }
+  return { ok: true as const };
+}
+
+export async function flipEncaixe(input: { id: string }) {
+  const user = await requireDesk();
+  const id = idOrNull(input.id);
+  if (!id) return fail("dados");
+  await db()`
+    UPDATE appointments SET encaixe = NOT encaixe
+    WHERE id = ${id} AND account_id = ${user.accountId} AND kind = 'horario'
+  `;
+  return { ok: true as const };
+}
+
+export async function dropBlock(input: { id: string }) {
+  const user = await requireDesk();
+  const id = idOrNull(input.id);
+  if (!id) return fail("dados");
+  const own = await scope(user.id, user.role);
+  await db()`
+    DELETE FROM appointments
+    WHERE id = ${id} AND account_id = ${user.accountId} AND kind = 'bloqueio'
+      AND (${own}::uuid IS NULL OR professional_id = ${own})
+  `;
+  return { ok: true as const };
+}
+
+export async function addServiceToOrder(formData: FormData) {
+  const user = await requireDesk();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const professionalId = idOrNull(String(formData.get("professional") ?? ""));
+    const serviceId = idOrNull(String(formData.get("service") ?? ""));
+    const start = String(formData.get("start") ?? "");
+    const encaixe = formData.get("encaixe") === "1";
+    if (!professionalId || !serviceId || !TIME.test(start)) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; kind: string; clientId: string | null; day: string }[]>`
+        SELECT status, kind, client_id AS "clientId", to_char(day, 'YYYY-MM-DD') AS day
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
+      const offer = await tx<{ durationMin: number; priceCents: number; commissionPercent: number; name: string }[]>`
+        SELECT COALESCE(ps.duration_min, s.duration_min) AS "durationMin",
+               COALESCE(ps.price_cents, s.price_cents) AS "priceCents",
+               COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent",
+               s.name
+        FROM services s
+        JOIN professional_services ps ON ps.service_id = s.id AND ps.professional_id = ${professionalId}
+        WHERE s.id = ${serviceId} AND s.account_id = ${user.accountId} AND s.active
+      `;
+      if (!offer[0]) throw new FormError("servico");
+      const end = addMinutes(start, offer[0].durationMin);
+      if (minutes(end) >= 24 * 60) throw new FormError("hora");
+      const startsAt = stamp(order[0].day, start);
+      const endsAt = stamp(order[0].day, end);
+      if (!encaixe) {
+        const hours = await tx<{ weekday: number; period: number; startTime: string; endTime: string; validFrom: string | null; validUntil: string | null }[]>`
+          SELECT weekday, period, start_time AS "startTime", end_time AS "endTime",
+                 to_char(valid_from, 'YYYY-MM-DD') AS "validFrom",
+                 to_char(valid_until, 'YYYY-MM-DD') AS "validUntil"
+          FROM professional_hours WHERE professional_id = ${professionalId}
+        `;
+        const issue = placementIssue(periodsFor(hours, order[0].day), start, end);
+        if (issue) throw new FormError(issue);
+        const clash = await tx`
+          SELECT id FROM appointments
+          WHERE professional_id = ${professionalId}
+            AND status <> 'cancelado'
+            AND starts_at < ${endsAt}
+            AND ends_at > ${startsAt}
+        `;
+        if (clash.length) throw new FormError("ocupado");
+      }
+      const appointmentId = randomUUID();
+      const price = offer[0].priceCents;
+      const commission = Math.round(price * offer[0].commissionPercent / 100);
+      await tx`
+        INSERT INTO appointments (
+          id, account_id, professional_id, client_id, service_id, order_id,
+          starts_at, ends_at, status, encaixe, kind
+        ) VALUES (
+          ${appointmentId}, ${user.accountId}, ${professionalId}, ${order[0].clientId}, ${serviceId}, ${orderId},
+          ${startsAt}, ${endsAt}, 'agendado', ${encaixe}, 'horario'
+        )
+      `;
+      await tx`
+        INSERT INTO order_lines (
+          id, account_id, order_id, appointment_id, kind, service_id, professional_id,
+          description, qty, price_cents, list_price_cents, commission_percent, commission_cents
+        ) VALUES (
+          ${randomUUID()}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
+          ${offer[0].name}, 1, ${price}, ${price}, ${offer[0].commissionPercent}, ${commission}
+        )
+      `;
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function removeLine(formData: FormData) {
+  const user = await requireDesk();
+  const orderId = String(formData.get("order") ?? "");
+  const lineId = idOrNull(String(formData.get("line") ?? ""));
+  return settle(`/comandas/${orderId}`, async () => {
+    if (!lineId) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string }[]>`
+        SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta") throw new FormError("fechada");
+      const line = await tx<{ kind: string; productId: string | null; qty: number; appointmentId: string | null }[]>`
+        SELECT kind, product_id AS "productId", qty, appointment_id AS "appointmentId"
+        FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId}
+      `;
+      if (!line[0]) throw new FormError("fora");
+      if (line[0].productId) {
+        await tx`
+          INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, ${line[0].productId}, ${line[0].qty}, 'ajuste',
+            ${"estorno da comanda"}, ${user.id}
+          )
+        `;
+      }
+      await tx`DELETE FROM order_lines WHERE id = ${lineId}`;
+      if (line[0].appointmentId) {
+        await tx`
+          UPDATE appointments SET status = 'cancelado'
+          WHERE id = ${line[0].appointmentId} AND account_id = ${user.accountId}
+        `;
+      }
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function moveLineProfessional(formData: FormData) {
+  const user = await requireDesk();
+  const orderId = String(formData.get("order") ?? "");
+  const lineId = idOrNull(String(formData.get("line") ?? ""));
+  const professionalId = idOrNull(String(formData.get("professional") ?? ""));
+  return settle(`/comandas/${orderId}`, async () => {
+    if (!lineId || !professionalId) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string }[]>`
+        SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta") throw new FormError("fechada");
+      const line = await tx<{ serviceId: string | null; appointmentId: string | null }[]>`
+        SELECT service_id AS "serviceId", appointment_id AS "appointmentId"
+        FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId} AND kind = 'servico'
+      `;
+      if (!line[0]?.serviceId) throw new FormError("dados");
+      const offer = await tx`
+        SELECT 1 FROM professional_services
+        WHERE professional_id = ${professionalId} AND service_id = ${line[0].serviceId}
+      `;
+      if (!offer.length) throw new FormError("servico");
+      await tx`UPDATE order_lines SET professional_id = ${professionalId} WHERE id = ${lineId}`;
+      if (line[0].appointmentId) {
+        await tx`
+          UPDATE appointments SET professional_id = ${professionalId}
+          WHERE id = ${line[0].appointmentId} AND account_id = ${user.accountId}
+        `;
+      }
+    });
+    return `/comandas/${orderId}`;
+  });
 }

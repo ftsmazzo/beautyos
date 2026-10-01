@@ -9,6 +9,7 @@ export function BookForm({
   lockedProfessional,
   initialProfessional,
   initialStart = "09:00",
+  initialEncaixe = false,
   professionals,
   services,
   clients,
@@ -17,6 +18,7 @@ export function BookForm({
   lockedProfessional: string | null;
   initialProfessional?: string;
   initialStart?: string;
+  initialEncaixe?: boolean;
   professionals: { id: string; name: string }[];
   services: { id: string; name: string; professionalIds: string[] }[];
   clients: { id: string; name: string }[];
@@ -72,7 +74,7 @@ export function BookForm({
           <input name="start" type="time" required defaultValue={initialStart} />
         </label>
         <label className="check">
-          <input name="encaixe" type="checkbox" value="1" />
+          <input name="encaixe" type="checkbox" value="1" defaultChecked={initialEncaixe} />
           Encaixe
         </label>
       </div>

@@ -486,7 +486,7 @@ button.scrim {
   pointer-events: none;
 }
 a.slot, .slot {
-  cursor: pointer;
+  cursor: grab;
   position: absolute;
   left: 4px;
   right: 4px;
@@ -500,6 +500,41 @@ a.slot, .slot {
 }
 a.slot.fit { left: 18px; z-index: 3; }
 .slot strong, .slot span { display: block; color: inherit; }
+.resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 8px;
+  cursor: ns-resize;
+}
+.agenda-menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 220px;
+  background: #ffffff;
+  color: #1b2430;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+}
+.agenda-menu button {
+  margin: 0;
+  width: 100%;
+  justify-content: flex-start;
+  background: #ffffff;
+  color: #1b2430;
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.agenda-menu button:hover { background: #eef2f6; color: #1b2430; }
 .tiles .stat {
   display: flex;
   flex-direction: column;

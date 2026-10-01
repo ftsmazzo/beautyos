@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone } from "@/catalog/format";
-import { blockSlot, openConsumption, removeBlock } from "@/desk/actions";
+import { blockSlot, openConsumption } from "@/desk/actions";
 import { dayParam, fromMinutes, minutes, periodsFor, shiftDay } from "@/desk/clock";
 import {
   clientOptions,
@@ -168,7 +168,7 @@ export default async function AgendaPage({
               </li>
             ))}
           </ul>
-          <p>Clique num espaço vazio da coluna. O horário abre a comanda do dia.</p>
+          <p>Clique esquerdo ou direito abre o menu. Arraste o horário para mudar a hora ou a coluna. Arraste a borda de baixo para estender.</p>
           <AgendaDesk
             day={day}
             startMin={startMin}
@@ -234,39 +234,28 @@ export default async function AgendaPage({
                         background: paint.bg,
                         color: paint.fg,
                       };
-                      if (item.kind === "bloqueio") {
-                        return (
-                          <div key={item.id} className="slot" style={style}>
-                            <strong>Bloqueado</strong>
-                            <span>
-                              {item.start}–{item.end}
-                            </span>
-                            <form action={removeBlock}>
-                              <input type="hidden" name="day" value={day} />
-                              <input type="hidden" name="id" value={item.id} />
-                              <SubmitButton label="Tirar" pendingLabel="Tirando…" className="quiet" />
-                            </form>
-                          </div>
-                        );
-                      }
                       return (
-                        <Link
+                        <div
                           key={item.id}
                           className={item.encaixe ? "slot fit" : "slot"}
-                          href={item.orderId ? `/comandas/${item.orderId}` : "/comandas"}
-                          title="Abrir comanda"
+                          data-slot={item.id}
+                          data-kind={item.kind}
+                          data-status={item.status}
+                          data-encaixe={item.encaixe ? "1" : "0"}
+                          data-order={item.orderId ?? ""}
                           style={style}
                         >
-                          <strong>{item.clientName ?? "Sem nome"}</strong>
+                          <strong>{item.kind === "bloqueio" ? "Bloqueado" : item.clientName ?? "Sem nome"}</strong>
                           {item.phone ? <span>{formatPhone(item.phone)}</span> : null}
                           {item.serviceName ? <span>{item.serviceName}</span> : null}
                           <span>
                             {item.start}–{item.end}
                           </span>
-                          <span>{paint.word}</span>
+                          {item.kind === "horario" ? <span>{paint.word}</span> : null}
                           {moved && item.encaixe ? <span>Encaixe</span> : null}
                           {moved && item.fromOutside ? <span>De fora</span> : null}
-                        </Link>
+                          <span className="resize" data-resize="1" />
+                        </div>
                       );
                     })}
                   </div>

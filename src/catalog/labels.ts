@@ -47,4 +47,5 @@ export const FORM_ERRORS: Record<string, string> = {
   pagamento: "Os pagamentos ainda não cobrem o total.",
   falta: "Todo serviço precisa de profissional e de horário na agenda para fechar.",
   cliente: "Escolha um cliente desta casa.",
+  servico: "Esse profissional não faz este serviço.",
 };

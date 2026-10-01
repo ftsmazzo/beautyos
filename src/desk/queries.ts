@@ -186,6 +186,7 @@ export async function getOrder(accountId: string, id: string) {
     abatementCents: number;
     courtesy: boolean;
     appointmentId: string | null;
+    serviceId: string | null;
     professionalId: string | null;
     professionalName: string | null;
     start: string | null;
@@ -196,7 +197,8 @@ export async function getOrder(accountId: string, id: string) {
     SELECT l.id, l.kind, l.description, l.qty, l.price_cents AS "priceCents",
            l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
            l.commission_cents AS "commissionCents", l.abatement_cents AS "abatementCents",
-           l.courtesy, l.appointment_id AS "appointmentId", l.professional_id AS "professionalId",
+           l.courtesy, l.appointment_id AS "appointmentId", l.service_id AS "serviceId",
+           l.professional_id AS "professionalId",
            p.name AS "professionalName",
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
            to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end",

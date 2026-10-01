@@ -6,6 +6,9 @@ import {
   addConsumption,
   addPayment,
   addProduct,
+  addServiceToOrder,
+  moveLineProfessional,
+  removeLine,
   attachClient,
   closeOrder,
   reopenOrder,
@@ -14,9 +17,10 @@ import {
   toggleCourtesy,
   toggleFromOutside,
 } from "@/desk/actions";
-import { clientOptions, consumptionProducts, getOrder, linkedProfessional, productOptions } from "@/desk/queries";
+import { clientOptions, consumptionProducts, dayRoster, getOrder, linkedProfessional, productOptions, serviceOptions } from "@/desk/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
+import { OrderServiceForm } from "@/ui/order-service-form";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -44,6 +48,8 @@ export default async function OrderPage({
   const paid = order.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
   const people = order.incomplete ? await clientOptions(user.accountId) : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
+  const roster = order.kind === "cliente" && open ? await dayRoster(user.accountId, null) : [];
+  const catalog = order.kind === "cliente" && open ? await serviceOptions(user.accountId) : [];
   const stock = order.kind === "consumo" && open ? await consumptionProducts(user.accountId) : [];
   const statuses = Object.entries(APPOINTMENT_STATUS).filter(([value]) => value !== "bloqueado");
 
@@ -166,6 +172,29 @@ export default async function OrderPage({
                         <SubmitButton label="Estado" pendingLabel="Salvando…" className="quiet" />
                       </form>
                     ) : null}
+                    {open && line.kind === "servico" && line.serviceId ? (
+                      <form action={moveLineProfessional}>
+                        <input type="hidden" name="order" value={order.id} />
+                        <input type="hidden" name="line" value={line.id} />
+                        <select name="professional" defaultValue={line.professionalId ?? ""}>
+                          {catalog
+                            .filter((service) => service.id === line.serviceId)
+                            .map((service) => (
+                              <option key={service.professionalId} value={service.professionalId}>
+                                {roster.find((person) => person.id === service.professionalId)?.name ?? "Profissional"}
+                              </option>
+                            ))}
+                        </select>
+                        <SubmitButton label="Trocar" pendingLabel="Trocando…" className="quiet" />
+                      </form>
+                    ) : null}
+                    {open ? (
+                      <form action={removeLine}>
+                        <input type="hidden" name="order" value={order.id} />
+                        <input type="hidden" name="line" value={line.id} />
+                        <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                      </form>
+                    ) : null}
                     {operator && open && order.kind === "cliente" ? (
                       <form action={toggleCourtesy}>
                         <input type="hidden" name="order" value={order.id} />
@@ -183,6 +212,20 @@ export default async function OrderPage({
               ))}
             </tbody>
           </table>
+        ) : null}
+        {open && order.kind === "cliente" && catalog.length > 0 ? (
+          <Modal label="Serviço" title="Serviço na comanda" tone="blue">
+            <OrderServiceForm
+              orderId={order.id}
+              professionals={roster.filter((person) => person.bookable).map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+              services={[...catalog.reduce((map, row) => {
+                const current = map.get(row.id) ?? { id: row.id, name: row.name, professionalIds: [] as string[] };
+                current.professionalIds.push(row.professionalId);
+                map.set(row.id, current);
+                return map;
+              }, new Map<string, { id: string; name: string; professionalIds: string[] }>()).values()]}
+            />
+          </Modal>
         ) : null}
         {open && order.kind === "cliente" && products.length > 0 ? (
           <Modal label="Produto" title="Produto na comanda" tone="teal">
