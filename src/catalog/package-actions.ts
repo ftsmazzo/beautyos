@@ -83,6 +83,6 @@ export async function savePackage(formData: FormData) {
       }
       return packageId;
     });
-    return `/pacotes/${id}`;
+    return `/pacotes?ok=salvo`;
   });
 }

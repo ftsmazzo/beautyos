@@ -101,6 +101,6 @@ export async function saveClient(formData: FormData) {
       }
       return rowId;
     });
-    return `/clientes/${id}`;
+    return `/clientes?ok=salvo`;
   });
 }

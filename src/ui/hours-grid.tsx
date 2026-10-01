@@ -8,12 +8,18 @@ export function HoursGrid({
   values: Record<string, { start: string; end: string }>;
 }) {
   return (
-    <table>
+    <table className="hours">
       <thead>
         <tr>
           <th>Dia</th>
-          <th>Primeiro período</th>
-          <th>Segundo período</th>
+          <th>
+            Primeiro período
+            <small>início e fim</small>
+          </th>
+          <th>
+            Segundo período
+            <small>início e fim</small>
+          </th>
         </tr>
       </thead>
       <tbody>

@@ -131,7 +131,7 @@ export async function saveProduct(formData: FormData) {
       }
       return productId;
     });
-    return `/produtos/${id}`;
+    return `/produtos?ok=salvo`;
   });
 }
 
@@ -177,6 +177,6 @@ export async function moveStock(formData: FormData) {
         )
       `;
     });
-    return failBase;
+    return `${failBase}?ok=movimento`;
   });
 }

@@ -2,15 +2,22 @@ import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, packageGap } from "@/catalog/format";
 import { listPackages } from "@/catalog/queries";
+import { SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function PackagesPage() {
+export default async function PackagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string }>;
+}) {
   const user = await requireOperator();
+  const query = await searchParams;
   const packages = await listPackages(user.accountId);
   return (
     <Panel user={user} current="/pacotes" title="Pacotes">
+      <SavedNote code={query.ok} />
       <div className="row">
         <Link className="btn" href="/pacotes/novo">
           Novo pacote

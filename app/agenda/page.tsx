@@ -12,6 +12,7 @@ import {
   serviceOptions,
 } from "@/desk/queries";
 import { APPOINTMENT_STATUS, blockPaint, CLOSED, FIT_IN, LUNCH, OUTSIDE } from "@/desk/statuses";
+import { AgendaDesk } from "@/ui/agenda-desk";
 import { BookForm } from "@/ui/book-form";
 import { ErrorNote } from "@/ui/error-note";
 import { Modal } from "@/ui/modal";
@@ -167,6 +168,15 @@ export default async function AgendaPage({
               </li>
             ))}
           </ul>
+          <p>Clique num espaço vazio da coluna. O horário abre a comanda do dia.</p>
+          <AgendaDesk
+            day={day}
+            startMin={startMin}
+            lockedProfessional={own}
+            professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+            services={services}
+            clients={people.map((person) => ({ id: person.id, name: person.name }))}
+          >
           <div className="board">
             <div className="board-hours" style={{ height }}>
               {marks.map((mark) => (
@@ -194,7 +204,7 @@ export default async function AgendaPage({
                   <header style={{ borderTopColor: person.columnColor }}>
                     <strong>{person.nickname || person.name}</strong>
                   </header>
-                  <div className="board-grid" style={{ height }}>
+                  <div className="board-grid" data-pro={person.id} style={{ height }}>
                     {marks.map((mark) => (
                       <i key={mark} style={{ top: ((mark - startMin) / 60) * HOUR }} />
                     ))}
@@ -244,6 +254,7 @@ export default async function AgendaPage({
                           key={item.id}
                           className={item.encaixe ? "slot fit" : "slot"}
                           href={item.orderId ? `/comandas/${item.orderId}` : "/comandas"}
+                          title="Abrir comanda"
                           style={style}
                         >
                           <strong>{item.clientName ?? "Sem nome"}</strong>
@@ -263,6 +274,7 @@ export default async function AgendaPage({
               );
             })}
           </div>
+          </AgendaDesk>
         </>
       ) : null}
     </Panel>

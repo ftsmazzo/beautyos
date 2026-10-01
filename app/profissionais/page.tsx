@@ -2,15 +2,22 @@ import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatPhone } from "@/catalog/format";
 import { listProfessionals } from "@/catalog/queries";
+import { SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProfessionalsPage() {
+export default async function ProfessionalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string }>;
+}) {
   const user = await requireOperator();
+  const query = await searchParams;
   const people = await listProfessionals(user.accountId);
   return (
     <Panel user={user} current="/profissionais" title="Profissionais">
+      <SavedNote code={query.ok} />
       <div className="row">
         <Link className="btn" href="/profissionais/novo">
           Novo profissional

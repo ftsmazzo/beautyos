@@ -3,6 +3,7 @@ import { requireOperator } from "@/catalog/access";
 import { formatPhone } from "@/catalog/format";
 import { channelLabel } from "@/catalog/labels";
 import { listClients } from "@/catalog/queries";
+import { SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; ok?: string }>;
 }) {
   const user = await requireOperator();
   const query = await searchParams;
@@ -18,6 +19,7 @@ export default async function ClientsPage({
   const people = await listClients(user.accountId, removed, query.q ?? "");
   return (
     <Panel user={user} current="/clientes" title="Clientes">
+      <SavedNote code={query.ok} />
       <div className="row">
         <Link className="btn" href="/clientes/novo">
           Novo cliente

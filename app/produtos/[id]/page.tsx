@@ -12,7 +12,7 @@ import {
   productCategories,
 } from "@/catalog/queries";
 import { moveStock, saveProduct } from "@/catalog/product-actions";
-import { ErrorNote } from "@/ui/error-note";
+import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -26,7 +26,7 @@ export default async function ProductFormPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; ok?: string }>;
 }) {
   const user = await requireOperator();
   const { id } = await params;
@@ -48,6 +48,7 @@ export default async function ProductFormPage({
 
   return (
     <Panel user={user} current="/produtos" title={product ? product.name : "Novo produto"}>
+      <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       {product ? (
         <div className="card">

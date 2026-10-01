@@ -7,17 +7,21 @@ import { SubmitButton } from "@/ui/submit-button";
 export function BookForm({
   day,
   lockedProfessional,
+  initialProfessional,
+  initialStart = "09:00",
   professionals,
   services,
   clients,
 }: {
   day: string;
   lockedProfessional: string | null;
+  initialProfessional?: string;
+  initialStart?: string;
   professionals: { id: string; name: string }[];
   services: { id: string; name: string; professionalIds: string[] }[];
   clients: { id: string; name: string }[];
 }) {
-  const [professional, setProfessional] = useState(lockedProfessional ?? professionals[0]?.id ?? "");
+  const [professional, setProfessional] = useState(lockedProfessional ?? initialProfessional ?? professionals[0]?.id ?? "");
   const offered = services.filter((service) => service.professionalIds.includes(professional));
 
   return (
@@ -65,14 +69,14 @@ export function BookForm({
       <div className="split">
         <label>
           Início
-          <input name="start" type="time" required defaultValue="09:00" />
+          <input name="start" type="time" required defaultValue={initialStart} />
         </label>
         <label className="check">
           <input name="encaixe" type="checkbox" value="1" />
           Encaixe
         </label>
       </div>
-      <p>Sem a marca de encaixe, o horário precisa caber no expediente e não pode cair em cima de outro.</p>
+      <p>Marcar abre a comanda desse cliente neste dia. Sem encaixe, o horário precisa caber no expediente.</p>
       <SubmitButton label="Marcar" pendingLabel="Marcando…" />
     </form>
   );

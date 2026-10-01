@@ -151,6 +151,7 @@ export default async function OrderPage({
                     {line.abatementCents > 0 ? ` · abate ${formatReais(line.abatementCents)}` : ""}
                   </td>
                   <td>
+                    <div className="line-actions">
                     {open && line.appointmentId && line.appointmentStatus ? (
                       <form action={setStatus}>
                         <input type="hidden" name="order" value={order.id} />
@@ -176,6 +177,7 @@ export default async function OrderPage({
                         />
                       </form>
                     ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

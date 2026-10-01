@@ -133,6 +133,6 @@ export async function saveProfessional(formData: FormData) {
       }
       return professionalId;
     });
-    return `/profissionais/${id}`;
+    return `/profissionais?ok=salvo`;
   });
 }

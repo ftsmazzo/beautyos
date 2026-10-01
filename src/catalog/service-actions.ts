@@ -126,6 +126,6 @@ export async function saveService(formData: FormData) {
       }
       return serviceId;
     });
-    return `/servicos/${id}`;
+    return `/servicos?ok=salvo`;
   });
 }

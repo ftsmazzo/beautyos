@@ -2,15 +2,22 @@ import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais } from "@/catalog/format";
 import { listServices } from "@/catalog/queries";
+import { SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function ServicesPage() {
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string }>;
+}) {
   const user = await requireOperator();
+  const query = await searchParams;
   const services = await listServices(user.accountId);
   return (
     <Panel user={user} current="/servicos" title="Serviços">
+      <SavedNote code={query.ok} />
       <div className="row">
         <Link className="btn" href="/servicos/novo">
           Novo serviço

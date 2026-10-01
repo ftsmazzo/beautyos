@@ -2,15 +2,22 @@ import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais } from "@/catalog/format";
 import { listProducts } from "@/catalog/queries";
+import { SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string }>;
+}) {
   const user = await requireOperator();
+  const query = await searchParams;
   const products = await listProducts(user.accountId);
   return (
     <Panel user={user} current="/produtos" title="Produtos">
+      <SavedNote code={query.ok} />
       <div className="row">
         <Link className="btn" href="/produtos/novo">
           Novo produto
