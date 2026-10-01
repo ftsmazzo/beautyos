@@ -257,7 +257,7 @@ details {
 }
 details summary { cursor: pointer; color: var(--ink); font-weight: 600; }
 
-form.filters, .topbar form, td form {
+form.filters, .topbar form, td form, .slot form {
   display: flex;
   gap: 12px;
   align-items: flex-end;
@@ -371,6 +371,107 @@ button.scrim {
   .who { display: none; }
   .content, .topbar { padding-left: 16px; padding-right: 16px; }
 }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+.legend li {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.board {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.board-hours {
+  width: 52px;
+  flex-shrink: 0;
+  position: relative;
+  margin-top: 42px;
+}
+.board-hours span {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.board-col { min-width: 188px; flex: 1; }
+.board-col header {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-top: 4px solid #1d4ed8;
+  border-radius: 6px 6px 0 0;
+}
+.board-col header strong { color: var(--ink); }
+.board-grid {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+.board-grid > i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--line);
+  pointer-events: none;
+}
+.shade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+a.slot, .slot {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  z-index: 2;
+  border-radius: 4px;
+  padding: 4px 6px;
+  overflow: hidden;
+  text-decoration: none;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+a.slot.fit { left: 18px; z-index: 3; }
+.slot strong, .slot span { display: block; color: inherit; }
+.tiles .stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 104px;
+  padding: 16px 18px;
+  border-radius: 6px;
+  background: #1d4ed8;
+  color: #ffffff;
+}
+.tiles .stat strong, .tiles .stat span { color: #ffffff; }
+.tiles .stat strong { font-size: 1.35rem; line-height: 1.2; }
+.tiles .stat span { font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
   dialog.modal[open], .side { animation: none; transition: none; }

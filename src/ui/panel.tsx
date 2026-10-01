@@ -6,8 +6,13 @@ import { logout } from "@/auth/actions";
 import type { SessionUser } from "@/auth/session";
 import { SubmitButton } from "@/ui/submit-button";
 
-const LINKS = [
+const OPERATION = [
   { href: "/inicio", label: "Início" },
+  { href: "/agenda", label: "Agenda" },
+  { href: "/comandas", label: "Comandas" },
+];
+
+const CATALOG = [
   { href: "/servicos", label: "Serviços" },
   { href: "/profissionais", label: "Profissionais" },
   { href: "/clientes", label: "Clientes" },
@@ -19,6 +24,15 @@ function NavIcon({ href }: { href: string }) {
   const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, "aria-hidden": true as const };
   if (href === "/inicio") {
     return <svg {...common}><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" /></svg>;
+  }
+  if (href === "/agenda") {
+    return <svg {...common}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg>;
+  }
+  if (href === "/comandas") {
+    return <svg {...common}><path d="M7 4h10v16H7z" /><path d="M10 8h4M10 12h4M10 16h2" /></svg>;
+  }
+  if (href === "/caixa") {
+    return <svg {...common}><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></svg>;
   }
   if (href === "/servicos") {
     return <svg {...common}><path d="M8 7h8M8 12h8M8 17h5" /><rect x="4" y="4" width="16" height="16" rx="2" /></svg>;
@@ -58,7 +72,11 @@ export function Panel({
 }) {
   const [open, setOpen] = useState(false);
   const operator = user.role === "administrador" || user.role === "balcao";
-  const links = (operator ? LINKS : LINKS.filter((link) => link.href === "/inicio")).slice();
+  const links = (operator
+    ? [...OPERATION, { href: "/caixa", label: "Caixa" }, ...CATALOG]
+    : user.role === "profissional"
+      ? OPERATION.slice()
+      : OPERATION.filter((link) => link.href === "/inicio")).slice();
   if (user.role === "administrador") links.push({ href: "/acesso", label: "Acesso" });
 
   return (

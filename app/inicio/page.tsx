@@ -28,7 +28,21 @@ export default async function StartPage({
       {params.erro === "dados" ? <p className="error">Informe os dois percentuais, de 0 a 100.</p> : null}
       {operator && counts ? (
         <>
-          <p>As fichas já podem ser preenchidas. Agenda e comanda vêm em seguida.</p>
+          <p>O dia abre na agenda. A comanda e o caixa acompanham o atendimento.</p>
+          <div className="tiles">
+            <Link className="tile tile-blue" href="/agenda">
+              <strong>Agenda</strong>
+              <span>Grade do dia</span>
+            </Link>
+            <Link className="tile tile-teal" href="/comandas">
+              <strong>Comandas</strong>
+              <span>Do dia</span>
+            </Link>
+            <Link className="tile tile-amber" href="/caixa">
+              <strong>Caixa</strong>
+              <span>Do dia</span>
+            </Link>
+          </div>
           <div className="tiles">
             <Link className="tile tile-blue" href="/servicos">
               <strong>{counts.services}</strong>
@@ -53,9 +67,18 @@ export default async function StartPage({
           </div>
         </>
       ) : (
-        <div className="card">
-          <p>Sua agenda entra na fase seguinte.</p>
-        </div>
+        user.role === "profissional" ? (
+          <div className="card">
+            <p>Sua coluna está na agenda.</p>
+            <Link className="btn" href="/agenda">
+              Abrir agenda
+            </Link>
+          </div>
+        ) : (
+          <div className="card">
+            <p>O histórico do cliente entra no acesso dele.</p>
+          </div>
+        )
       )}
       {rules ? (
         <Modal label="Regras da casa" title="Regras da casa" tone="navy">

@@ -250,4 +250,94 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS package_items_package_idx ON package_items (package_id)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS orders (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      client_id uuid REFERENCES clients(id) ON DELETE SET NULL,
+      professional_id uuid REFERENCES professionals(id) ON DELETE SET NULL,
+      day date NOT NULL,
+      kind text NOT NULL CHECK (kind IN ('cliente', 'consumo')),
+      status text NOT NULL CHECK (status IN ('aberta', 'fechada')),
+      incomplete boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS orders_account_day_idx ON orders (account_id, day)`;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS orders_client_day_uidx
+    ON orders (account_id, client_id, day)
+    WHERE kind = 'cliente' AND client_id IS NOT NULL
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS orders_consumo_day_uidx
+    ON orders (account_id, professional_id, day)
+    WHERE kind = 'consumo' AND professional_id IS NOT NULL
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS appointments (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      professional_id uuid NOT NULL REFERENCES professionals(id) ON DELETE CASCADE,
+      client_id uuid REFERENCES clients(id) ON DELETE SET NULL,
+      service_id uuid REFERENCES services(id) ON DELETE SET NULL,
+      order_id uuid REFERENCES orders(id) ON DELETE SET NULL,
+      starts_at timestamptz NOT NULL,
+      ends_at timestamptz NOT NULL,
+      status text NOT NULL CHECK (status IN (
+        'agendado', 'confirmado', 'chegou', 'em_atendimento', 'realizado',
+        'ausente', 'cancelado', 'bloqueado'
+      )),
+      encaixe boolean NOT NULL DEFAULT false,
+      kind text NOT NULL CHECK (kind IN ('horario', 'bloqueio')),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS appointments_pro_start_idx ON appointments (professional_id, starts_at)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS order_lines (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      appointment_id uuid REFERENCES appointments(id) ON DELETE SET NULL,
+      kind text NOT NULL CHECK (kind IN ('servico', 'produto')),
+      service_id uuid REFERENCES services(id),
+      product_id uuid REFERENCES products(id),
+      professional_id uuid REFERENCES professionals(id),
+      description text NOT NULL,
+      qty integer NOT NULL CHECK (qty > 0),
+      price_cents integer NOT NULL,
+      list_price_cents integer NOT NULL,
+      commission_percent integer NOT NULL DEFAULT 0,
+      commission_cents integer NOT NULL DEFAULT 0,
+      abatement_cents integer NOT NULL DEFAULT 0,
+      courtesy boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS order_lines_order_idx ON order_lines (order_id)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS payments (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      method text NOT NULL CHECK (method IN ('dinheiro', 'pix', 'debito', 'credito', 'outros')),
+      amount_cents integer NOT NULL CHECK (amount_cents > 0),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS cash_movements (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      day date NOT NULL,
+      amount_cents integer NOT NULL,
+      origin text NOT NULL,
+      label text NOT NULL,
+      payment_id uuid REFERENCES payments(id) ON DELETE SET NULL,
+      order_id uuid REFERENCES orders(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS cash_movements_day_idx ON cash_movements (account_id, day)`;
 }

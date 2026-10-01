@@ -39,4 +39,12 @@ export const FORM_ERRORS: Record<string, string> = {
   desconto: "O desconto precisa do dia e do valor, com o horário completo ou o dia inteiro.",
   insumo: "O insumo precisa do produto e da quantidade.",
   fora: "Não encontrei este cadastro nesta casa.",
+  hora: "Informe um horário válido.",
+  fechado: "Esse horário está fora do expediente. Encaixe entra mesmo assim.",
+  almoco: "Esse horário cai no almoço. Encaixe entra mesmo assim.",
+  ocupado: "Esse horário já está ocupado. Encaixe pode sobrepor.",
+  fechada: "A comanda desse dia está fechada. Reabra para alterar.",
+  pagamento: "Os pagamentos ainda não cobrem o total.",
+  falta: "Todo serviço precisa de profissional e de horário na agenda para fechar.",
+  cliente: "Escolha um cliente desta casa.",
 };
