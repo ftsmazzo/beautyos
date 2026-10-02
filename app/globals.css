@@ -296,12 +296,13 @@ form.filters, .topbar form, td form, .slot form {
 
 .line-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-wrap: nowrap;
+  gap: 8px;
   align-items: center;
-  padding: 8px 0;
+  width: max-content;
+  padding: 0;
 }
-.line-actions form { flex: 1 1 160px; }
+.line-actions form { flex: 0 0 auto; }
 form.price-field {
   display: flex;
   gap: 8px;
@@ -314,7 +315,7 @@ form.price-field {
 }
 form.price-field input { width: 6.5rem; min-width: 0; }
 form.price-field > button { margin-top: 0; }
-.line-actions select { width: auto; min-width: 9rem; }
+.line-actions select { width: auto; min-width: 0; }
 
 .hours th small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }
 .hours input[type="time"] { width: auto; min-width: 0; flex: 1 1 6.5rem; }
