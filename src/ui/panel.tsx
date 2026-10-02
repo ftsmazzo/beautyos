@@ -34,6 +34,9 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/caixa") {
     return <svg {...common}><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></svg>;
   }
+  if (href === "/logs") {
+    return <svg {...common}><path d="M8 6h11M8 12h11M8 18h11" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></svg>;
+  }
   if (href === "/servicos") {
     return <svg {...common}><path d="M8 7h8M8 12h8M8 17h5" /><rect x="4" y="4" width="16" height="16" rx="2" /></svg>;
   }
@@ -73,7 +76,7 @@ export function Panel({
   const [open, setOpen] = useState(false);
   const operator = user.role === "administrador" || user.role === "balcao";
   const links = (operator
-    ? [...OPERATION, { href: "/caixa", label: "Caixa" }, ...CATALOG]
+    ? [...OPERATION, { href: "/caixa", label: "Caixa" }, { href: "/logs", label: "Logs" }, ...CATALOG]
     : user.role === "profissional"
       ? OPERATION.slice()
       : OPERATION.filter((link) => link.href === "/inicio")).slice();

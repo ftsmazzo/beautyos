@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireDesk } from "@/catalog/access";
-import { formatDay, formatPhone, formatReais } from "@/catalog/format";
+import { centsToInput, formatDay, formatPhone, formatReais } from "@/catalog/format";
 import {
   addConsumption,
   addPayment,
@@ -153,23 +153,22 @@ export default async function OrderPage({
                   <td>{line.professionalName ?? "—"}</td>
                   <td>{line.start && line.end ? `${line.start}–${line.end}` : "—"}</td>
                   <td>
-                    {formatReais(line.priceCents)}
-                    {line.priceCents !== line.listPriceCents ? <div>Tabela {formatReais(line.listPriceCents)}</div> : null}
                     {operator && open && order.kind === "cliente" ? (
-                      <form action={adjustLinePrice} className="price-edit">
+                      <form action={adjustLinePrice} className="price-field">
                         <input type="hidden" name="order" value={order.id} />
                         <input type="hidden" name="line" value={line.id} />
-                        <label>
-                          Desconto %
-                          <input name="discount" inputMode="numeric" placeholder="0" />
-                        </label>
-                        <label>
-                          Valor
-                          <input name="amount" inputMode="decimal" placeholder="0,00" />
-                        </label>
-                        <SubmitButton label="Aplicar" pendingLabel="Aplicando…" className="quiet" />
+                        <input
+                          name="amount"
+                          inputMode="decimal"
+                          defaultValue={centsToInput(line.priceCents)}
+                          aria-label={`Preço de ${line.description}`}
+                          required
+                        />
+                        <SubmitButton label="Salvar" pendingLabel="…" className="quiet" />
                       </form>
-                    ) : null}
+                    ) : (
+                      formatReais(line.priceCents)
+                    )}
                   </td>
                   <td>
                     {formatReais(line.commissionCents)}
@@ -349,36 +348,6 @@ export default async function OrderPage({
           <p>Consumo interno não recebe dinheiro. No caixa do dia a linha fecha zerada.</p>
         </div>
       )}
-
-      <div className="card">
-        <h2>Registro</h2>
-        <p>Quem alterou o valor ou cancelou, com o valor anterior e o novo. Se o valor for preenchido, ele vale. Se ficar vazio, o desconto sai do preço de tabela. A comissão do desconto e do valor manual usa o valor cobrado. Cortesia zera a cobrança e mantém a comissão no preço de tabela.</p>
-        {order.events.length === 0 ? <p>Nenhuma alteração ainda.</p> : null}
-        {order.events.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Quando</th>
-                <th>Quem</th>
-                <th>O que</th>
-                <th>Antes</th>
-                <th>Depois</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.events.map((event) => (
-                <tr key={event.id}>
-                  <td>{event.at}</td>
-                  <td>{event.actorName ?? "—"}</td>
-                  <td>{event.summary}</td>
-                  <td>{event.beforeCents == null ? "—" : formatReais(event.beforeCents)}</td>
-                  <td>{event.afterCents == null ? "—" : formatReais(event.afterCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </div>
 
       {operator ? (
         <form action={open ? closeOrder : reopenOrder}>

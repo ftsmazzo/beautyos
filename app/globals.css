@@ -302,14 +302,18 @@ form.filters, .topbar form, td form, .slot form {
   padding: 8px 0;
 }
 .line-actions form { flex: 1 1 160px; }
-form.price-edit {
-  display: grid;
+form.price-field {
+  display: flex;
   gap: 8px;
-  margin-top: 8px;
-  align-items: stretch;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
-form.price-edit input { width: 7rem; min-width: 0; }
-form.price-edit > button { margin-top: 0; }
+form.price-field input { width: 6.5rem; min-width: 0; }
+form.price-field > button { margin-top: 0; }
 .line-actions select { width: auto; min-width: 9rem; }
 
 .hours th small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }

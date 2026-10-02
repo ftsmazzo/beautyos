@@ -1,5 +1,5 @@
 import { db } from "@/db/client";
-import { stamp } from "@/desk/clock";
+import { shiftDay, stamp } from "@/desk/clock";
 
 export async function linkedProfessional(userId: string) {
   const rows = await db()<{ id: string }[]>`
@@ -214,24 +214,37 @@ export async function getOrder(accountId: string, id: string) {
     WHERE order_id = ${id}
     ORDER BY created_at
   `;
-  const events = await db()<{
+  return { ...rows[0], lines, payments };
+}
+
+export async function dayLogs(accountId: string, day: string) {
+  const start = stamp(day, "00:00");
+  const end = stamp(shiftDay(day, 1), "00:00");
+  return db()<{
     id: string;
     kind: string;
     summary: string;
-    beforeCents: number | null;
-    afterCents: number | null;
     at: string;
     actorName: string | null;
+    orderId: string | null;
+    clientName: string | null;
+    orderDay: string | null;
   }[]>`
-    SELECT e.id, e.kind, e.summary, e.before_cents AS "beforeCents", e.after_cents AS "afterCents",
-           to_char(e.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at,
-           u.name AS "actorName"
+    SELECT e.id, e.kind, e.summary,
+           to_char(e.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS at,
+           u.name AS "actorName",
+           e.order_id AS "orderId",
+           c.name AS "clientName",
+           to_char(o.day, 'DD/MM/YYYY') AS "orderDay"
     FROM order_events e
     LEFT JOIN users u ON u.id = e.actor_id
-    WHERE e.account_id = ${accountId} AND e.order_id = ${id}
+    LEFT JOIN orders o ON o.id = e.order_id
+    LEFT JOIN clients c ON c.id = o.client_id
+    WHERE e.account_id = ${accountId}
+      AND e.created_at >= ${start}
+      AND e.created_at < ${end}
     ORDER BY e.created_at DESC
   `;
-  return { ...rows[0], lines, payments, events };
 }
 
 export async function dayCancellations(accountId: string, day: string, professionalId: string | null) {
