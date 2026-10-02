@@ -230,9 +230,10 @@ export default async function AgendaPage({
                       const paint = blockPaint(item);
                       const moved = item.status === "chegou" || item.status === "em_atendimento" || item.status === "realizado";
                       const name = item.kind === "bloqueio" ? "Bloqueado" : item.clientName ?? "Sem nome";
+                      const title = item.encaixe ? `Encaixe · ${name}` : name;
                       const phone = item.phone ? formatPhone(item.phone) : "";
                       const when = `${item.start}–${item.end}`;
-                      const extra = [moved && item.encaixe ? "Encaixe" : "", moved && item.fromOutside ? "De fora" : ""].filter(Boolean).join(" · ");
+                      const extra = moved && item.fromOutside ? "De fora" : "";
                       const style = {
                         top: ((minutes(item.start) - startMin) / 60) * HOUR,
                         height: ((minutes(item.end) - minutes(item.start)) / 60) * HOUR,
@@ -248,7 +249,7 @@ export default async function AgendaPage({
                           data-status={item.status}
                           data-encaixe={item.encaixe ? "1" : "0"}
                           data-order={item.orderId ?? ""}
-                          data-name={name}
+                          data-name={title}
                           data-phone={phone}
                           data-service={item.serviceName ?? ""}
                           data-when={when}
@@ -256,7 +257,7 @@ export default async function AgendaPage({
                           data-extra={extra}
                           style={style}
                         >
-                          <strong>{name}</strong>
+                          <strong>{title}</strong>
                           <span className="slot-meta">{[phone, when].filter(Boolean).join(" · ")}</span>
                           {item.serviceName ? <span className="slot-service">{item.serviceName}</span> : null}
                           <span className="resize" data-resize="1" />
