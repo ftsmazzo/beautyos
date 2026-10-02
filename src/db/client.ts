@@ -340,4 +340,20 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS cash_movements_day_idx ON cash_movements (account_id, day)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS order_events (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      order_id uuid REFERENCES orders(id) ON DELETE CASCADE,
+      line_id uuid,
+      appointment_id uuid,
+      actor_id uuid REFERENCES users(id) ON DELETE SET NULL,
+      kind text NOT NULL CHECK (kind IN ('valor', 'cancelamento')),
+      summary text NOT NULL,
+      before_cents integer,
+      after_cents integer,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS order_events_order_idx ON order_events (order_id, created_at)`;
 }

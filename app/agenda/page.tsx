@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
-import { formatDay, formatPhone } from "@/catalog/format";
+import { formatDay, formatPhone, formatReais } from "@/catalog/format";
 import { blockSlot, openConsumption } from "@/desk/actions";
 import { dayParam, fromMinutes, minutes, periodsFor, shiftDay } from "@/desk/clock";
 import {
   clientOptions,
   dayAppointments,
+  dayCancellations,
   dayHours,
   dayRoster,
   linkedProfessional,
@@ -35,6 +36,7 @@ export default async function AgendaPage({
   const roster = own || user.role !== "profissional" ? await dayRoster(user.accountId, own) : [];
   const hours = await dayHours(user.accountId);
   const appointments = await dayAppointments(user.accountId, day);
+  const cancellations = await dayCancellations(user.accountId, day, own);
   const people = await clientOptions(user.accountId);
   const rawServices = await serviceOptions(user.accountId);
   const services = [...rawServices.reduce((map, row) => {
@@ -64,13 +66,7 @@ export default async function AgendaPage({
   const marks: number[] = [];
   for (let mark = startMin; mark <= endMin; mark += 60) marks.push(mark);
 
-  const legend = [
-    ...Object.values(APPOINTMENT_STATUS).filter((item) => item.word !== "Cancelado"),
-    LUNCH,
-    CLOSED,
-    FIT_IN,
-    OUTSIDE,
-  ];
+  const legend = [...Object.values(APPOINTMENT_STATUS), LUNCH, CLOSED, FIT_IN, OUTSIDE];
 
   return (
     <Panel user={user} current="/agenda" title="Agenda">
@@ -230,7 +226,8 @@ export default async function AgendaPage({
                       const paint = blockPaint(item);
                       const moved = item.status === "chegou" || item.status === "em_atendimento" || item.status === "realizado";
                       const name = item.kind === "bloqueio" ? "Bloqueado" : item.clientName ?? "Sem nome";
-                      const title = item.encaixe ? `Encaixe · ${name}` : name;
+                      const marks = [item.status === "cancelado" ? "Cancelado" : "", item.encaixe ? "Encaixe" : ""].filter(Boolean);
+                      const title = marks.length ? `${marks.join(" · ")} · ${name}` : name;
                       const phone = item.phone ? formatPhone(item.phone) : "";
                       const when = `${item.start}–${item.end}`;
                       const extra = moved && item.fromOutside ? "De fora" : "";
@@ -260,7 +257,7 @@ export default async function AgendaPage({
                           <strong>{title}</strong>
                           <span className="slot-meta">{[phone, when].filter(Boolean).join(" · ")}</span>
                           {item.serviceName ? <span className="slot-service">{item.serviceName}</span> : null}
-                          <span className="resize" data-resize="1" />
+                          {item.status === "cancelado" ? null : <span className="resize" data-resize="1" />}
                         </div>
                       );
                     })}
@@ -271,6 +268,47 @@ export default async function AgendaPage({
           </div>
           </AgendaDesk>
         </>
+      ) : null}
+      {cancellations.length > 0 ? (
+        <div className="card">
+          <h2>Cancelados do dia</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Horário</th>
+                <th>Cliente</th>
+                <th>Profissional</th>
+                <th>Serviço</th>
+                <th>Valor</th>
+                <th>Quem</th>
+                <th>Quando</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {cancellations.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    {item.start}–{item.end}
+                  </td>
+                  <td>{item.clientName ?? "Sem nome"}</td>
+                  <td>{item.professionalName ?? "—"}</td>
+                  <td>{item.serviceName ?? "—"}</td>
+                  <td>{item.priceCents == null ? "—" : formatReais(item.priceCents)}</td>
+                  <td>{item.actorName ?? "—"}</td>
+                  <td>{item.at ?? "—"}</td>
+                  <td>
+                    {item.orderId ? (
+                      <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
+                        Comanda
+                      </Link>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : null}
     </Panel>
   );

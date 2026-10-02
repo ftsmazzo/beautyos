@@ -302,6 +302,14 @@ form.filters, .topbar form, td form, .slot form {
   padding: 8px 0;
 }
 .line-actions form { flex: 1 1 160px; }
+form.price-edit {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: stretch;
+}
+form.price-edit input { width: 7rem; min-width: 0; }
+form.price-edit > button { margin-top: 0; }
 .line-actions select { width: auto; min-width: 9rem; }
 
 .hours th small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }
@@ -513,6 +521,7 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
   .slot-service { display: block; }
 }
 .slot { container-type: size; }
+.slot[data-status="cancelado"] { z-index: 1; cursor: default; }
 .resize {
   position: absolute;
   left: 0;

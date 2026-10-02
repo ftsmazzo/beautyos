@@ -170,7 +170,7 @@ export function AgendaDesk({
     if (event.button !== 0) return;
     const target = event.target as HTMLElement;
     const slot = target.closest<HTMLElement>("[data-slot]");
-    if (!slot || target.closest("button, form, input, select")) return;
+    if (!slot || slot.dataset.status === "cancelado" || target.closest("button, form, input, select")) return;
     const grid = slot.closest<HTMLElement>("[data-pro]");
     slot.dataset.dragStart = String(startMin + Math.round(slot.offsetTop / minutePx()));
     slot.dataset.dragMinutes = String(Math.max(15, Math.round(slot.offsetHeight / minutePx())));
@@ -349,6 +349,10 @@ export function AgendaDesk({
             </>
           ) : menu.block ? (
             <button type="button" onClick={() => run(() => dropBlock({ id: menu.id }))}>Remover bloqueio</button>
+          ) : menu.status === "cancelado" ? (
+            menu.orderId ? (
+              <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
+            ) : null
           ) : (
             <>
               {menu.orderId ? (

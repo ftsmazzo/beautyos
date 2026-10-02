@@ -75,7 +75,6 @@ export async function dayAppointments(accountId: string, day: string) {
     WHERE a.account_id = ${accountId}
       AND a.starts_at < ${end}
       AND a.ends_at > ${start}
-      AND a.status <> 'cancelado'
     ORDER BY a.starts_at
   `;
 }
@@ -215,7 +214,68 @@ export async function getOrder(accountId: string, id: string) {
     WHERE order_id = ${id}
     ORDER BY created_at
   `;
-  return { ...rows[0], lines, payments };
+  const events = await db()<{
+    id: string;
+    kind: string;
+    summary: string;
+    beforeCents: number | null;
+    afterCents: number | null;
+    at: string;
+    actorName: string | null;
+  }[]>`
+    SELECT e.id, e.kind, e.summary, e.before_cents AS "beforeCents", e.after_cents AS "afterCents",
+           to_char(e.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at,
+           u.name AS "actorName"
+    FROM order_events e
+    LEFT JOIN users u ON u.id = e.actor_id
+    WHERE e.account_id = ${accountId} AND e.order_id = ${id}
+    ORDER BY e.created_at DESC
+  `;
+  return { ...rows[0], lines, payments, events };
+}
+
+export async function dayCancellations(accountId: string, day: string, professionalId: string | null) {
+  const start = stamp(day, "00:00");
+  const end = stamp(day, "23:59");
+  return db()<{
+    id: string;
+    orderId: string | null;
+    clientName: string | null;
+    professionalName: string | null;
+    serviceName: string | null;
+    start: string;
+    end: string;
+    priceCents: number | null;
+    at: string | null;
+    actorName: string | null;
+  }[]>`
+    SELECT a.id, a.order_id AS "orderId", c.name AS "clientName", p.name AS "professionalName",
+           s.name AS "serviceName",
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
+           to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end",
+           e.before_cents AS "priceCents",
+           to_char(e.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at,
+           u.name AS "actorName"
+    FROM appointments a
+    LEFT JOIN clients c ON c.id = a.client_id
+    LEFT JOIN professionals p ON p.id = a.professional_id
+    LEFT JOIN services s ON s.id = a.service_id
+    LEFT JOIN LATERAL (
+      SELECT before_cents, created_at, actor_id
+      FROM order_events
+      WHERE appointment_id = a.id AND kind = 'cancelamento'
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) e ON true
+    LEFT JOIN users u ON u.id = e.actor_id
+    WHERE a.account_id = ${accountId}
+      AND a.kind = 'horario'
+      AND a.status = 'cancelado'
+      AND a.starts_at < ${end}
+      AND a.ends_at > ${start}
+      AND (${professionalId}::uuid IS NULL OR a.professional_id = ${professionalId})
+    ORDER BY a.starts_at
+  `;
 }
 
 export async function dayCash(accountId: string, day: string) {

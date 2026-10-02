@@ -1,9 +1,10 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import type { TransactionSql } from "postgres";
 import { requireDesk, requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { digits, parseIntField, parseReais, staffPriceCents } from "@/catalog/format";
+import { digits, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents } from "@/catalog/format";
 import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
@@ -201,6 +202,7 @@ export async function setStatus(formData: FormData) {
       redirect(`/comandas/${orderId}?erro=fechada`);
     }
     await db().begin(async (tx) => {
+      await logCancellation(tx, user.id, user.accountId, appointmentId);
       await tx`
         UPDATE appointments SET status = 'cancelado'
         WHERE id = ${appointmentId} AND account_id = ${user.accountId}
@@ -264,8 +266,9 @@ export async function toggleCourtesy(formData: FormData) {
       SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
     `;
     if (order[0]?.status !== "aberta") throw new FormError("fechada");
-    const line = await tx<{ courtesy: boolean; listPriceCents: number; commissionPercent: number }[]>`
-      SELECT courtesy, list_price_cents AS "listPriceCents", commission_percent AS "commissionPercent"
+    const line = await tx<{ courtesy: boolean; description: string; priceCents: number; listPriceCents: number; commissionPercent: number }[]>`
+      SELECT courtesy, description, price_cents AS "priceCents", list_price_cents AS "listPriceCents",
+             commission_percent AS "commissionPercent"
       FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId}
     `;
     if (!line[0]) throw new FormError("dados");
@@ -277,9 +280,85 @@ export async function toggleCourtesy(formData: FormData) {
       SET courtesy = ${courtesy}, price_cents = ${price}, commission_cents = ${commission}
       WHERE id = ${lineId}
     `;
+    await writeEvent(tx, {
+      accountId: user.accountId,
+      orderId,
+      lineId,
+      appointmentId: null,
+      actorId: user.id,
+      kind: "valor",
+      summary: courtesy
+        ? `${line[0].description} cortesia. Cobrança zerada. Comissão no preço de tabela ${formatReais(line[0].listPriceCents)}.`
+        : `${line[0].description} voltou a cobrar ${formatReais(price)}.`,
+      beforeCents: line[0].priceCents,
+      afterCents: price,
+    });
   });
   const { redirect } = await import("next/navigation");
   redirect(`/comandas/${orderId}`);
+}
+
+export async function adjustLinePrice(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  const lineId = idOrNull(String(formData.get("line") ?? ""));
+  return settle(`/comandas/${orderId}`, async () => {
+    if (!lineId) throw new FormError("dados");
+    const amountRaw = String(formData.get("amount") ?? "").trim();
+    const discountRaw = String(formData.get("discount") ?? "").trim();
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; kind: string }[]>`
+        SELECT status, kind FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
+      const line = await tx<{
+        description: string;
+        priceCents: number;
+        listPriceCents: number;
+        commissionPercent: number;
+        courtesy: boolean;
+        appointmentId: string | null;
+      }[]>`
+        SELECT description, price_cents AS "priceCents", list_price_cents AS "listPriceCents",
+               commission_percent AS "commissionPercent", courtesy, appointment_id AS "appointmentId"
+        FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId}
+      `;
+      if (!line[0]) throw new FormError("fora");
+      let next: number | null = null;
+      let how = "";
+      if (amountRaw) {
+        next = parseReais(amountRaw);
+        if (next == null) throw new FormError("dados");
+        how = "valor manual";
+      } else if (discountRaw) {
+        const percent = parsePercent(discountRaw);
+        if (percent == null) throw new FormError("dados");
+        next = Math.round(line[0].listPriceCents * (100 - percent) / 100);
+        how = `desconto ${percent}% sobre ${formatReais(line[0].listPriceCents)}`;
+      } else {
+        throw new FormError("dados");
+      }
+      if (next === line[0].priceCents && !line[0].courtesy) return;
+      const commission = Math.round(next * line[0].commissionPercent / 100);
+      await tx`
+        UPDATE order_lines
+        SET price_cents = ${next}, commission_cents = ${commission}, courtesy = false
+        WHERE id = ${lineId}
+      `;
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId,
+        lineId,
+        appointmentId: line[0].appointmentId,
+        actorId: user.id,
+        kind: "valor",
+        summary: `${line[0].description}: ${formatReais(line[0].priceCents)} → ${formatReais(next)} (${how}). Comissão ${formatReais(commission)}.`,
+        beforeCents: line[0].priceCents,
+        afterCents: next,
+      });
+    });
+    return `/comandas/${orderId}`;
+  });
 }
 
 export async function addPayment(formData: FormData) {
@@ -524,6 +603,61 @@ function fail(code: string) {
   return { ok: false as const, error: FORM_ERRORS[code] ?? "Não deu para concluir." };
 }
 
+async function writeEvent(
+  tx: TransactionSql,
+  input: {
+    accountId: string;
+    orderId: string | null;
+    lineId: string | null;
+    appointmentId: string | null;
+    actorId: string;
+    kind: "valor" | "cancelamento";
+    summary: string;
+    beforeCents: number | null;
+    afterCents: number | null;
+  },
+) {
+  await tx`
+    INSERT INTO order_events (
+      id, account_id, order_id, line_id, appointment_id, actor_id, kind, summary, before_cents, after_cents
+    ) VALUES (
+      ${randomUUID()}, ${input.accountId}, ${input.orderId}, ${input.lineId}, ${input.appointmentId},
+      ${input.actorId}, ${input.kind}, ${input.summary}, ${input.beforeCents}, ${input.afterCents}
+    )
+  `;
+}
+
+async function logCancellation(tx: TransactionSql, actorId: string, accountId: string, appointmentId: string) {
+  const lines = await tx<{
+    id: string;
+    orderId: string;
+    description: string;
+    priceCents: number;
+    start: string | null;
+    end: string | null;
+  }[]>`
+    SELECT l.id, l.order_id AS "orderId", l.description, l.price_cents AS "priceCents",
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
+           to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end"
+    FROM order_lines l
+    JOIN appointments a ON a.id = l.appointment_id
+    WHERE l.appointment_id = ${appointmentId} AND l.account_id = ${accountId}
+  `;
+  const line = lines[0];
+  const when = line?.start && line.end ? ` ${line.start}–${line.end}` : "";
+  await writeEvent(tx, {
+    accountId,
+    orderId: line?.orderId ?? null,
+    lineId: line?.id ?? null,
+    appointmentId,
+    actorId,
+    kind: "cancelamento",
+    summary: line ? `${line.description}${when} cancelado` : "Horário cancelado",
+    beforeCents: line?.priceCents ?? null,
+    afterCents: null,
+  });
+}
+
 export async function placeAppointment(input: {
   id: string;
   professionalId: string;
@@ -621,6 +755,7 @@ export async function paintSlot(input: { id: string; status: string }) {
       if (own && own !== rows[0].professionalId) throw new FormError("fora");
       if (input.status === "cancelado") {
         if (rows[0].orderStatus === "fechada") throw new FormError("fechada");
+        await logCancellation(tx, user.id, user.accountId, id);
         await tx`UPDATE appointments SET status = 'cancelado' WHERE id = ${id}`;
         await tx`DELETE FROM order_lines WHERE appointment_id = ${id} AND account_id = ${user.accountId}`;
       } else {
@@ -742,11 +877,39 @@ export async function removeLine(formData: FormData) {
         SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.status !== "aberta") throw new FormError("fechada");
-      const line = await tx<{ kind: string; productId: string | null; qty: number; appointmentId: string | null }[]>`
-        SELECT kind, product_id AS "productId", qty, appointment_id AS "appointmentId"
-        FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId}
+      const line = await tx<{
+        kind: string;
+        description: string;
+        priceCents: number;
+        productId: string | null;
+        qty: number;
+        appointmentId: string | null;
+        start: string | null;
+        end: string | null;
+      }[]>`
+        SELECT l.kind, l.description, l.price_cents AS "priceCents", l.product_id AS "productId", l.qty,
+               l.appointment_id AS "appointmentId",
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
+               to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end"
+        FROM order_lines l
+        LEFT JOIN appointments a ON a.id = l.appointment_id
+        WHERE l.id = ${lineId} AND l.order_id = ${orderId}
       `;
       if (!line[0]) throw new FormError("fora");
+      const when = line[0].start && line[0].end ? ` ${line[0].start}–${line[0].end}` : "";
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId,
+        lineId,
+        appointmentId: line[0].appointmentId,
+        actorId: user.id,
+        kind: "cancelamento",
+        summary: line[0].appointmentId
+          ? `${line[0].description}${when} cancelado`
+          : `${line[0].description} excluído`,
+        beforeCents: line[0].priceCents,
+        afterCents: null,
+      });
       if (line[0].productId) {
         await tx`
           INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
