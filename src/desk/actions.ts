@@ -8,7 +8,7 @@ import { digits, formatReais, parseIntField, parsePercent, parseReais, staffPric
 import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
-import { addMinutes, dayParam, minutes, periodsFor, placementIssue, stamp } from "@/desk/clock";
+import { addMinutes, dayParam, minutes, periodsFor, placementIssue, shiftDay, stamp } from "@/desk/clock";
 import { linkedProfessional } from "@/desk/queries";
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -486,7 +486,7 @@ async function takePackageCredit(
     await tx`
       UPDATE client_packages
       SET first_used_on = ${input.day}::date,
-          valid_until = ${input.day}::date + ${credit[0].validityDays}
+          valid_until = ${shiftDay(input.day, credit[0].validityDays)}::date
       WHERE id = ${credit[0].clientPackageId} AND first_used_on IS NULL
     `;
   }
