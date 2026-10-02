@@ -27,6 +27,10 @@ type Drag = {
   startY: number;
   originTop: number;
   originHeight: number;
+  validTop: number;
+  validHeight: number;
+  validParent: HTMLElement | null;
+  originParent: HTMLElement | null;
   moved: boolean;
   slot: HTMLElement;
   professionalId: string;
@@ -70,6 +74,45 @@ export function AgendaDesk({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  function minutePx() {
+    return hourPx / 60;
+  }
+
+  function obstacles(column: HTMLElement, self: HTMLElement) {
+    return [...column.querySelectorAll<HTMLElement>("[data-slot]")]
+      .filter((el) => el !== self && el.dataset.status !== "cancelado")
+      .map((el) => ({ top: el.offsetTop, bottom: el.offsetTop + el.offsetHeight }));
+  }
+
+  function overlaps(top: number, height: number, blocks: { top: number; bottom: number }[]) {
+    const bottom = top + height;
+    return blocks.some((block) => top < block.bottom - 0.5 && bottom > block.top + 0.5);
+  }
+
+  function settleTop(desired: number, height: number, blocks: { top: number; bottom: number }[]) {
+    let top = Math.max(0, desired);
+    for (let pass = 0; pass < 8; pass += 1) {
+      const hit = blocks.find((block) => top < block.bottom - 0.5 && top + height > block.top + 0.5);
+      if (!hit) return top;
+      const above = Math.max(0, hit.top - height);
+      const below = hit.bottom;
+      const next = Math.abs(desired - above) <= Math.abs(desired - below) ? above : below;
+      if (Math.abs(next - top) < 0.5) return top;
+      top = next;
+    }
+    return top;
+  }
+
+  function settleHeight(top: number, desired: number, blocks: { top: number; bottom: number }[]) {
+    const min = minutePx() * 15;
+    const height = Math.max(min, desired);
+    const hit = blocks
+      .filter((block) => block.top > top + 0.5 && top + height > block.top + 0.5)
+      .sort((a, b) => a.top - b.top)[0];
+    if (!hit) return height;
+    return Math.max(min, hit.top - top);
+  }
 
   function timeAt(grid: HTMLElement, clientY: number) {
     const y = clientY - grid.getBoundingClientRect().top;
@@ -129,6 +172,8 @@ export function AgendaDesk({
     const slot = target.closest<HTMLElement>("[data-slot]");
     if (!slot || target.closest("button, form, input, select")) return;
     const grid = slot.closest<HTMLElement>("[data-pro]");
+    slot.dataset.dragStart = String(startMin + Math.round(slot.offsetTop / minutePx()));
+    slot.dataset.dragMinutes = String(Math.max(15, Math.round(slot.offsetHeight / minutePx())));
     drag.current = {
       pointerId: event.pointerId,
       mode: target.closest("[data-resize]") ? "resize" : "move",
@@ -136,6 +181,10 @@ export function AgendaDesk({
       startY: event.clientY,
       originTop: slot.offsetTop,
       originHeight: slot.offsetHeight,
+      validTop: slot.offsetTop,
+      validHeight: slot.offsetHeight,
+      validParent: slot.parentElement,
+      originParent: slot.parentElement,
       moved: false,
       slot,
       professionalId: grid?.dataset.pro ?? "",
@@ -151,16 +200,41 @@ export function AgendaDesk({
     session.moved = true;
     setTip(null);
     session.slot.style.zIndex = "5";
+    const step = minutePx();
+    const free = session.slot.dataset.encaixe === "1";
     if (session.mode === "resize") {
-      session.slot.style.height = `${Math.max(18, session.originHeight + dy)}px`;
+      const column = session.slot.parentElement;
+      const desired = Math.round((session.originHeight + dy) / step) * step;
+      const blocks = column && !free ? obstacles(column, session.slot) : [];
+      const height = free ? Math.max(step * 15, desired) : settleHeight(session.slot.offsetTop, desired, blocks);
+      if (free || !column || !overlaps(session.slot.offsetTop, height, blocks)) {
+        session.validHeight = height;
+        session.slot.style.height = `${height}px`;
+        session.slot.dataset.dragMinutes = String(Math.max(15, Math.round(height / step)));
+      }
       return;
     }
-    session.slot.style.top = `${session.originTop + dy}px`;
     session.slot.style.pointerEvents = "none";
     const under = document.elementFromPoint(event.clientX, event.clientY);
     session.slot.style.pointerEvents = "";
     const grid = under?.closest<HTMLElement>("[data-pro]");
     if (grid && grid !== session.slot.parentElement) grid.appendChild(session.slot);
+    const column = session.slot.parentElement;
+    const limit = Math.max(0, (column?.clientHeight ?? session.originTop) - session.slot.offsetHeight);
+    const desired = Math.min(limit, Math.max(0, Math.round((session.originTop + dy) / step) * step));
+    const blocks = column && !free ? obstacles(column, session.slot) : [];
+    const top = free || !column ? desired : settleTop(desired, session.slot.offsetHeight, blocks);
+    if (free || !column || !overlaps(top, session.slot.offsetHeight, blocks)) {
+      session.validTop = top;
+      session.validParent = column;
+      session.slot.style.top = `${top}px`;
+      session.slot.dataset.dragStart = String(startMin + Math.round(top / step));
+    } else {
+      if (session.validParent && session.slot.parentElement !== session.validParent) {
+        session.validParent.appendChild(session.slot);
+      }
+      session.slot.style.top = `${session.validTop}px`;
+    }
   }
 
   async function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
@@ -171,12 +245,20 @@ export function AgendaDesk({
     skipClick.current = true;
     const grid = session.slot.closest<HTMLElement>("[data-pro]");
     const professionalId = grid?.dataset.pro || session.professionalId;
-    const startTotal = startMin + Math.round(((session.slot.offsetTop / hourPx) * 60) / 15) * 15;
-    const duration = Math.max(15, Math.round(((session.slot.offsetHeight / hourPx) * 60) / 15) * 15);
-    const start = fromMinutes(Math.max(0, Math.min(startTotal, 23 * 60)));
-    const end = fromMinutes(Math.min(24 * 60, Math.max(minutes(start) + 15, startTotal + duration)));
+    const startTotal = Math.max(0, Math.min(23 * 60, Number(session.slot.dataset.dragStart) || startMin));
+    const duration = Math.max(15, Number(session.slot.dataset.dragMinutes) || 15);
+    const endTotal = Math.min(23 * 60 + 59, Math.max(startTotal + 15, startTotal + duration));
+    const start = fromMinutes(startTotal);
+    const end = fromMinutes(endTotal);
     const result = await placeAppointment({ id: session.slot.dataset.slot ?? "", professionalId, start, end });
-    if (!result.ok) setNote(result.error);
+    if (!result.ok) {
+      if (session.originParent && session.slot.parentElement !== session.originParent) {
+        session.originParent.appendChild(session.slot);
+      }
+      session.slot.style.top = `${session.originTop}px`;
+      session.slot.style.height = `${session.originHeight}px`;
+      setNote(result.error);
+    }
     router.refresh();
   }
 

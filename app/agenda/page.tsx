@@ -168,7 +168,7 @@ export default async function AgendaPage({
               </li>
             ))}
           </ul>
-          <p>Passe o mouse no horário para ver nome, telefone, serviço e status. Clique esquerdo ou direito abre o menu. Arraste o horário para mudar a hora ou a coluna. Arraste a borda de baixo para estender.</p>
+          <p>Passe o mouse no horário para ver nome, telefone, serviço e status. Clique esquerdo ou direito abre o menu. Arraste o horário de minuto em minuto para mudar a hora ou a coluna. Arraste a borda de baixo para estender. Um horário normal para na borda do que já está ocupado. Encaixe pode cobrir.</p>
           <AgendaDesk
             day={day}
             startMin={startMin}
