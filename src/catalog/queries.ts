@@ -377,7 +377,15 @@ export async function listPackages(accountId: string) {
            (SELECT count(*) FROM package_items i WHERE i.package_id = p.id AND i.kind = 'service')::int AS visits,
            (SELECT COALESCE(SUM(i.internal_price_cents), 0) FROM package_items i WHERE i.package_id = p.id AND i.kind = 'service')::int AS "internalCents",
            (SELECT COALESCE(SUM(s.price_cents), 0) FROM package_items i JOIN services s ON s.id = i.service_id WHERE i.package_id = p.id AND i.kind = 'service')::int AS "avulsoCents",
-           (SELECT s.name FROM package_items i JOIN services s ON s.id = i.service_id WHERE i.package_id = p.id AND i.kind = 'service' ORDER BY i.position LIMIT 1) AS "serviceName"
+           (
+             SELECT string_agg(names.name, ', ' ORDER BY names.name)
+             FROM (
+               SELECT DISTINCT s.name
+               FROM package_items i
+               JOIN services s ON s.id = i.service_id
+               WHERE i.package_id = p.id AND i.kind = 'service'
+             ) names
+           ) AS "serviceName"
     FROM packages p
     WHERE p.account_id = ${accountId}
     ORDER BY p.name

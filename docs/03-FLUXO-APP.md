@@ -82,7 +82,7 @@ Relatório mínimo do pacote, já nesta rota. Relatórios mais completos ficam p
 
 Fechado nesta conversa, sobre pacote:
 
-- O serviço tem preço avulso. O pacote tem o preço desse mesmo serviço dentro dele. A soma dos preços internos fecha o preço do pacote.
+- Cada serviço do catálogo tem preço avulso e, dentro do pacote, o preço interno de cada ida. O pacote pode reunir vários serviços, cada um com as próprias idas. A soma dos preços internos fecha o preço do pacote.
 - No dia da venda, o caixa registra o preço do pacote. No uso, a comissão usa o preço interno. O cliente não paga essa linha de novo.
 - A ida de hoje já é um uso, na comanda de hoje. As outras idas nascem como horário na agenda, ligadas a um crédito, ou ficam em “falta agendar”.
 - A preferência de periodicidade (dia da semana, horário e profissional) gera esses horários. Cada um pode ser ajustado.

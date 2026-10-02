@@ -13,15 +13,17 @@ export async function savePackage(formData: FormData) {
   const failBase = existingId ? `/pacotes/${existingId}` : "/pacotes/novo";
   return settle(failBase, async () => {
     const name = String(formData.get("name") ?? "").trim();
-    const serviceId = String(formData.get("service_id") ?? "");
     const days = parseIntField(formData.get("validity_days"));
     const commissionRaw = String(formData.get("sale_commission") ?? "").trim();
     const commission = commissionRaw ? parsePercent(formData.get("sale_commission")) : null;
+    const visitServices = formData.getAll("visit_service").map(String);
     const visitPrices = formData.getAll("visit_price").map((value) => parseReais(String(value)));
     if (name.length < 2 || days == null || days < 1 || days > 3650 || (commissionRaw && commission == null)) {
       throw new FormError("dados");
     }
-    if (!visitPrices.length || visitPrices.some((price) => price == null)) throw new FormError("soma");
+    if (!visitServices.length || visitServices.length !== visitPrices.length || visitServices.some((id) => !id) || visitPrices.some((price) => price == null)) {
+      throw new FormError("soma");
+    }
 
     const productIds = formData.getAll("product_id").map(String);
     const productQty = formData.getAll("product_qty").map((value) => parseIntField(value));
@@ -29,11 +31,14 @@ export async function savePackage(formData: FormData) {
     if (productIds.length !== productQty.length || productIds.length !== productPrices.length) throw new FormError("soma");
 
     const id = await db().begin(async (tx) => {
-      const service = await tx`SELECT id FROM services WHERE id = ${serviceId} AND account_id = ${user.accountId}`;
-      if (!service.length) throw new FormError("soma");
+      const serviceIds = [...new Set(visitServices)];
+      const services = await tx<{ id: string }[]>`
+        SELECT id FROM services WHERE account_id = ${user.accountId} AND id IN ${tx(serviceIds)}
+      `;
+      if (services.length !== serviceIds.length) throw new FormError("soma");
       const lines: { kind: "service" | "product"; serviceId: string | null; productId: string | null; qty: number; cents: number }[] = [];
-      for (const cents of visitPrices) {
-        lines.push({ kind: "service", serviceId, productId: null, qty: 1, cents: cents as number });
+      for (let index = 0; index < visitPrices.length; index++) {
+        lines.push({ kind: "service", serviceId: visitServices[index], productId: null, qty: 1, cents: visitPrices[index] as number });
       }
       const seen = new Set<string>();
       for (let index = 0; index < productIds.length; index++) {

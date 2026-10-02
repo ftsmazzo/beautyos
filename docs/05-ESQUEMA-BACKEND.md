@@ -151,7 +151,7 @@ A base precisa estar rodando antes. Estes itens não entram nela:
 
 A ficha deles tem nome, observação, foto, comissão pela venda, dias para expirar, se está à venda, se aparece no app, se gera pontos, se aceita pagamento online e em até quantas parcelas. O item é tipo, qual serviço ou produto, quantidade de sessões e um valor. A lista mostra o total, a data e um interruptor de disponível. No exemplo, “5 BARBAS” aponta para “Barba Recorrência”, 5 sessões a R$ 21,67, e o total do pacote está R$ 95,01. A conta não fecha. O nome do serviço foi duplicado para caber no pacote.
 
-O que já está fechado continua. Um serviço só, com preço avulso e preço interno. A soma dos preços internos é o preço do pacote. A validade em dias começa no primeiro uso. A venda entra no caixa no dia, comissão zero, salvo se a casa ligar um incentivo. No uso, a comissão é o percentual do profissional sobre o preço interno. O preço próprio do profissional não entra. As outras idas nascem na venda, no dia e hora combinados, ou ficam em falta agendar.
+O que já está fechado continua. Cada serviço do catálogo tem preço avulso e preço interno. O pacote reúne um ou mais desses serviços, cada um com as próprias idas. A soma dos preços internos é o preço do pacote. A validade em dias começa no primeiro uso. A venda entra no caixa no dia, comissão zero, salvo se a casa ligar um incentivo. No uso, a comissão é o percentual do profissional sobre o preço interno. O preço próprio do profissional não entra. As outras idas nascem na venda, no dia e hora combinados, ou ficam em falta agendar.
 
 A ficha nova é uma tela:
 
@@ -159,7 +159,7 @@ A ficha nova é uma tela:
 - Dias de validade, com a frase de que o prazo corre a partir do primeiro uso.
 - Comissão pela venda. Em branco, é zero. Preenchida, é o incentivo daquela venda.
 - Aparece para o cliente, e pontos, nos mesmos interruptores do produto.
-- Itens. O serviço é o do catálogo, Barba, não uma cópia. Quantidade de idas e o preço interno de cada uma. Dá para incluir produto: quantidade e o valor dele dentro do pacote. A soma aparece o tempo todo e é o preço. Não salva se não fechar. Dividir o total em partes iguais é um atalho, não a regra.
+- Itens. Cada serviço é o do catálogo, não uma cópia. Dá para incluir mais de um, e cada um guarda a própria quantidade de idas e o preço interno de cada ida. Incluir um não apaga o outro. Dá para incluir produto: quantidade e o valor dele dentro do pacote. A soma aparece o tempo todo e é o preço. Não salva se não fechar. Dividir o total em partes iguais é um atalho, não a regra.
 - Ao lado de cada serviço, o avulso e a diferença. A lista do pacote mostra essa diferença, para o desconto não precisar morar no nome.
 
 Produto dentro do pacote entra no preço. O estoque desse produto sai na venda. Não vira ida na agenda e não gera comissão além do incentivo, se houver.
@@ -200,7 +200,7 @@ Dinheiro em centavos. Uma conta é um negócio. Nada aqui mistura duas casas.
 | Espera | cliente, serviço, profissional, dia | Fila da IA. Cancela sozinha quando a data passa. Não é quadro da grade. |
 | Comanda | cliente ou profissional, dia, tipo, estado | Uma por cliente no dia (serviços e produtos). Uma de consumo por profissional no dia. Tipo consumo fecha como consumo interno. |
 | Linha | comanda, tipo, profissional, horário, valores | Serviço exige profissional e horário. Produto pode não ter horário. Pacote vendido não cria horário. Uso de crédito zera a cobrança e guarda o preço interno para a comissão. |
-| Pacote | preço, dias de validade, incentivo de venda opcional | Itens apontam para o serviço único, com preço interno. A soma dos preços internos fecha o preço do pacote. |
+| Pacote | preço, dias de validade, incentivo de venda opcional | Itens apontam para os serviços do catálogo, cada ida com preço interno. A soma dos preços internos fecha o preço do pacote. |
 | PacoteDoCliente | cliente, pacote, vendido em, primeiro uso, validade, estado | O relógio dos dias começa no primeiro uso. Perdão renova e alcança a última ida já marcada. Cobrar a diferença encerra. |
 | Crédito | pacote do cliente, serviço, preço interno, horário ou falta agendar | Ida de hoje já nasce usada. As outras nascem horário ou ficam em falta agendar. |
 | Perdão | pacote, cliente, prazo estourado, ida, ordem | Base do relatório de semanas perdidas e de quem repete. |

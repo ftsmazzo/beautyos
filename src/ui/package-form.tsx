@@ -7,6 +7,7 @@ import { SubmitButton } from "@/ui/submit-button";
 type ServiceOpt = { id: string; name: string; priceCents: number };
 type ProductOpt = { id: string; name: string };
 type ProductRow = { productId: string; qty: string; price: string };
+type VisitGroup = { serviceId: string; prices: string[] };
 
 export type PackageInitial = {
   id: string;
@@ -15,8 +16,7 @@ export type PackageInitial = {
   forSale: boolean;
   validityDays: string;
   saleCommission: string;
-  serviceId: string;
-  visitPrices: string[];
+  groups: VisitGroup[];
   products: ProductRow[];
 };
 
@@ -31,47 +31,71 @@ export function PackageForm({
   products: ProductOpt[];
   initial: PackageInitial;
 }) {
-  const [serviceId, setServiceId] = useState(initial.serviceId);
-  const [prices, setPrices] = useState(initial.visitPrices.length ? initial.visitPrices : [""]);
+  const [groups, setGroups] = useState<VisitGroup[]>(initial.groups.length ? initial.groups : [{ serviceId: "", prices: [""] }]);
   const [rows, setRows] = useState<ProductRow[]>(initial.products);
   const [splitTotal, setSplitTotal] = useState("");
 
-  const selected = services.find((service) => service.id === serviceId);
-  const visitSum = prices.reduce((sum, price) => sum + (parseReais(price) ?? 0), 0);
+  const visitSum = groups.reduce((sum, group) => sum + group.prices.reduce((inner, price) => inner + (parseReais(price) ?? 0), 0), 0);
   const productSum = rows.reduce((sum, row) => sum + (parseReais(row.price) ?? 0), 0);
   const total = visitSum + productSum;
-  const avulso = (selected?.priceCents ?? 0) * prices.length;
+  const avulso = groups.reduce((sum, group) => {
+    const service = services.find((item) => item.id === group.serviceId);
+    return sum + (service?.priceCents ?? 0) * group.prices.length;
+  }, 0);
   const summary = useMemo(() => {
-    if (!selected) return "Escolha o serviço para ver a diferença do avulso.";
-    return `${prices.length} idas de ${selected.name}. Avulso ${formatReais(avulso)}. ${packageGap(avulso, visitSum)}. Preço do pacote ${formatReais(total)}.`;
-  }, [selected, prices.length, avulso, visitSum, total]);
+    const named = groups.flatMap((group) => {
+      const service = services.find((item) => item.id === group.serviceId);
+      return service ? [`${group.prices.length} idas de ${service.name}`] : [];
+    });
+    if (!named.length) return "Inclua os serviços para ver a diferença do avulso.";
+    return `${named.join(". ")}. Avulso ${formatReais(avulso)}. ${packageGap(avulso, visitSum)}. Preço do pacote ${formatReais(total)}.`;
+  }, [groups, services, avulso, visitSum, total]);
 
-  function chooseService(id: string) {
-    setServiceId(id);
-    const price = services.find((service) => service.id === id)?.priceCents;
-    if (price == null) return;
-    setPrices((current) => current.map((value) => (value.trim() ? value : centsToInput(price))));
+  function updateGroup(index: number, next: VisitGroup) {
+    setGroups(groups.map((group, groupIndex) => (groupIndex === index ? next : group)));
   }
 
-  function setVisitCount(raw: string) {
-    const count = Math.max(1, Math.min(60, Number(raw) || 1));
-    setPrices((current) => {
-      const next = current.slice(0, count);
-      const fill = [...next].reverse().find((value) => value.trim()) || (selected ? centsToInput(selected.priceCents) : "");
-      while (next.length < count) next.push(fill);
-      return next;
+  function chooseService(index: number, id: string) {
+    const price = services.find((service) => service.id === id)?.priceCents;
+    const group = groups[index];
+    updateGroup(index, {
+      serviceId: id,
+      prices: price == null ? group.prices : group.prices.map((value) => (value.trim() ? value : centsToInput(price))),
     });
+  }
+
+  function setVisitCount(index: number, raw: string) {
+    const group = groups[index];
+    const count = Math.max(1, Math.min(60, Number(raw) || 1));
+    const next = group.prices.slice(0, count);
+    const selected = services.find((service) => service.id === group.serviceId);
+    const fill = [...next].reverse().find((value) => value.trim()) || (selected ? centsToInput(selected.priceCents) : "");
+    while (next.length < count) next.push(fill);
+    updateGroup(index, { ...group, prices: next });
+  }
+
+  function optionsFor(index: number) {
+    const taken = new Set(groups.flatMap((group, groupIndex) => (groupIndex === index || !group.serviceId ? [] : [group.serviceId])));
+    return services.filter((service) => !taken.has(service.id));
   }
 
   function splitEven() {
     const target = parseReais(splitTotal);
-    if (target == null || prices.length < 1) return;
-    const productPart = rows.reduce((sum, row) => sum + (parseReais(row.price) ?? 0), 0);
-    const serviceTotal = target - productPart;
+    const count = groups.reduce((sum, group) => sum + group.prices.length, 0);
+    if (target == null || count < 1) return;
+    const serviceTotal = target - productSum;
     if (serviceTotal < 0) return;
-    const base = Math.floor(serviceTotal / prices.length);
-    const rest = serviceTotal - base * prices.length;
-    setPrices(prices.map((_, index) => centsToInput(index === prices.length - 1 ? base + rest : base)));
+    const base = Math.floor(serviceTotal / count);
+    const rest = serviceTotal - base * count;
+    let cursor = 0;
+    setGroups(groups.map((group) => ({
+      ...group,
+      prices: group.prices.map(() => {
+        const cents = cursor === count - 1 ? base + rest : base;
+        cursor += 1;
+        return centsToInput(cents);
+      }),
+    })));
   }
 
   return (
@@ -98,37 +122,59 @@ export function PackageForm({
         Comissão da venda (%)
         <input name="sale_commission" inputMode="numeric" defaultValue={initial.saleCommission} placeholder="Em branco fica zero" />
       </label>
-      <label>
-        Serviço
-        <select name="service_id" required value={serviceId} onChange={(event) => chooseService(event.target.value)}>
-          <option value="">Escolha</option>
-          {services.map((service) => (
-            <option key={service.id} value={service.id}>
-              {service.name} · avulso {formatReais(service.priceCents)}
-            </option>
+      {groups.map((group, index) => (
+        <div className="card" key={index}>
+          <label>
+            Serviço
+            <select required value={group.serviceId} onChange={(event) => chooseService(index, event.target.value)}>
+              <option value="">Escolha</option>
+              {optionsFor(index).map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.name} · avulso {formatReais(service.priceCents)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Idas
+            <input type="number" min={1} max={60} value={group.prices.length} onChange={(event) => setVisitCount(index, event.target.value)} />
+          </label>
+          {group.prices.map((price, priceIndex) => (
+            <label key={priceIndex}>
+              Preço interno da ida {priceIndex + 1}
+              <input type="hidden" name="visit_service" value={group.serviceId} />
+              <input
+                name="visit_price"
+                required
+                value={price}
+                onChange={(event) => {
+                  const prices = [...group.prices];
+                  prices[priceIndex] = event.target.value;
+                  updateGroup(index, { ...group, prices });
+                }}
+              />
+            </label>
           ))}
-        </select>
-      </label>
-      <label>
-        Idas
-        <input type="number" min={1} max={60} value={prices.length} onChange={(event) => setVisitCount(event.target.value)} />
-      </label>
-      {prices.map((price, index) => (
-        <label key={index}>
-          Preço interno da ida {index + 1}
-          <input name="visit_price" required value={price} onChange={(event) => {
-            const next = [...prices];
-            next[index] = event.target.value;
-            setPrices(next);
-          }} />
-        </label>
+          {groups.length > 1 ? (
+            <button type="button" className="btn quiet" onClick={() => setGroups(groups.filter((_, groupIndex) => groupIndex !== index))}>
+              Tirar serviço
+            </button>
+          ) : null}
+        </div>
       ))}
+      <button
+        type="button"
+        className="btn quiet"
+        onClick={() => setGroups([...groups, { serviceId: "", prices: [""] }])}
+      >
+        Incluir serviço
+      </button>
       <div className="row">
         <label>
           Dividir este total entre as idas
           <input value={splitTotal} onChange={(event) => setSplitTotal(event.target.value)} placeholder="0,00" />
         </label>
-        <button type="button" className="quiet" onClick={splitEven}>
+        <button type="button" className="btn quiet" onClick={splitEven}>
           Dividir
         </button>
       </div>
@@ -182,14 +228,14 @@ export function PackageForm({
           </label>
           <button
             type="button"
-            className="quiet"
+            className="btn quiet"
             onClick={() => setRows(rows.filter((_, rowIndex) => rowIndex !== index))}
           >
             Tirar
           </button>
         </div>
       ))}
-      <button type="button" className="quiet" onClick={() => setRows([...rows, { productId: "", qty: "1", price: "" }])}>
+      <button type="button" className="btn quiet" onClick={() => setRows([...rows, { productId: "", qty: "1", price: "" }])}>
         Incluir produto
       </button>
       <p>{summary}</p>

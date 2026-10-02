@@ -30,7 +30,7 @@ export default async function PackagesPage({
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>Serviço</th>
+                <th>Serviços</th>
                 <th>Idas</th>
                 <th>Preço</th>
                 <th>Diferença</th>

@@ -28,6 +28,14 @@ export default async function PackageFormPage({
   const [services, products] = await Promise.all([listServices(user.accountId), listProducts(user.accountId)]);
   const visits = pack?.items.filter((item) => item.kind === "service") ?? [];
   const lines = pack?.items.filter((item) => item.kind === "product") ?? [];
+  const groups = visits.reduce<{ serviceId: string; prices: string[] }[]>((list, item) => {
+    const serviceId = item.serviceId ?? "";
+    const last = list[list.length - 1];
+    const price = centsToInput(item.internalPriceCents);
+    if (last && last.serviceId === serviceId) last.prices.push(price);
+    else list.push({ serviceId, prices: [price] });
+    return list;
+  }, []);
   const initial: PackageInitial = {
     id: pack?.id ?? "",
     name: pack?.name ?? "",
@@ -35,8 +43,7 @@ export default async function PackageFormPage({
     forSale: pack?.forSale ?? true,
     validityDays: pack ? String(pack.validityDays) : "",
     saleCommission: pack?.saleCommissionPercent != null ? String(pack.saleCommissionPercent) : "",
-    serviceId: visits[0]?.serviceId ?? "",
-    visitPrices: visits.length ? visits.map((item) => centsToInput(item.internalPriceCents)) : [""],
+    groups: groups.length ? groups : [{ serviceId: "", prices: [""] }],
     products: lines.map((item) => ({
       productId: item.productId ?? "",
       qty: String(item.qty),
@@ -49,7 +56,7 @@ export default async function PackageFormPage({
       <ErrorNote code={query.erro} />
       <PackageForm
         action={savePackage}
-        services={services.filter((service) => service.active || service.id === initial.serviceId).map((service) => ({
+        services={services.filter((service) => service.active || initial.groups.some((group) => group.serviceId === service.id)).map((service) => ({
           id: service.id,
           name: service.name,
           priceCents: service.priceCents,
