@@ -197,13 +197,18 @@ export function AgendaDesk({
   function showTip(slot: HTMLElement) {
     const rect = slot.getBoundingClientRect();
     const width = 260;
-    const left = rect.right + 10 + width > window.innerWidth ? Math.max(8, rect.left - width - 10) : rect.right + 10;
+    const height = 168;
+    let left = rect.left;
+    let top = rect.bottom + 8;
+    if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
+    if (left < 12) left = 12;
+    if (top + height > window.innerHeight - 12) top = Math.max(12, rect.top - height - 8);
     const lines = [slot.dataset.phone, slot.dataset.service, slot.dataset.when, slot.dataset.word, slot.dataset.extra].filter(
       (line): line is string => Boolean(line),
     );
     setTip({
       left,
-      top: Math.max(8, Math.min(rect.top, window.innerHeight - 188)),
+      top,
       name: slot.dataset.name || "Horário",
       lines,
     });

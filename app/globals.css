@@ -497,6 +497,8 @@ a.slot, .slot {
   text-decoration: none;
   font-size: 0.82rem;
   line-height: 1.25;
+  outline: 1px solid rgba(15, 23, 42, 0.22);
+  outline-offset: -1px;
 }
 a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
 .slot strong, .slot-meta, .slot-service {
