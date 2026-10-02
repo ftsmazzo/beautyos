@@ -184,6 +184,7 @@ export async function getOrder(accountId: string, id: string) {
     commissionCents: number;
     abatementCents: number;
     courtesy: boolean;
+    packageCreditId: string | null;
     appointmentId: string | null;
     serviceId: string | null;
     professionalId: string | null;
@@ -196,7 +197,7 @@ export async function getOrder(accountId: string, id: string) {
     SELECT l.id, l.kind, l.description, l.qty, l.price_cents AS "priceCents",
            l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
            l.commission_cents AS "commissionCents", l.abatement_cents AS "abatementCents",
-           l.courtesy, l.appointment_id AS "appointmentId", l.service_id AS "serviceId",
+           l.courtesy, l.package_credit_id AS "packageCreditId", l.appointment_id AS "appointmentId", l.service_id AS "serviceId",
            l.professional_id AS "professionalId",
            p.name AS "professionalName",
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
@@ -245,6 +246,49 @@ export async function dayLogs(accountId: string, day: string) {
       AND e.created_at < ${end}
     ORDER BY e.created_at DESC
   `;
+}
+
+export async function packagesForSale(accountId: string) {
+  return db()<{ id: string; name: string; priceCents: number; validityDays: number }[]>`
+    SELECT id, name, price_cents AS "priceCents", validity_days AS "validityDays"
+    FROM packages
+    WHERE account_id = ${accountId} AND for_sale
+    ORDER BY name
+  `;
+}
+
+export async function clientPackages(accountId: string, clientId: string) {
+  return db()<{
+    id: string;
+    name: string;
+    validUntil: string | null;
+    started: boolean;
+    total: number;
+    used: number;
+  }[]>`
+    SELECT cp.id, cp.name,
+           to_char(cp.valid_until, 'DD/MM/YYYY') AS "validUntil",
+           cp.first_used_on IS NOT NULL AS started,
+           (SELECT count(*) FROM package_credits c WHERE c.client_package_id = cp.id)::int AS total,
+           (SELECT count(*) FROM package_credits c WHERE c.client_package_id = cp.id AND c.status = 'usado')::int AS used
+    FROM client_packages cp
+    WHERE cp.account_id = ${accountId} AND cp.client_id = ${clientId} AND cp.status = 'ativo'
+    ORDER BY cp.created_at
+  `;
+}
+
+export async function packageServiceIds(accountId: string, clientId: string, day: string) {
+  const rows = await db()<{ serviceId: string }[]>`
+    SELECT DISTINCT c.service_id AS "serviceId"
+    FROM package_credits c
+    JOIN client_packages cp ON cp.id = c.client_package_id
+    WHERE cp.account_id = ${accountId}
+      AND cp.client_id = ${clientId}
+      AND cp.status = 'ativo'
+      AND c.status = 'falta_agendar'
+      AND (cp.valid_until IS NULL OR cp.valid_until >= ${day}::date)
+  `;
+  return rows.map((row) => row.serviceId);
 }
 
 export async function dayCancellations(accountId: string, day: string, professionalId: string | null) {

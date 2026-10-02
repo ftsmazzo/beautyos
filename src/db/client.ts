@@ -316,6 +316,9 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS order_lines_order_idx ON order_lines (order_id)`;
+  await sql`ALTER TABLE order_lines DROP CONSTRAINT IF EXISTS order_lines_kind_check`;
+  await sql`ALTER TABLE order_lines ADD CONSTRAINT order_lines_kind_check CHECK (kind IN ('servico', 'produto', 'pacote'))`;
+  await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS package_credit_id uuid`;
   await sql`
     CREATE TABLE IF NOT EXISTS payments (
       id uuid PRIMARY KEY,
@@ -356,4 +359,38 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS order_events_order_idx ON order_events (order_id, created_at)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS client_packages (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      client_id uuid NOT NULL REFERENCES clients(id),
+      package_id uuid REFERENCES packages(id) ON DELETE SET NULL,
+      order_id uuid REFERENCES orders(id) ON DELETE SET NULL,
+      order_line_id uuid,
+      name text NOT NULL,
+      validity_days integer NOT NULL,
+      sale_commission_percent integer,
+      price_cents integer NOT NULL,
+      sold_on date NOT NULL,
+      first_used_on date,
+      valid_until date,
+      status text NOT NULL CHECK (status IN ('ativo', 'concluido', 'cancelado')),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS client_packages_client_idx ON client_packages (account_id, client_id)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS package_credits (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      client_package_id uuid NOT NULL REFERENCES client_packages(id) ON DELETE CASCADE,
+      service_id uuid NOT NULL REFERENCES services(id),
+      position integer NOT NULL,
+      internal_price_cents integer NOT NULL,
+      status text NOT NULL CHECK (status IN ('falta_agendar', 'agendado', 'usado')),
+      order_line_id uuid,
+      used_on date
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS package_credits_package_idx ON package_credits (client_package_id, status)`;
 }

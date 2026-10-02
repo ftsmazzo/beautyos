@@ -8,17 +8,19 @@ import {
   addProduct,
   addServiceToOrder,
   adjustLinePrice,
+  applyPackageUse,
   moveLineProfessional,
   removeLine,
   attachClient,
   closeOrder,
   reopenOrder,
   removePayment,
+  sellPackage,
   setStatus,
   toggleCourtesy,
   toggleFromOutside,
 } from "@/desk/actions";
-import { clientOptions, consumptionProducts, dayRoster, getOrder, linkedProfessional, productOptions, serviceOptions } from "@/desk/queries";
+import { clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packagesForSale, productOptions, serviceOptions } from "@/desk/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { OrderServiceForm } from "@/ui/order-service-form";
@@ -52,6 +54,13 @@ export default async function OrderPage({
   const roster = order.kind === "cliente" && open ? await dayRoster(user.accountId, null) : [];
   const catalog = order.kind === "cliente" && open ? await serviceOptions(user.accountId) : [];
   const stock = order.kind === "consumo" && open ? await consumptionProducts(user.accountId) : [];
+  const held = order.kind === "cliente" && order.clientId ? await clientPackages(user.accountId, order.clientId) : [];
+  const forSale = operator && open && order.kind === "cliente" && order.clientId ? await packagesForSale(user.accountId) : [];
+  const covered = new Set(
+    operator && open && order.kind === "cliente" && order.clientId
+      ? await packageServiceIds(user.accountId, order.clientId, order.day)
+      : [],
+  );
   const statuses = Object.entries(APPOINTMENT_STATUS).filter(([value]) => value !== "bloqueado");
 
   return (
@@ -149,11 +158,12 @@ export default async function OrderPage({
                     {line.qty > 1 ? ` × ${line.qty}` : ""}
                     {line.courtesy ? " · cortesia" : ""}
                     {line.encaixe ? " · encaixe" : ""}
+                    {line.packageCreditId ? " · pacote" : ""}
                   </td>
                   <td>{line.professionalName ?? "—"}</td>
                   <td>{line.start && line.end ? `${line.start}–${line.end}` : "—"}</td>
                   <td>
-                    {operator && open && order.kind === "cliente" ? (
+                    {operator && open && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (
                       <form action={adjustLinePrice} className="price-field">
                         <input type="hidden" name="order" value={order.id} />
                         <input type="hidden" name="line" value={line.id} />
@@ -213,7 +223,14 @@ export default async function OrderPage({
                         <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
                       </form>
                     ) : null}
-                    {operator && open && order.kind === "cliente" ? (
+                    {operator && open && line.kind === "servico" && line.serviceId && !line.packageCreditId && covered.has(line.serviceId) ? (
+                      <form action={applyPackageUse}>
+                        <input type="hidden" name="order" value={order.id} />
+                        <input type="hidden" name="line" value={line.id} />
+                        <SubmitButton label="Abater" pendingLabel="Abatendo…" className="quiet" />
+                      </form>
+                    ) : null}
+                    {operator && open && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (
                       <form action={toggleCourtesy}>
                         <input type="hidden" name="order" value={order.id} />
                         <input type="hidden" name="line" value={line.id} />
@@ -287,6 +304,52 @@ export default async function OrderPage({
           </Modal>
         ) : null}
       </div>
+
+      {order.kind === "cliente" && order.clientId && (held.length > 0 || forSale.length > 0) ? (
+        <div className="card">
+          <h2>Pacote</h2>
+          {held.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
+          {held.map((item) => (
+            <p key={item.id}>
+              {item.name} · {item.used} de {item.total} usadas
+              {item.started && item.validUntil ? ` · válido até ${item.validUntil}` : " · prazo ainda não começou"}
+            </p>
+          ))}
+          {forSale.length > 0 ? (
+            <Modal label="Vender pacote" title="Vender pacote" tone="blue">
+              <form action={sellPackage}>
+                <input type="hidden" name="order" value={order.id} />
+                <label>
+                  Pacote
+                  <select name="package" required defaultValue={forSale[0]?.id}>
+                    {forSale.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} · {formatReais(item.priceCents)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Quem vendeu
+                  <select name="seller" defaultValue="">
+                    <option value="">Sem comissão de venda</option>
+                    {roster.filter((person) => person.bookable).map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.nickname || person.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p>
+                  A venda entra nesta comanda. Se o serviço de hoje já está aqui, a primeira visita é abatida agora.
+                  As outras ficam para agendar. A comissão do serviço nasce no uso, sobre o preço interno.
+                </p>
+                <SubmitButton label="Vender" pendingLabel="Vendendo…" />
+              </form>
+            </Modal>
+          ) : null}
+        </div>
+      ) : null}
 
       {order.kind === "cliente" ? (
         <div className="card">

@@ -257,6 +257,260 @@ export async function addProduct(formData: FormData) {
   });
 }
 
+export async function sellPackage(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const packageId = idOrNull(String(formData.get("package") ?? ""));
+    const sellerId = idOrNull(String(formData.get("seller") ?? ""));
+    if (!packageId) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; kind: string; clientId: string | null; day: string }[]>`
+        SELECT status, kind, client_id AS "clientId", to_char(day, 'YYYY-MM-DD') AS day
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
+      if (!order[0].clientId) throw new FormError("cliente");
+      const pack = await tx<{
+        name: string;
+        validityDays: number;
+        saleCommissionPercent: number | null;
+        priceCents: number;
+      }[]>`
+        SELECT name, validity_days AS "validityDays", sale_commission_percent AS "saleCommissionPercent",
+               price_cents AS "priceCents"
+        FROM packages
+        WHERE id = ${packageId} AND account_id = ${user.accountId} AND for_sale
+      `;
+      if (!pack[0]) throw new FormError("fora");
+      const items = await tx<{
+        kind: string;
+        serviceId: string | null;
+        productId: string | null;
+        qty: number;
+        internalPriceCents: number;
+        position: number;
+      }[]>`
+        SELECT kind, service_id AS "serviceId", product_id AS "productId", qty,
+               internal_price_cents AS "internalPriceCents", position
+        FROM package_items
+        WHERE package_id = ${packageId}
+        ORDER BY position
+      `;
+      const visits = items.filter((item) => item.kind === "service" && item.serviceId);
+      if (!visits.length) throw new FormError("soma");
+      let salePercent = 0;
+      let saleCommission = 0;
+      let seller: string | null = null;
+      if (pack[0].saleCommissionPercent != null && sellerId) {
+        const person = await tx`SELECT id FROM professionals WHERE id = ${sellerId} AND account_id = ${user.accountId} AND active`;
+        if (!person.length) throw new FormError("dados");
+        salePercent = pack[0].saleCommissionPercent;
+        saleCommission = Math.round(pack[0].priceCents * salePercent / 100);
+        seller = sellerId;
+      }
+      const heldId = randomUUID();
+      const lineId = randomUUID();
+      await tx`
+        INSERT INTO client_packages (
+          id, account_id, client_id, package_id, order_id, order_line_id, name,
+          validity_days, sale_commission_percent, price_cents, sold_on, status
+        ) VALUES (
+          ${heldId}, ${user.accountId}, ${order[0].clientId}, ${packageId}, ${orderId}, ${lineId}, ${pack[0].name},
+          ${pack[0].validityDays}, ${pack[0].saleCommissionPercent}, ${pack[0].priceCents}, ${order[0].day}::date, 'ativo'
+        )
+      `;
+      for (const visit of visits) {
+        await tx`
+          INSERT INTO package_credits (
+            id, account_id, client_package_id, service_id, position, internal_price_cents, status
+          ) VALUES (
+            ${randomUUID()}, ${user.accountId}, ${heldId}, ${visit.serviceId}, ${visit.position},
+            ${visit.internalPriceCents}, 'falta_agendar'
+          )
+        `;
+      }
+      for (const item of items) {
+        if (item.kind !== "product" || !item.productId) continue;
+        await tx`
+          INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, ${item.productId}, ${-item.qty}, 'venda',
+            ${"venda de pacote"}, ${user.id}
+          )
+        `;
+      }
+      await tx`
+        INSERT INTO order_lines (
+          id, account_id, order_id, kind, professional_id, description, qty,
+          price_cents, list_price_cents, commission_percent, commission_cents
+        ) VALUES (
+          ${lineId}, ${user.accountId}, ${orderId}, 'pacote', ${seller}, ${pack[0].name}, 1,
+          ${pack[0].priceCents}, ${pack[0].priceCents}, ${salePercent}, ${saleCommission}
+        )
+      `;
+      const serviceIds = [...new Set(visits.map((visit) => visit.serviceId as string))];
+      for (const serviceId of serviceIds) {
+        const matches = await tx<{ id: string }[]>`
+          SELECT id FROM order_lines
+          WHERE order_id = ${orderId} AND kind = 'servico' AND service_id = ${serviceId}
+            AND package_credit_id IS NULL AND courtesy = false
+          ORDER BY created_at
+        `;
+        for (const match of matches) {
+          const taken = await takePackageCredit(tx, {
+            accountId: user.accountId,
+            actorId: user.id,
+            orderId,
+            clientId: order[0].clientId,
+            day: order[0].day,
+            lineId: match.id,
+          });
+          if (!taken) break;
+        }
+      }
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId,
+        lineId,
+        appointmentId: null,
+        actorId: user.id,
+        kind: "valor",
+        summary: `Vendeu ${pack[0].name} por ${formatReais(pack[0].priceCents)}. Comissão de venda ${formatReais(saleCommission)}.`,
+        beforeCents: null,
+        afterCents: pack[0].priceCents,
+      });
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function applyPackageUse(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  const lineId = idOrNull(String(formData.get("line") ?? ""));
+  return settle(`/comandas/${orderId}`, async () => {
+    if (!lineId) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; kind: string; clientId: string | null; day: string }[]>`
+        SELECT status, kind, client_id AS "clientId", to_char(day, 'YYYY-MM-DD') AS day
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
+      if (!order[0].clientId) throw new FormError("cliente");
+      const taken = await takePackageCredit(tx, {
+        accountId: user.accountId,
+        actorId: user.id,
+        orderId,
+        clientId: order[0].clientId,
+        day: order[0].day,
+        lineId,
+      });
+      if (!taken) throw new FormError("credito");
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+async function takePackageCredit(
+  tx: TransactionSql,
+  input: {
+    accountId: string;
+    actorId: string;
+    orderId: string;
+    clientId: string;
+    day: string;
+    lineId: string;
+  },
+) {
+  const line = await tx<{
+    serviceId: string | null;
+    description: string;
+    priceCents: number;
+    professionalId: string | null;
+    appointmentId: string | null;
+    packageCreditId: string | null;
+    kind: string;
+  }[]>`
+    SELECT service_id AS "serviceId", description, price_cents AS "priceCents",
+           professional_id AS "professionalId", appointment_id AS "appointmentId",
+           package_credit_id AS "packageCreditId", kind
+    FROM order_lines
+    WHERE id = ${input.lineId} AND order_id = ${input.orderId}
+  `;
+  if (!line[0] || line[0].kind !== "servico" || !line[0].serviceId || line[0].packageCreditId) return false;
+  const credit = await tx<{
+    id: string;
+    internalPriceCents: number;
+    clientPackageId: string;
+    packageName: string;
+    validityDays: number;
+    started: boolean;
+  }[]>`
+    SELECT c.id, c.internal_price_cents AS "internalPriceCents",
+           c.client_package_id AS "clientPackageId", cp.name AS "packageName",
+           cp.validity_days AS "validityDays", cp.first_used_on IS NOT NULL AS started
+    FROM package_credits c
+    JOIN client_packages cp ON cp.id = c.client_package_id
+    WHERE cp.account_id = ${input.accountId}
+      AND cp.client_id = ${input.clientId}
+      AND cp.status = 'ativo'
+      AND c.service_id = ${line[0].serviceId}
+      AND c.status = 'falta_agendar'
+      AND (cp.valid_until IS NULL OR cp.valid_until >= ${input.day}::date)
+    ORDER BY cp.created_at, c.position
+    LIMIT 1
+  `;
+  if (!credit[0]) return false;
+  const percentRows = await tx<{ commissionPercent: number }[]>`
+    SELECT COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent"
+    FROM services s
+    LEFT JOIN professional_services ps
+      ON ps.service_id = s.id AND ps.professional_id = ${line[0].professionalId}
+    WHERE s.id = ${line[0].serviceId} AND s.account_id = ${input.accountId}
+  `;
+  const percent = percentRows[0]?.commissionPercent ?? 0;
+  const commission = Math.round(credit[0].internalPriceCents * percent / 100);
+  await tx`
+    UPDATE order_lines
+    SET price_cents = 0, commission_percent = ${percent}, commission_cents = ${commission},
+        courtesy = false, package_credit_id = ${credit[0].id}
+    WHERE id = ${input.lineId}
+  `;
+  await tx`
+    UPDATE package_credits
+    SET status = 'usado', order_line_id = ${input.lineId}, used_on = ${input.day}::date
+    WHERE id = ${credit[0].id}
+  `;
+  if (!credit[0].started) {
+    await tx`
+      UPDATE client_packages
+      SET first_used_on = ${input.day}::date,
+          valid_until = ${input.day}::date + ${credit[0].validityDays}
+      WHERE id = ${credit[0].clientPackageId} AND first_used_on IS NULL
+    `;
+  }
+  const left = await tx<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM package_credits
+    WHERE client_package_id = ${credit[0].clientPackageId} AND status <> 'usado'
+  `;
+  if ((left[0]?.n ?? 0) === 0) {
+    await tx`UPDATE client_packages SET status = 'concluido' WHERE id = ${credit[0].clientPackageId}`;
+  }
+  await writeEvent(tx, {
+    accountId: input.accountId,
+    orderId: input.orderId,
+    lineId: input.lineId,
+    appointmentId: line[0].appointmentId,
+    actorId: input.actorId,
+    kind: "valor",
+    summary: `Abateu ${line[0].description} do pacote ${credit[0].packageName}. ${formatReais(line[0].priceCents)} → ${formatReais(0)}. Comissão ${formatReais(commission)} sobre o interno ${formatReais(credit[0].internalPriceCents)}.`,
+    beforeCents: line[0].priceCents,
+    afterCents: 0,
+  });
+  return true;
+}
+
 export async function toggleCourtesy(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");
@@ -266,12 +520,21 @@ export async function toggleCourtesy(formData: FormData) {
       SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
     `;
     if (order[0]?.status !== "aberta") throw new FormError("fechada");
-    const line = await tx<{ courtesy: boolean; description: string; priceCents: number; listPriceCents: number; commissionPercent: number }[]>`
+    const line = await tx<{
+      courtesy: boolean;
+      description: string;
+      priceCents: number;
+      listPriceCents: number;
+      commissionPercent: number;
+      kind: string;
+      packageCreditId: string | null;
+    }[]>`
       SELECT courtesy, description, price_cents AS "priceCents", list_price_cents AS "listPriceCents",
-             commission_percent AS "commissionPercent"
+             commission_percent AS "commissionPercent", kind, package_credit_id AS "packageCreditId"
       FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId}
     `;
     if (!line[0]) throw new FormError("dados");
+    if (line[0].kind === "pacote" || line[0].packageCreditId) throw new FormError("pacote");
     const courtesy = !line[0].courtesy;
     const price = courtesy ? 0 : line[0].listPriceCents;
     const commission = Math.round(line[0].listPriceCents * line[0].commissionPercent / 100);
@@ -318,12 +581,16 @@ export async function adjustLinePrice(formData: FormData) {
         commissionPercent: number;
         courtesy: boolean;
         appointmentId: string | null;
+        kind: string;
+        packageCreditId: string | null;
       }[]>`
         SELECT description, price_cents AS "priceCents", list_price_cents AS "listPriceCents",
-               commission_percent AS "commissionPercent", courtesy, appointment_id AS "appointmentId"
+               commission_percent AS "commissionPercent", courtesy, appointment_id AS "appointmentId",
+               kind, package_credit_id AS "packageCreditId"
         FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId}
       `;
       if (!line[0]) throw new FormError("fora");
+      if (line[0].kind === "pacote" || line[0].packageCreditId) throw new FormError("pacote");
       let next: number | null = null;
       let how = "";
       if (amountRaw) {
@@ -884,11 +1151,12 @@ export async function removeLine(formData: FormData) {
         productId: string | null;
         qty: number;
         appointmentId: string | null;
+        packageCreditId: string | null;
         start: string | null;
         end: string | null;
       }[]>`
         SELECT l.kind, l.description, l.price_cents AS "priceCents", l.product_id AS "productId", l.qty,
-               l.appointment_id AS "appointmentId",
+               l.appointment_id AS "appointmentId", l.package_credit_id AS "packageCreditId",
                to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
                to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end"
         FROM order_lines l
@@ -896,6 +1164,53 @@ export async function removeLine(formData: FormData) {
         WHERE l.id = ${lineId} AND l.order_id = ${orderId}
       `;
       if (!line[0]) throw new FormError("fora");
+      if (line[0].kind === "pacote") {
+        const held = await tx<{ id: string; packageId: string | null }[]>`
+          SELECT id, package_id AS "packageId" FROM client_packages WHERE order_line_id = ${lineId}
+        `;
+        if (held[0]) {
+          const used = await tx`SELECT 1 FROM package_credits WHERE client_package_id = ${held[0].id} AND status = 'usado'`;
+          if (used.length) throw new FormError("pacote");
+          if (held[0].packageId) {
+            const products = await tx<{ productId: string; qty: number }[]>`
+              SELECT product_id AS "productId", qty FROM package_items
+              WHERE package_id = ${held[0].packageId} AND kind = 'product'
+            `;
+            for (const product of products) {
+              await tx`
+                INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
+                VALUES (
+                  ${randomUUID()}, ${user.accountId}, ${product.productId}, ${product.qty}, 'ajuste',
+                  ${"estorno do pacote"}, ${user.id}
+                )
+              `;
+            }
+          }
+          await tx`DELETE FROM client_packages WHERE id = ${held[0].id}`;
+        }
+      }
+      if (line[0].packageCreditId) {
+        const credit = await tx<{ clientPackageId: string }[]>`
+          SELECT client_package_id AS "clientPackageId" FROM package_credits WHERE id = ${line[0].packageCreditId}
+        `;
+        await tx`
+          UPDATE package_credits
+          SET status = 'falta_agendar', order_line_id = NULL, used_on = NULL
+          WHERE id = ${line[0].packageCreditId}
+        `;
+        if (credit[0]) {
+          const still = await tx`SELECT 1 FROM package_credits WHERE client_package_id = ${credit[0].clientPackageId} AND status = 'usado'`;
+          if (!still.length) {
+            await tx`
+              UPDATE client_packages
+              SET status = 'ativo', first_used_on = NULL, valid_until = NULL
+              WHERE id = ${credit[0].clientPackageId}
+            `;
+          } else {
+            await tx`UPDATE client_packages SET status = 'ativo' WHERE id = ${credit[0].clientPackageId}`;
+          }
+        }
+      }
       const when = line[0].start && line[0].end ? ` ${line[0].start}–${line[0].end}` : "";
       await writeEvent(tx, {
         accountId: user.accountId,
@@ -943,17 +1258,31 @@ export async function moveLineProfessional(formData: FormData) {
         SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.status !== "aberta") throw new FormError("fechada");
-      const line = await tx<{ serviceId: string | null; appointmentId: string | null }[]>`
-        SELECT service_id AS "serviceId", appointment_id AS "appointmentId"
+      const line = await tx<{ serviceId: string | null; appointmentId: string | null; packageCreditId: string | null }[]>`
+        SELECT service_id AS "serviceId", appointment_id AS "appointmentId", package_credit_id AS "packageCreditId"
         FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId} AND kind = 'servico'
       `;
       if (!line[0]?.serviceId) throw new FormError("dados");
-      const offer = await tx`
-        SELECT 1 FROM professional_services
-        WHERE professional_id = ${professionalId} AND service_id = ${line[0].serviceId}
+      const offer = await tx<{ commissionPercent: number }[]>`
+        SELECT COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent"
+        FROM professional_services ps
+        JOIN services s ON s.id = ps.service_id
+        WHERE ps.professional_id = ${professionalId} AND ps.service_id = ${line[0].serviceId}
       `;
       if (!offer.length) throw new FormError("servico");
-      await tx`UPDATE order_lines SET professional_id = ${professionalId} WHERE id = ${lineId}`;
+      if (line[0].packageCreditId) {
+        const credit = await tx<{ internalPriceCents: number }[]>`
+          SELECT internal_price_cents AS "internalPriceCents" FROM package_credits WHERE id = ${line[0].packageCreditId}
+        `;
+        const commission = Math.round((credit[0]?.internalPriceCents ?? 0) * offer[0].commissionPercent / 100);
+        await tx`
+          UPDATE order_lines
+          SET professional_id = ${professionalId}, commission_percent = ${offer[0].commissionPercent}, commission_cents = ${commission}
+          WHERE id = ${lineId}
+        `;
+      } else {
+        await tx`UPDATE order_lines SET professional_id = ${professionalId} WHERE id = ${lineId}`;
+      }
       if (line[0].appointmentId) {
         await tx`
           UPDATE appointments SET professional_id = ${professionalId}
