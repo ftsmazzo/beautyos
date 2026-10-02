@@ -277,6 +277,35 @@ export async function clientPackages(accountId: string, clientId: string) {
   `;
 }
 
+export async function packageVisits(accountId: string, clientId: string) {
+  return db()<{
+    id: string;
+    serviceId: string;
+    serviceName: string;
+    status: string;
+    when: string | null;
+    professionalName: string | null;
+    late: boolean;
+  }[]>`
+    SELECT c.id, c.service_id AS "serviceId", s.name AS "serviceName", c.status,
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI') AS "when",
+           pr.name AS "professionalName",
+           (
+             cp.valid_until IS NOT NULL
+             AND a.starts_at IS NOT NULL
+             AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
+           ) AS late
+    FROM package_credits c
+    JOIN client_packages cp ON cp.id = c.client_package_id
+    JOIN services s ON s.id = c.service_id
+    LEFT JOIN order_lines l ON l.id = c.order_line_id
+    LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+    LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
+    WHERE cp.account_id = ${accountId} AND cp.client_id = ${clientId} AND cp.status = 'ativo'
+    ORDER BY cp.created_at, c.position
+  `;
+}
+
 export async function packageServiceIds(accountId: string, clientId: string, day: string) {
   const rows = await db()<{ serviceId: string }[]>`
     SELECT DISTINCT c.service_id AS "serviceId"

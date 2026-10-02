@@ -20,10 +20,11 @@ import {
   toggleCourtesy,
   toggleFromOutside,
 } from "@/desk/actions";
-import { clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packagesForSale, productOptions, serviceOptions } from "@/desk/queries";
+import { clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions } from "@/desk/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { OrderServiceForm } from "@/ui/order-service-form";
+import { PackageVisitForm } from "@/ui/package-visit-form";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -51,10 +52,11 @@ export default async function OrderPage({
   const paid = order.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
   const people = order.incomplete ? await clientOptions(user.accountId) : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
-  const roster = order.kind === "cliente" && open ? await dayRoster(user.accountId, null) : [];
-  const catalog = order.kind === "cliente" && open ? await serviceOptions(user.accountId) : [];
+  const roster = order.kind === "cliente" ? await dayRoster(user.accountId, null) : [];
+  const catalog = order.kind === "cliente" ? await serviceOptions(user.accountId) : [];
   const stock = order.kind === "consumo" && open ? await consumptionProducts(user.accountId) : [];
   const held = order.kind === "cliente" && order.clientId ? await clientPackages(user.accountId, order.clientId) : [];
+  const visits = order.kind === "cliente" && order.clientId ? await packageVisits(user.accountId, order.clientId) : [];
   const forSale = operator && open && order.kind === "cliente" && order.clientId ? await packagesForSale(user.accountId) : [];
   const covered = new Set(
     operator && open && order.kind === "cliente" && order.clientId
@@ -315,6 +317,35 @@ export default async function OrderPage({
               {item.started && item.validUntil ? ` · válido até ${item.validUntil}` : " · prazo ainda não começou"}
             </p>
           ))}
+          {visits.map((visit) => (
+            <p key={visit.id}>
+              {visit.serviceName}
+              {visit.status === "usado" ? " · usada" : visit.when ? ` · ${visit.when}` : " · falta agendar"}
+              {visit.professionalName && visit.status !== "falta_agendar" ? ` · ${visit.professionalName}` : ""}
+              {visit.late ? " · depois do prazo" : ""}
+            </p>
+          ))}
+          {operator && visits.some((visit) => visit.status === "falta_agendar") ? (
+            <Modal label="Marcar visita" title="Marcar visita do pacote" tone="blue">
+              <PackageVisitForm
+                orderId={order.id}
+                credits={visits.filter((visit) => visit.status === "falta_agendar").map((visit, index, list) => {
+                  const same = list.filter((item) => item.serviceId === visit.serviceId);
+                  const place = same.findIndex((item) => item.id === visit.id) + 1;
+                  return {
+                    id: visit.id,
+                    serviceId: visit.serviceId,
+                    label: same.length > 1 ? `${visit.serviceName} · ${place}` : visit.serviceName,
+                  };
+                })}
+                people={roster.map((person) => ({
+                  id: person.id,
+                  name: person.nickname || person.name,
+                  serviceIds: catalog.filter((service) => service.professionalId === person.id).map((service) => service.id),
+                }))}
+              />
+            </Modal>
+          ) : null}
           {forSale.length > 0 ? (
             <Modal label="Vender pacote" title="Vender pacote" tone="blue">
               <form action={sellPackage}>
