@@ -333,7 +333,7 @@ export default async function OrderPage({
                   Quem vendeu
                   <select name="seller" defaultValue="">
                     <option value="">Sem comissão de venda</option>
-                    {roster.filter((person) => person.bookable).map((person) => (
+                    {roster.map((person) => (
                       <option key={person.id} value={person.id}>
                         {person.nickname || person.name}
                       </option>
