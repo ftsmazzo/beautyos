@@ -7,8 +7,6 @@ import { fromMinutes, minutes } from "@/desk/clock";
 import { BookForm } from "@/ui/book-form";
 import { SubmitButton } from "@/ui/submit-button";
 
-const HOUR = 56;
-
 type EmptyMenu = { kind: "empty"; x: number; y: number; professionalId: string; start: string };
 type SlotMenu = {
   kind: "slot";
@@ -34,9 +32,12 @@ type Drag = {
   professionalId: string;
 };
 
+type Tip = { left: number; top: number; name: string; lines: string[] };
+
 export function AgendaDesk({
   day,
   startMin,
+  hourPx,
   lockedProfessional,
   professionals,
   services,
@@ -45,6 +46,7 @@ export function AgendaDesk({
 }: {
   day: string;
   startMin: number;
+  hourPx: number;
   lockedProfessional: string | null;
   professionals: { id: string; name: string }[];
   services: { id: string; name: string; professionalIds: string[] }[];
@@ -58,6 +60,7 @@ export function AgendaDesk({
   const skipClick = useRef(false);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [note, setNote] = useState("");
+  const [tip, setTip] = useState<Tip | null>(null);
   const [pick, setPick] = useState<{ professional: string; start: string; encaixe: boolean; block: boolean } | null>(null);
 
   useEffect(() => {
@@ -70,7 +73,7 @@ export function AgendaDesk({
 
   function timeAt(grid: HTMLElement, clientY: number) {
     const y = clientY - grid.getBoundingClientRect().top;
-    const raw = startMin + (y / HOUR) * 60;
+    const raw = startMin + (y / hourPx) * 60;
     const snapped = Math.round(raw / 15) * 15;
     return fromMinutes(Math.min(23 * 60 + 45, Math.max(0, snapped)));
   }
@@ -146,6 +149,7 @@ export function AgendaDesk({
     const dy = event.clientY - session.startY;
     if (!session.moved && Math.hypot(event.clientX - session.startX, dy) < 6) return;
     session.moved = true;
+    setTip(null);
     session.slot.style.zIndex = "5";
     if (session.mode === "resize") {
       session.slot.style.height = `${Math.max(18, session.originHeight + dy)}px`;
@@ -167,8 +171,8 @@ export function AgendaDesk({
     skipClick.current = true;
     const grid = session.slot.closest<HTMLElement>("[data-pro]");
     const professionalId = grid?.dataset.pro || session.professionalId;
-    const startTotal = startMin + Math.round(((session.slot.offsetTop / HOUR) * 60) / 15) * 15;
-    const duration = Math.max(15, Math.round(((session.slot.offsetHeight / HOUR) * 60) / 15) * 15);
+    const startTotal = startMin + Math.round(((session.slot.offsetTop / hourPx) * 60) / 15) * 15;
+    const duration = Math.max(15, Math.round(((session.slot.offsetHeight / hourPx) * 60) / 15) * 15);
     const start = fromMinutes(Math.max(0, Math.min(startTotal, 23 * 60)));
     const end = fromMinutes(Math.min(24 * 60, Math.max(minutes(start) + 15, startTotal + duration)));
     const result = await placeAppointment({ id: session.slot.dataset.slot ?? "", professionalId, start, end });
@@ -190,6 +194,34 @@ export function AgendaDesk({
     dialog.current?.showModal();
   }
 
+  function showTip(slot: HTMLElement) {
+    const rect = slot.getBoundingClientRect();
+    const width = 260;
+    const left = rect.right + 10 + width > window.innerWidth ? Math.max(8, rect.left - width - 10) : rect.right + 10;
+    const lines = [slot.dataset.phone, slot.dataset.service, slot.dataset.when, slot.dataset.word, slot.dataset.extra].filter(
+      (line): line is string => Boolean(line),
+    );
+    setTip({
+      left,
+      top: Math.max(8, Math.min(rect.top, window.innerHeight - 188)),
+      name: slot.dataset.name || "Horário",
+      lines,
+    });
+  }
+
+  function onOver(event: React.PointerEvent<HTMLDivElement>) {
+    if (drag.current?.moved) return;
+    const slot = (event.target as HTMLElement).closest<HTMLElement>("[data-slot]");
+    if (!slot) return;
+    showTip(slot);
+  }
+
+  function onOut(event: React.PointerEvent<HTMLDivElement>) {
+    const next = event.relatedTarget as HTMLElement | null;
+    if (next?.closest?.("[data-slot]")) return;
+    setTip(null);
+  }
+
   const menuStyle = menu
     ? {
         left: Math.max(8, Math.min(menu.x, typeof window === "undefined" ? menu.x : window.innerWidth - 240)),
@@ -199,9 +231,26 @@ export function AgendaDesk({
 
   return (
     <>
-      <div ref={root} onClick={onClick} onContextMenu={onContextMenu} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+      <div
+        ref={root}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerOver={onOver}
+        onPointerOut={onOut}
+      >
         {children}
       </div>
+      {tip ? (
+        <div className="slot-card" style={{ left: tip.left, top: tip.top }}>
+          <strong>{tip.name}</strong>
+          {tip.lines.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </div>
+      ) : null}
       {note ? <p className="error banner">{note}</p> : null}
       {menu ? (
         <div className="agenda-menu" style={menuStyle} role="menu" onClick={(event) => event.stopPropagation()}>

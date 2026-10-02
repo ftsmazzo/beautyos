@@ -446,7 +446,7 @@ button.scrim {
   color: var(--muted);
   font-weight: 600;
 }
-.board-col { min-width: 188px; flex: 1; }
+.board-col { min-width: 220px; flex: 1; }
 .board-col header {
   height: 42px;
   display: flex;
@@ -492,14 +492,25 @@ a.slot, .slot {
   right: 4px;
   z-index: 2;
   border-radius: 4px;
-  padding: 4px 6px;
+  padding: 4px 8px 10px;
   overflow: hidden;
   text-decoration: none;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   line-height: 1.25;
 }
-a.slot.fit { left: 18px; z-index: 3; }
-.slot strong, .slot span { display: block; color: inherit; }
+a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
+.slot strong, .slot-meta, .slot-service {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+}
+.slot-service { display: none; }
+@container (min-height: 64px) {
+  .slot-service { display: block; }
+}
+.slot { container-type: size; }
 .resize {
   position: absolute;
   left: 0;
@@ -535,6 +546,25 @@ a.slot.fit { left: 18px; z-index: 3; }
   cursor: pointer;
 }
 .agenda-menu button:hover { background: #eef2f6; color: #1b2430; }
+.slot-card {
+  position: fixed;
+  z-index: 45;
+  width: 260px;
+  padding: 12px 14px;
+  background: #ffffff;
+  color: #1b2430;
+  border: 1px solid #c5ced8;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+}
+.slot-card strong, .slot-card span {
+  display: block;
+  color: #1b2430;
+  white-space: normal;
+}
+.slot-card strong { font-size: 1rem; margin-bottom: 4px; }
+.slot-card span { font-size: 0.92rem; font-weight: 600; }
 .tiles .stat {
   display: flex;
   flex-direction: column;

@@ -21,7 +21,7 @@ import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
-const HOUR = 56;
+const HOUR = 96;
 
 export default async function AgendaPage({
   searchParams,
@@ -168,10 +168,11 @@ export default async function AgendaPage({
               </li>
             ))}
           </ul>
-          <p>Clique esquerdo ou direito abre o menu. Arraste o horário para mudar a hora ou a coluna. Arraste a borda de baixo para estender.</p>
+          <p>Passe o mouse no horário para ver nome, telefone, serviço e status. Clique esquerdo ou direito abre o menu. Arraste o horário para mudar a hora ou a coluna. Arraste a borda de baixo para estender.</p>
           <AgendaDesk
             day={day}
             startMin={startMin}
+            hourPx={HOUR}
             lockedProfessional={own}
             professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
             services={services}
@@ -228,9 +229,13 @@ export default async function AgendaPage({
                     {columnItems.map((item) => {
                       const paint = blockPaint(item);
                       const moved = item.status === "chegou" || item.status === "em_atendimento" || item.status === "realizado";
+                      const name = item.kind === "bloqueio" ? "Bloqueado" : item.clientName ?? "Sem nome";
+                      const phone = item.phone ? formatPhone(item.phone) : "";
+                      const when = `${item.start}–${item.end}`;
+                      const extra = [moved && item.encaixe ? "Encaixe" : "", moved && item.fromOutside ? "De fora" : ""].filter(Boolean).join(" · ");
                       const style = {
                         top: ((minutes(item.start) - startMin) / 60) * HOUR,
-                        height: Math.max(28, ((minutes(item.end) - minutes(item.start)) / 60) * HOUR),
+                        height: ((minutes(item.end) - minutes(item.start)) / 60) * HOUR,
                         background: paint.bg,
                         color: paint.fg,
                       };
@@ -243,17 +248,17 @@ export default async function AgendaPage({
                           data-status={item.status}
                           data-encaixe={item.encaixe ? "1" : "0"}
                           data-order={item.orderId ?? ""}
+                          data-name={name}
+                          data-phone={phone}
+                          data-service={item.serviceName ?? ""}
+                          data-when={when}
+                          data-word={item.kind === "horario" ? paint.word : "Bloqueado"}
+                          data-extra={extra}
                           style={style}
                         >
-                          <strong>{item.kind === "bloqueio" ? "Bloqueado" : item.clientName ?? "Sem nome"}</strong>
-                          {item.phone ? <span>{formatPhone(item.phone)}</span> : null}
-                          {item.serviceName ? <span>{item.serviceName}</span> : null}
-                          <span>
-                            {item.start}–{item.end}
-                          </span>
-                          {item.kind === "horario" ? <span>{paint.word}</span> : null}
-                          {moved && item.encaixe ? <span>Encaixe</span> : null}
-                          {moved && item.fromOutside ? <span>De fora</span> : null}
+                          <strong>{name}</strong>
+                          <span className="slot-meta">{[phone, when].filter(Boolean).join(" · ")}</span>
+                          {item.serviceName ? <span className="slot-service">{item.serviceName}</span> : null}
                           <span className="resize" data-resize="1" />
                         </div>
                       );
