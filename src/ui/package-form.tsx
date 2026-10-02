@@ -45,7 +45,8 @@ export function PackageForm({
   const summary = useMemo(() => {
     const named = groups.flatMap((group) => {
       const service = services.find((item) => item.id === group.serviceId);
-      return service ? [`${group.prices.length} idas de ${service.name}`] : [];
+      const word = group.prices.length === 1 ? "ida" : "idas";
+      return service ? [`${group.prices.length} ${word} de ${service.name}`] : [];
     });
     if (!named.length) return "Inclua os serviços para ver a diferença do avulso.";
     return `${named.join(". ")}. Avulso ${formatReais(avulso)}. ${packageGap(avulso, visitSum)}. Preço do pacote ${formatReais(total)}.`;
