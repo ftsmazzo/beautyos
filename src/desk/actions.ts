@@ -1169,8 +1169,46 @@ export async function removeLine(formData: FormData) {
           SELECT id, package_id AS "packageId" FROM client_packages WHERE order_line_id = ${lineId}
         `;
         if (held[0]) {
-          const used = await tx`SELECT 1 FROM package_credits WHERE client_package_id = ${held[0].id} AND status = 'usado'`;
-          if (used.length) throw new FormError("pacote");
+          const used = await tx<{ lineId: string | null; orderId: string | null }[]>`
+            SELECT c.order_line_id AS "lineId", l.order_id AS "orderId"
+            FROM package_credits c
+            LEFT JOIN order_lines l ON l.id = c.order_line_id
+            WHERE c.client_package_id = ${held[0].id} AND c.status = 'usado'
+          `;
+          if (used.some((credit) => credit.orderId && credit.orderId !== orderId)) throw new FormError("outra");
+          for (const credit of used) {
+            if (!credit.lineId || credit.orderId !== orderId) continue;
+            const restored = await tx<{ listPriceCents: number; commissionPercent: number; description: string }[]>`
+              SELECT list_price_cents AS "listPriceCents", commission_percent AS "commissionPercent", description
+              FROM order_lines WHERE id = ${credit.lineId}
+            `;
+            if (!restored[0]) continue;
+            const prior = await tx<{ beforeCents: number | null }[]>`
+              SELECT before_cents AS "beforeCents"
+              FROM order_events
+              WHERE line_id = ${credit.lineId} AND kind = 'valor' AND summary LIKE 'Abateu %'
+              ORDER BY created_at DESC
+              LIMIT 1
+            `;
+            const price = prior[0]?.beforeCents ?? restored[0].listPriceCents;
+            const commission = Math.round(price * restored[0].commissionPercent / 100);
+            await tx`
+              UPDATE order_lines
+              SET price_cents = ${price}, commission_cents = ${commission}, package_credit_id = NULL, courtesy = false
+              WHERE id = ${credit.lineId}
+            `;
+            await writeEvent(tx, {
+              accountId: user.accountId,
+              orderId,
+              lineId: credit.lineId,
+              appointmentId: null,
+              actorId: user.id,
+              kind: "valor",
+              summary: `Desfez o abate de ${restored[0].description}. Voltou a ${formatReais(price)}. Comissão ${formatReais(commission)}.`,
+              beforeCents: 0,
+              afterCents: price,
+            });
+          }
           if (held[0].packageId) {
             const products = await tx<{ productId: string; qty: number }[]>`
               SELECT product_id AS "productId", qty FROM package_items
