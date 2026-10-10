@@ -15,6 +15,12 @@ export function weekdayOf(day: string) {
   return new Date(`${day}T12:00:00-03:00`).getUTCDay();
 }
 
+export function firstWeekdayAfter(day: string, weekday: number) {
+  let next = shiftDay(day, 1);
+  for (let step = 0; step < 6 && weekdayOf(next) !== weekday; step++) next = shiftDay(next, 1);
+  return next;
+}
+
 export function minutes(time: string) {
   const [hour, minute] = time.slice(0, 5).split(":").map(Number);
   return hour * 60 + minute;

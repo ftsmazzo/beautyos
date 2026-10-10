@@ -8,7 +8,7 @@ import { digits, formatReais, parseIntField, parsePercent, parseReais, staffPric
 import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
-import { addMinutes, dayParam, minutes, periodsFor, placementIssue, shiftDay, stamp } from "@/desk/clock";
+import { addMinutes, dayParam, firstWeekdayAfter, minutes, periodsFor, placementIssue, shiftDay, stamp } from "@/desk/clock";
 import { linkedProfessional } from "@/desk/queries";
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -484,6 +484,109 @@ async function finishPackageVisit(tx: TransactionSql, accountId: string, appoint
   }
 }
 
+async function placePackageCredit(
+  tx: TransactionSql,
+  input: { accountId: string; actorId: string; creditId: string; professionalId: string; day: string; start: string },
+) {
+  const credit = await tx<{
+    serviceId: string;
+    serviceName: string;
+    internalPriceCents: number;
+    clientId: string;
+  }[]>`
+    SELECT c.service_id AS "serviceId", s.name AS "serviceName",
+           c.internal_price_cents AS "internalPriceCents", cp.client_id AS "clientId"
+    FROM package_credits c
+    JOIN client_packages cp ON cp.id = c.client_package_id
+    JOIN services s ON s.id = c.service_id
+    WHERE c.id = ${input.creditId} AND c.account_id = ${input.accountId}
+      AND c.status = 'falta_agendar' AND cp.status = 'ativo'
+  `;
+  if (!credit[0]) return { ok: false as const, code: "credito" };
+  const offer = await tx<{ durationMin: number; commissionPercent: number; priceCents: number }[]>`
+    SELECT COALESCE(ps.duration_min, s.duration_min) AS "durationMin",
+           COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent",
+           COALESCE(ps.price_cents, s.price_cents) AS "priceCents"
+    FROM services s
+    JOIN professional_services ps ON ps.service_id = s.id AND ps.professional_id = ${input.professionalId}
+    WHERE s.id = ${credit[0].serviceId} AND s.account_id = ${input.accountId} AND s.active
+  `;
+  if (!offer[0]) return { ok: false as const, code: "servico" };
+  const end = addMinutes(input.start, offer[0].durationMin);
+  if (minutes(end) >= 24 * 60) return { ok: false as const, code: "hora" };
+  const startsAt = stamp(input.day, input.start);
+  const endsAt = stamp(input.day, end);
+  const hours = await tx<{ weekday: number; period: number; startTime: string; endTime: string; validFrom: string | null; validUntil: string | null }[]>`
+    SELECT weekday, period, start_time AS "startTime", end_time AS "endTime",
+           to_char(valid_from, 'YYYY-MM-DD') AS "validFrom",
+           to_char(valid_until, 'YYYY-MM-DD') AS "validUntil"
+    FROM professional_hours WHERE professional_id = ${input.professionalId}
+  `;
+  const issue = placementIssue(periodsFor(hours, input.day), input.start, end);
+  if (issue) return { ok: false as const, code: issue };
+  const clash = await tx`
+    SELECT id FROM appointments
+    WHERE professional_id = ${input.professionalId}
+      AND status <> 'cancelado'
+      AND starts_at < ${endsAt}
+      AND ends_at > ${startsAt}
+  `;
+  if (clash.length) return { ok: false as const, code: "ocupado" };
+  const existing = await tx<{ id: string; status: string }[]>`
+    SELECT id, status FROM orders
+    WHERE account_id = ${input.accountId} AND client_id = ${credit[0].clientId}
+      AND day = ${input.day}::date AND kind = 'cliente'
+  `;
+  if (existing[0]?.status === "fechada") return { ok: false as const, code: "fechada" };
+  const targetId = existing[0]?.id ?? randomUUID();
+  if (!existing[0]) {
+    await tx`
+      INSERT INTO orders (id, account_id, client_id, day, kind, status)
+      VALUES (${targetId}, ${input.accountId}, ${credit[0].clientId}, ${input.day}::date, 'cliente', 'aberta')
+    `;
+  }
+  const appointmentId = randomUUID();
+  const lineId = randomUUID();
+  const commission = Math.round(credit[0].internalPriceCents * offer[0].commissionPercent / 100);
+  await tx`
+    INSERT INTO appointments (
+      id, account_id, professional_id, client_id, service_id, order_id,
+      starts_at, ends_at, status, encaixe, kind
+    ) VALUES (
+      ${appointmentId}, ${input.accountId}, ${input.professionalId}, ${credit[0].clientId}, ${credit[0].serviceId}, ${targetId},
+      ${startsAt}, ${endsAt}, 'agendado', false, 'horario'
+    )
+  `;
+  await tx`
+    INSERT INTO order_lines (
+      id, account_id, order_id, appointment_id, kind, service_id, professional_id,
+      description, qty, price_cents, list_price_cents, commission_percent, commission_cents, package_credit_id
+    ) VALUES (
+      ${lineId}, ${input.accountId}, ${targetId}, ${appointmentId}, 'servico', ${credit[0].serviceId}, ${input.professionalId},
+      ${credit[0].serviceName}, 1, 0, ${offer[0].priceCents}, ${offer[0].commissionPercent}, ${commission}, ${input.creditId}
+    )
+  `;
+  await tx`
+    UPDATE package_credits
+    SET status = 'agendado', order_line_id = ${lineId}, used_on = NULL
+    WHERE id = ${input.creditId}
+  `;
+  await writeEvent(tx, {
+    accountId: input.accountId,
+    orderId: targetId,
+    lineId,
+    appointmentId,
+    actorId: input.actorId,
+    kind: "valor",
+    summary: `Marcou ${credit[0].serviceName} do pacote em ${input.day} ${input.start}–${end}. Cobrança zerada. Comissão ${formatReais(commission)} sobre o interno ${formatReais(credit[0].internalPriceCents)}.`,
+    beforeCents: offer[0].priceCents,
+    afterCents: 0,
+  });
+  return { ok: true as const, day: input.day, end, serviceName: credit[0].serviceName };
+}
+
+const SKIP_SLOT = new Set(["ocupado", "fechada", "fechado", "almoco"]);
+
 export async function schedulePackageVisit(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");
@@ -494,100 +597,71 @@ export async function schedulePackageVisit(formData: FormData) {
     const start = String(formData.get("start") ?? "");
     if (!creditId || !professionalId || !TIME.test(start)) throw new FormError("dados");
     await db().begin(async (tx) => {
-      const credit = await tx<{
-        serviceId: string;
-        serviceName: string;
-        internalPriceCents: number;
-        clientId: string;
-      }[]>`
-        SELECT c.service_id AS "serviceId", s.name AS "serviceName",
-               c.internal_price_cents AS "internalPriceCents", cp.client_id AS "clientId"
+      const placed = await placePackageCredit(tx, {
+        accountId: user.accountId,
+        actorId: user.id,
+        creditId,
+        professionalId,
+        day,
+        start,
+      });
+      if (!placed.ok) throw new FormError(placed.code);
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function repeatPackageVisits(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const serviceId = idOrNull(String(formData.get("service") ?? ""));
+    const professionalId = idOrNull(String(formData.get("professional") ?? ""));
+    const weekday = Number(formData.get("weekday"));
+    const start = String(formData.get("start") ?? "");
+    if (!serviceId || !professionalId || !TIME.test(start) || !Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+      throw new FormError("dados");
+    }
+    await db().begin(async (tx) => {
+      const order = await tx<{ clientId: string | null; day: string; kind: string }[]>`
+        SELECT client_id AS "clientId", to_char(day, 'YYYY-MM-DD') AS day, kind
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.kind !== "cliente" || !order[0].clientId) throw new FormError("cliente");
+      const credits = await tx<{ id: string }[]>`
+        SELECT c.id
         FROM package_credits c
         JOIN client_packages cp ON cp.id = c.client_package_id
-        JOIN services s ON s.id = c.service_id
-        WHERE c.id = ${creditId} AND c.account_id = ${user.accountId}
-          AND c.status = 'falta_agendar' AND cp.status = 'ativo'
+        WHERE cp.account_id = ${user.accountId} AND cp.client_id = ${order[0].clientId}
+          AND cp.status = 'ativo' AND c.service_id = ${serviceId} AND c.status = 'falta_agendar'
+        ORDER BY cp.created_at, c.position
       `;
-      if (!credit[0]) throw new FormError("credito");
-      const offer = await tx<{ durationMin: number; commissionPercent: number; priceCents: number }[]>`
-        SELECT COALESCE(ps.duration_min, s.duration_min) AS "durationMin",
-               COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent",
-               COALESCE(ps.price_cents, s.price_cents) AS "priceCents"
-        FROM services s
-        JOIN professional_services ps ON ps.service_id = s.id AND ps.professional_id = ${professionalId}
-        WHERE s.id = ${credit[0].serviceId} AND s.account_id = ${user.accountId} AND s.active
-      `;
-      if (!offer[0]) throw new FormError("servico");
-      const end = addMinutes(start, offer[0].durationMin);
-      if (minutes(end) >= 24 * 60) throw new FormError("hora");
-      const startsAt = stamp(day, start);
-      const endsAt = stamp(day, end);
-      const hours = await tx<{ weekday: number; period: number; startTime: string; endTime: string; validFrom: string | null; validUntil: string | null }[]>`
-        SELECT weekday, period, start_time AS "startTime", end_time AS "endTime",
-               to_char(valid_from, 'YYYY-MM-DD') AS "validFrom",
-               to_char(valid_until, 'YYYY-MM-DD') AS "validUntil"
-        FROM professional_hours WHERE professional_id = ${professionalId}
-      `;
-      const issue = placementIssue(periodsFor(hours, day), start, end);
-      if (issue) throw new FormError(issue);
-      const clash = await tx`
-        SELECT id FROM appointments
-        WHERE professional_id = ${professionalId}
-          AND status <> 'cancelado'
-          AND starts_at < ${endsAt}
-          AND ends_at > ${startsAt}
-      `;
-      if (clash.length) throw new FormError("ocupado");
-      const existing = await tx<{ id: string; status: string }[]>`
-        SELECT id, status FROM orders
-        WHERE account_id = ${user.accountId} AND client_id = ${credit[0].clientId}
-          AND day = ${day}::date AND kind = 'cliente'
-      `;
-      if (existing[0]?.status === "fechada") throw new FormError("fechada");
-      const targetId = existing[0]?.id ?? randomUUID();
-      if (!existing[0]) {
-        await tx`
-          INSERT INTO orders (id, account_id, client_id, day, kind, status)
-          VALUES (${targetId}, ${user.accountId}, ${credit[0].clientId}, ${day}::date, 'cliente', 'aberta')
-        `;
+      if (!credits.length) throw new FormError("credito");
+      let cursor = order[0].day;
+      let lastCode = "ocupado";
+      for (const credit of credits) {
+        let day = firstWeekdayAfter(cursor, weekday);
+        let placed = false;
+        for (let attempt = 0; attempt < 26; attempt++) {
+          const result = await placePackageCredit(tx, {
+            accountId: user.accountId,
+            actorId: user.id,
+            creditId: credit.id,
+            professionalId,
+            day,
+            start,
+          });
+          if (result.ok) {
+            cursor = day;
+            placed = true;
+            break;
+          }
+          lastCode = result.code;
+          if (!SKIP_SLOT.has(result.code)) throw new FormError(result.code);
+          day = shiftDay(day, 7);
+        }
+        if (!placed) throw new FormError(lastCode);
       }
-      const appointmentId = randomUUID();
-      const lineId = randomUUID();
-      const commission = Math.round(credit[0].internalPriceCents * offer[0].commissionPercent / 100);
-      await tx`
-        INSERT INTO appointments (
-          id, account_id, professional_id, client_id, service_id, order_id,
-          starts_at, ends_at, status, encaixe, kind
-        ) VALUES (
-          ${appointmentId}, ${user.accountId}, ${professionalId}, ${credit[0].clientId}, ${credit[0].serviceId}, ${targetId},
-          ${startsAt}, ${endsAt}, 'agendado', false, 'horario'
-        )
-      `;
-      await tx`
-        INSERT INTO order_lines (
-          id, account_id, order_id, appointment_id, kind, service_id, professional_id,
-          description, qty, price_cents, list_price_cents, commission_percent, commission_cents, package_credit_id
-        ) VALUES (
-          ${lineId}, ${user.accountId}, ${targetId}, ${appointmentId}, 'servico', ${credit[0].serviceId}, ${professionalId},
-          ${credit[0].serviceName}, 1, 0, ${offer[0].priceCents}, ${offer[0].commissionPercent}, ${commission}, ${creditId}
-        )
-      `;
-      await tx`
-        UPDATE package_credits
-        SET status = 'agendado', order_line_id = ${lineId}, used_on = NULL
-        WHERE id = ${creditId}
-      `;
-      await writeEvent(tx, {
-        accountId: user.accountId,
-        orderId: targetId,
-        lineId,
-        appointmentId,
-        actorId: user.id,
-        kind: "valor",
-        summary: `Marcou ${credit[0].serviceName} do pacote em ${day} ${start}–${end}. Cobrança zerada. Comissão ${formatReais(commission)} sobre o interno ${formatReais(credit[0].internalPriceCents)}.`,
-        beforeCents: offer[0].priceCents,
-        afterCents: 0,
-      });
     });
     return `/comandas/${orderId}`;
   });

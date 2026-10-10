@@ -335,6 +335,7 @@ export default async function OrderPage({
                   return {
                     id: visit.id,
                     serviceId: visit.serviceId,
+                    serviceName: visit.serviceName,
                     label: same.length > 1 ? `${visit.serviceName} · ${place}` : visit.serviceName,
                   };
                 })}
