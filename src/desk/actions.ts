@@ -1883,9 +1883,10 @@ export async function removeLine(formData: FormData) {
   const lineId = idOrNull(String(formData.get("line") ?? ""));
   return settle(`/comandas/${orderId}`, async () => {
     if (!lineId) throw new FormError("dados");
-    await db().begin(async (tx) => {
-      const order = await tx<{ status: string }[]>`
-        SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+    const next = await db().begin(async (tx) => {
+      const order = await tx<{ status: string; incomplete: boolean; day: string }[]>`
+        SELECT status, incomplete, to_char(day, 'YYYY-MM-DD') AS day
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.status !== "aberta") throw new FormError("fechada");
       const line = await tx<{
@@ -2023,8 +2024,19 @@ export async function removeLine(formData: FormData) {
           WHERE id = ${line[0].appointmentId} AND account_id = ${user.accountId}
         `;
       }
+      const left = await tx`SELECT id FROM order_lines WHERE order_id = ${orderId} LIMIT 1`;
+      const paid = await tx`SELECT id FROM payments WHERE order_id = ${orderId} LIMIT 1`;
+      if (order[0].incomplete && !left.length && !paid.length) {
+        await tx`
+          DELETE FROM appointments
+          WHERE order_id = ${orderId} AND account_id = ${user.accountId} AND status = 'cancelado'
+        `;
+        await tx`DELETE FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}`;
+        return `/comandas?dia=${order[0].day}`;
+      }
+      return `/comandas/${orderId}`;
     });
-    return `/comandas/${orderId}`;
+    return next;
   });
 }
 
