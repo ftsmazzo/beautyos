@@ -33,7 +33,7 @@ export async function listBankLines(accountId: string, bankId: string) {
   return db()<BankLine[]>`
     SELECT id, description, party_name AS "partyName", amount_cents AS "amountCents", paid
     FROM (
-      SELECT p.id, p.description, p.party_name, -p.amount_cents,
+      SELECT p.id, p.description, p.party_name, -p.amount_cents AS amount_cents,
              to_char(p.paid_on, 'DD/MM/YYYY') AS paid, p.paid_on AS sort_on, p.installment_index AS sort_n
       FROM payables p
       WHERE p.account_id = ${accountId} AND p.bank_account_id = ${bankId} AND p.paid_on IS NOT NULL
