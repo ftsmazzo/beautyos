@@ -34,6 +34,11 @@ export default async function OrdersPage({
         <Link className="btn" href={`/agenda?dia=${day}`}>
           Agenda do dia
         </Link>
+        {user.role === "administrador" || user.role === "balcao" ? (
+          <Link className="btn quiet" href="/pacotes/vendidos">
+            Prazos dos pacotes
+          </Link>
+        ) : null}
       </div>
       <div className="card">
         {orders.length === 0 ? <p>Nenhuma comanda neste dia.</p> : null}
@@ -55,6 +60,7 @@ export default async function OrdersPage({
                   <td>
                     <strong>{order.kind === "consumo" ? `Consumo · ${order.professionalName ?? "profissional"}` : order.clientName ?? "Sem nome"}</strong>
                     {order.phone ? <div>{formatPhone(order.phone)}</div> : null}
+                    {order.packageNote ? <div>{order.packageNote}</div> : null}
                     {order.incomplete ? <div>Cadastro pendente</div> : null}
                   </td>
                   <td>{order.kind === "consumo" ? "Consumo" : "Cliente"}</td>

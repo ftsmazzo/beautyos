@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireDesk } from "@/catalog/access";
-import { centsToInput, formatDay, formatPhone, formatReais } from "@/catalog/format";
+import { centsToInput, formatDay, formatPhone, formatReais, packageDeadline } from "@/catalog/format";
 import {
   addConsumption,
   addPayment,
@@ -88,6 +88,12 @@ export default async function OrderPage({
               {order.fromOutside ? " · De fora" : ""}
               {order.incomplete ? " · Cadastro pendente" : ""}
             </p>
+            {held.map((item) => (
+              <p key={item.id}>
+                {item.name} · {packageDeadline(item)}
+                {item.pardons > 0 ? " · já houve perdão" : ""}
+              </p>
+            ))}
           </div>
           <div>
             <p>Total {formatReais(total)}</p>
@@ -318,8 +324,7 @@ export default async function OrderPage({
             return (
               <div key={item.id}>
                 <p>
-                  {item.name} · {item.used} de {item.total} usadas
-                  {item.started && item.validUntil ? ` · válido até ${item.validUntil}` : " · prazo ainda não começou"}
+                  {item.name} · {item.used} de {item.total} usadas · {packageDeadline(item)}
                 </p>
                 {warned ? (
                   <p>

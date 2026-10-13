@@ -18,6 +18,7 @@ const CATALOG = [
   { href: "/clientes", label: "Clientes" },
   { href: "/produtos", label: "Produtos" },
   { href: "/pacotes", label: "Pacotes" },
+  { href: "/pacotes/vendidos", label: "Vendidos" },
 ];
 
 function NavIcon({ href }: { href: string }) {
@@ -49,7 +50,7 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/produtos") {
     return <svg {...common}><path d="M3 8l9-4 9 4-9 4-9-4z" /><path d="M3 8v8l9 4 9-4V8" /><path d="M12 12v8" /></svg>;
   }
-  if (href === "/pacotes") {
+  if (href === "/pacotes" || href === "/pacotes/vendidos") {
     return <svg {...common}><path d="M8 7h11v12H8z" /><path d="M5 4h11v3" /></svg>;
   }
   return <svg {...common}><rect x="6" y="10" width="12" height="9" rx="1.5" /><path d="M8 10V8a4 4 0 0 1 8 0v2" /></svg>;

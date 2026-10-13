@@ -22,6 +22,9 @@ export default async function PackagesPage({
         <Link className="btn" href="/pacotes/novo">
           Novo pacote
         </Link>
+        <Link className="btn quiet" href="/pacotes/vendidos">
+          Pacotes vendidos
+        </Link>
       </div>
       <div className="card">
         {packages.length === 0 ? <p>Nenhum pacote ainda.</p> : null}

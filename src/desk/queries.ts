@@ -127,11 +127,37 @@ export async function dayOrders(accountId: string, day: string, professionalId: 
     professionalName: string | null;
     totalCents: number;
     paidCents: number;
+    packageNote: string | null;
   }[]>`
     SELECT o.id, c.name AS "clientName", c.phone, o.kind, o.status, o.incomplete,
            p.name AS "professionalName",
            COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
-           COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents"
+           COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents",
+           (
+             SELECT string_agg(note, ' · ' ORDER BY sort NULLS LAST)
+             FROM (
+               SELECT
+                 cp.name || CASE
+                   WHEN cp.valid_until IS NULL THEN ' · prazo ainda não começou'
+                   WHEN cp.valid_until < ${day}::date OR EXISTS (
+                     SELECT 1
+                     FROM package_credits cr
+                     JOIN order_lines ol ON ol.id = cr.order_line_id
+                     JOIN appointments ap ON ap.id = ol.appointment_id AND ap.status <> 'cancelado'
+                     WHERE cr.client_package_id = cp.id
+                       AND (ap.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
+                   ) THEN ' · vencido em ' || to_char(cp.valid_until, 'DD/MM/YYYY')
+                   ELSE ' · válido até ' || to_char(cp.valid_until, 'DD/MM/YYYY')
+                 END || CASE
+                   WHEN EXISTS (SELECT 1 FROM package_pardons pp WHERE pp.client_package_id = cp.id)
+                     THEN ' · já houve perdão'
+                   ELSE ''
+                 END AS note,
+                 cp.valid_until AS sort
+               FROM client_packages cp
+               WHERE cp.account_id = o.account_id AND cp.client_id = o.client_id AND cp.status = 'ativo'
+             ) notes
+           ) AS "packageNote"
     FROM orders o
     LEFT JOIN clients c ON c.id = o.client_id
     LEFT JOIN professionals p ON p.id = o.professional_id
@@ -326,6 +352,107 @@ export async function packageVisits(accountId: string, clientId: string) {
     LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
     WHERE cp.account_id = ${accountId} AND cp.client_id = ${clientId} AND cp.status = 'ativo'
     ORDER BY cp.created_at, c.position
+  `;
+}
+
+export type SoldPackage = {
+  id: string;
+  clientName: string;
+  phone: string | null;
+  name: string;
+  priceCents: number;
+  status: string;
+  validUntil: string | null;
+  started: boolean;
+  expired: boolean;
+  late: boolean;
+  pardons: number;
+  total: number;
+  used: number;
+  waiting: boolean;
+  nextVisit: string | null;
+  orderId: string | null;
+};
+
+export async function soldPackages(accountId: string, day: string) {
+  return db()<SoldPackage[]>`
+    SELECT cp.id, c.name AS "clientName", c.phone, cp.name, cp.price_cents AS "priceCents", cp.status,
+           to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntil",
+           cp.first_used_on IS NOT NULL AS started,
+           (cp.valid_until IS NOT NULL AND cp.valid_until < ${day}::date) AS expired,
+           EXISTS (
+             SELECT 1
+             FROM package_credits cr
+             JOIN order_lines l ON l.id = cr.order_line_id
+             JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+             WHERE cr.client_package_id = cp.id
+               AND cp.valid_until IS NOT NULL
+               AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
+           ) AS late,
+           (SELECT count(*) FROM package_pardons p WHERE p.client_package_id = cp.id)::int AS pardons,
+           (SELECT count(*) FROM package_credits cr WHERE cr.client_package_id = cp.id)::int AS total,
+           (SELECT count(*) FROM package_credits cr WHERE cr.client_package_id = cp.id AND cr.status = 'usado')::int AS used,
+           EXISTS (
+             SELECT 1 FROM package_credits cr
+             WHERE cr.client_package_id = cp.id AND cr.status = 'falta_agendar'
+           ) AS waiting,
+           COALESCE(
+             (
+               SELECT to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI')
+                      || ' · ' || COALESCE(pr.name, 'sem profissional')
+               FROM package_credits cr
+               JOIN order_lines l ON l.id = cr.order_line_id
+               JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+               LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
+               WHERE cr.client_package_id = cp.id AND cr.status <> 'usado'
+               ORDER BY a.starts_at
+               LIMIT 1
+             ),
+             CASE WHEN EXISTS (
+               SELECT 1 FROM package_credits cr
+               WHERE cr.client_package_id = cp.id AND cr.status = 'falta_agendar'
+             ) THEN 'falta agendar' END
+           ) AS "nextVisit",
+           cp.order_id AS "orderId"
+    FROM client_packages cp
+    JOIN clients c ON c.id = cp.client_id
+    WHERE cp.account_id = ${accountId}
+    ORDER BY cp.valid_until NULLS LAST, c.name
+  `;
+}
+
+export async function soldPackage(accountId: string, id: string, day: string) {
+  const rows = await soldPackages(accountId, day);
+  return rows.find((row) => row.id === id) ?? null;
+}
+
+export async function soldPackageVisits(accountId: string, id: string) {
+  return db()<{
+    id: string;
+    serviceName: string;
+    status: string;
+    when: string | null;
+    professionalName: string | null;
+    orderId: string | null;
+    late: boolean;
+  }[]>`
+    SELECT cr.id, s.name AS "serviceName", cr.status,
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS "when",
+           pr.name AS "professionalName",
+           l.order_id AS "orderId",
+           (
+             cp.valid_until IS NOT NULL
+             AND a.starts_at IS NOT NULL
+             AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
+           ) AS late
+    FROM package_credits cr
+    JOIN client_packages cp ON cp.id = cr.client_package_id
+    JOIN services s ON s.id = cr.service_id
+    LEFT JOIN order_lines l ON l.id = cr.order_line_id
+    LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+    LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
+    WHERE cp.account_id = ${accountId} AND cp.id = ${id}
+    ORDER BY cr.position
   `;
 }
 

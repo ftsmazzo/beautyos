@@ -61,6 +61,17 @@ export function todaySaoPaulo() {
   }).format(new Date());
 }
 
+export function packageDeadline(item: {
+  started: boolean;
+  validUntil: string | null;
+  expired: boolean;
+  late: boolean;
+}) {
+  if (!item.started || !item.validUntil) return "prazo ainda não começou";
+  if (item.expired || item.late) return `vencido em ${item.validUntil}`;
+  return `válido até ${item.validUntil}`;
+}
+
 export function formatDay(value: string) {
   const [year, month, day] = value.slice(0, 10).split("-");
   if (!year || !month || !day) return value;
