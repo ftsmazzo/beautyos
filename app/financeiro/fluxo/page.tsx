@@ -3,7 +3,7 @@ import { requireAdmin } from "@/catalog/access";
 import { formatDay, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { WEEKDAYS } from "@/catalog/labels";
 import { shiftDay, shiftMonth, weekdayOf } from "@/desk/clock";
-import { listFlowGroups, listOutflowDays, listResultGroups } from "@/finance/queries";
+import { listFlowGroups, listOutflowDays, listOutflowMonths, listResultGroups } from "@/finance/queries";
 import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
 
@@ -42,6 +42,46 @@ function daysOfMonth(start: string, next: string) {
     cursor = shiftDay(cursor, 1);
   }
   return days;
+}
+
+function monthsEnding(month: string) {
+  const keys: string[] = [];
+  let cursor = shiftMonth(`${month}-01`, -11);
+  while (cursor.slice(0, 7) <= month) {
+    keys.push(cursor.slice(0, 7));
+    cursor = shiftMonth(cursor, 1);
+  }
+  return keys;
+}
+
+function MonthTable({ rows }: { rows: { month: string; totalCents: number }[] }) {
+  const total = rows.reduce((sum, row) => sum + row.totalCents, 0);
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Mês</th>
+          <th>Saídas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.month}>
+            <td>
+              <Link href={`/financeiro/fluxo?mes=${row.month}`}>{monthLabel(row.month)}</Link>
+            </td>
+            <td>{formatReais(row.totalCents)}</td>
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>Total</td>
+          <td>{formatReais(total)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  );
 }
 
 function DayTable({ rows }: { rows: { day: string; totalCents: number }[] }) {
@@ -122,19 +162,23 @@ export default async function FluxoPage({
   const next = shiftMonth(start, 1);
   const previous = shiftMonth(start, -1).slice(0, 7);
   const following = next.slice(0, 7);
-  const [flow, result, moved] = await Promise.all([
+  const windowStart = shiftMonth(start, -11);
+  const [flow, result, moved, movedMonths] = await Promise.all([
     listFlowGroups(user.accountId, start, next),
     listResultGroups(user.accountId, start, next),
     listOutflowDays(user.accountId, start, next),
+    listOutflowMonths(user.accountId, windowStart, next),
   ]);
   const byDay = new Map(moved.map((row) => [row.day, row.totalCents]));
   const days = daysOfMonth(start, next).map((day) => ({ day, totalCents: byDay.get(day) ?? 0 }));
+  const byMonth = new Map(movedMonths.map((row) => [row.day, row.totalCents]));
+  const months = monthsEnding(month).map((key) => ({ month: key, totalCents: byMonth.get(key) ?? 0 }));
 
   return (
     <Panel user={user} current="/financeiro" title="Fluxo e resultado">
       <FinanceNav current="fluxo" />
       <p className="muted">
-        {monthLabel(month)}. Cada dia mostra o que saiu do banco. O mesmo total aparece de novo pelo grupo do plano. O caixa do balcão continua separado.
+        {monthLabel(month)}. Cada dia mostra o que saiu do banco. Os doze meses terminam neste mês. O mesmo total do mês aparece de novo pelo grupo do plano. O caixa do balcão continua separado.
       </p>
       <div className="row">
         <Link className="btn quiet" href={`/financeiro/fluxo?mes=${previous}`}>
@@ -144,6 +188,8 @@ export default async function FluxoPage({
           Mês seguinte
         </Link>
       </div>
+      <h2>Doze meses</h2>
+      <MonthTable rows={months} />
       <h2>Dia a dia</h2>
       <DayTable rows={days} />
       <h2>Fluxo</h2>

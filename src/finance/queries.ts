@@ -107,6 +107,30 @@ export function listResultGroups(accountId: string, start: string, next: string)
 
 export type DayTotal = { day: string; totalCents: number };
 
+export function listOutflowMonths(accountId: string, start: string, next: string) {
+  return db()<DayTotal[]>`
+    SELECT to_char(paid_on, 'YYYY-MM') AS day, SUM(amount_cents)::int AS "totalCents"
+    FROM (
+      SELECT paid_on, amount_cents
+      FROM payables
+      WHERE account_id = ${accountId}
+        AND bank_account_id IS NOT NULL
+        AND credit_card_id IS NULL
+        AND paid_on >= ${start}::date
+        AND paid_on < ${next}::date
+      UNION ALL
+      SELECT s.paid_on, p.amount_cents
+      FROM payables p
+      JOIN card_settlements s ON s.id = p.card_settlement_id
+      WHERE p.account_id = ${accountId}
+        AND s.paid_on >= ${start}::date
+        AND s.paid_on < ${next}::date
+    ) lines
+    GROUP BY to_char(paid_on, 'YYYY-MM')
+    ORDER BY 1
+  `;
+}
+
 export function listOutflowDays(accountId: string, start: string, next: string) {
   return db()<DayTotal[]>`
     SELECT to_char(paid_on, 'YYYY-MM-DD') AS day, SUM(amount_cents)::int AS "totalCents"
