@@ -3,6 +3,7 @@ import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listPayables, type PayableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
+import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
@@ -64,14 +65,7 @@ export default async function FinancePage({
   return (
     <Panel user={user} current="/financeiro" title="Contas a pagar">
       <p>Estas contas não entram no caixa do balcão.</p>
-      <div className="row">
-        <Link className="btn" href="/financeiro">
-          A pagar
-        </Link>
-        <Link className="btn quiet" href="/financeiro/receber">
-          A receber
-        </Link>
-      </div>
+      <FinanceNav current="pagar" />
       <div className="row">
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro?filtro=${item.id}`}>

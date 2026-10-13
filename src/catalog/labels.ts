@@ -38,6 +38,7 @@ export const FORM_ERRORS: Record<string, string> = {
   nota: "Essa nota desse fornecedor já entrou.",
   linha: "A mesma nota não repete o produto.",
   bandeira: "No cartão, informe a bandeira.",
+  banco: "Já existe um banco com esse nome.",
   soma: "Inclua um serviço e o preço interno de cada ida.",
   desconto: "O desconto precisa do dia e do valor, com o horário completo ou o dia inteiro.",
   insumo: "O insumo precisa do produto e da quantidade.",

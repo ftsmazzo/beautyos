@@ -220,6 +220,24 @@ async function ensureSchema() {
     ON payables (purchase_id, installment_index)
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS bank_accounts (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      institution text,
+      kind text NOT NULL CHECK (kind IN ('corrente', 'poupanca', 'outro')),
+      code text,
+      opening_cents integer NOT NULL DEFAULT 0,
+      opening_on date,
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS bank_accounts_name_uidx
+    ON bank_accounts (account_id, lower(name))
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS product_components (
       product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       component_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,

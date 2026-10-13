@@ -3,6 +3,7 @@ import { requireAdmin } from "@/catalog/access";
 import { formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listReceivables, type ReceivableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
+import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
@@ -51,14 +52,7 @@ export default async function ReceivablesPage({
   return (
     <Panel user={user} current="/financeiro" title="Contas a receber">
       <p>O que o cliente ainda deve. O recebimento continua na comanda e entra no caixa do dia.</p>
-      <div className="row">
-        <Link className="btn quiet" href="/financeiro">
-          A pagar
-        </Link>
-        <Link className="btn" href="/financeiro/receber">
-          A receber
-        </Link>
-      </div>
+      <FinanceNav current="receber" />
       <div className="row">
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro/receber?filtro=${item.id}`}>
