@@ -6,6 +6,7 @@ const LINKS = [
   { id: "bancos", href: "/financeiro/bancos", label: "Bancos" },
   { id: "cartoes", href: "/financeiro/cartoes", label: "Cartões" },
   { id: "plano", href: "/financeiro/plano", label: "Plano" },
+  { id: "fluxo", href: "/financeiro/fluxo", label: "Fluxo" },
 ] as const;
 
 export function FinanceNav({ current }: { current: (typeof LINKS)[number]["id"] }) {

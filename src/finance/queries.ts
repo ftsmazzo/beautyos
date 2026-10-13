@@ -48,6 +48,63 @@ export async function listBankLines(accountId: string, bankId: string) {
   `;
 }
 
+export type GroupTotal = { group: string; totalCents: number };
+
+function outflowGroups(accountId: string, start: string, next: string, kind: "dfc" | "dre") {
+  const lines = db()`
+    SELECT amount_cents, chart_account_id
+    FROM payables
+    WHERE account_id = ${accountId}
+      AND bank_account_id IS NOT NULL
+      AND credit_card_id IS NULL
+      AND paid_on >= ${start}::date
+      AND paid_on < ${next}::date
+    UNION ALL
+    SELECT p.amount_cents, p.chart_account_id
+    FROM payables p
+    JOIN card_settlements s ON s.id = p.card_settlement_id
+    WHERE p.account_id = ${accountId}
+      AND s.paid_on >= ${start}::date
+      AND s.paid_on < ${next}::date
+  `;
+  if (kind === "dfc") {
+    return db()<GroupTotal[]>`
+      SELECT
+        CASE
+          WHEN c.id IS NULL THEN 'Sem conta'
+          WHEN c.dfc_group_1 IS NULL AND c.dfc_group_2 IS NULL THEN 'Sem grupo'
+          ELSE btrim(concat(c.dfc_group_1, CASE WHEN c.dfc_group_1 IS NOT NULL AND c.dfc_group_2 IS NOT NULL THEN ' / ' ELSE '' END, COALESCE(c.dfc_group_2, '')))
+        END AS "group",
+        SUM(lines.amount_cents)::int AS "totalCents"
+      FROM (${lines}) lines
+      LEFT JOIN chart_accounts c ON c.id = lines.chart_account_id
+      GROUP BY 1
+      ORDER BY 1
+    `;
+  }
+  return db()<GroupTotal[]>`
+    SELECT
+      CASE
+        WHEN c.id IS NULL THEN 'Sem conta'
+        WHEN c.dre_group_1 IS NULL AND c.dre_group_2 IS NULL THEN 'Sem grupo'
+        ELSE btrim(concat(c.dre_group_1, CASE WHEN c.dre_group_1 IS NOT NULL AND c.dre_group_2 IS NOT NULL THEN ' / ' ELSE '' END, COALESCE(c.dre_group_2, '')))
+      END AS "group",
+      SUM(lines.amount_cents)::int AS "totalCents"
+    FROM (${lines}) lines
+    LEFT JOIN chart_accounts c ON c.id = lines.chart_account_id
+    GROUP BY 1
+    ORDER BY 1
+  `;
+}
+
+export function listFlowGroups(accountId: string, start: string, next: string) {
+  return outflowGroups(accountId, start, next, "dfc");
+}
+
+export function listResultGroups(accountId: string, start: string, next: string) {
+  return outflowGroups(accountId, start, next, "dre");
+}
+
 export type ChartRow = {
   id: string;
   code: string;
