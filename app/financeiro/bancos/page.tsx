@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { deleteBank, saveBank } from "@/finance/actions";
-import { listBanks } from "@/finance/queries";
+import { listBankLines, listBanks } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
@@ -18,11 +19,14 @@ const KINDS: Record<string, string> = {
 export default async function BanksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; erro?: string }>;
+  searchParams: Promise<{ ok?: string; erro?: string; banco?: string }>;
 }) {
   const user = await requireAdmin();
   const query = await searchParams;
   const banks = await listBanks(user.accountId);
+  const selected = banks.find((bank) => bank.id === query.banco) ?? banks[0] ?? null;
+  const lines = selected ? await listBankLines(user.accountId, selected.id) : [];
+  const balance = (selected?.openingCents ?? 0) - lines.reduce((sum, line) => sum + line.amountCents, 0);
 
   return (
     <Panel user={user} current="/financeiro" title="Bancos">
@@ -100,6 +104,44 @@ export default async function BanksPage({
           </table>
         ) : null}
       </div>
+      {selected ? (
+        <div className="card">
+          <h2>Extrato · {selected.name}</h2>
+          <div className="row">
+            {banks.map((bank) => (
+              <Link key={bank.id} className={bank.id === selected.id ? "btn" : "btn quiet"} href={`/financeiro/bancos?banco=${bank.id}`}>
+                {bank.name}
+              </Link>
+            ))}
+          </div>
+          <p>
+            Abertura {formatReais(selected.openingCents)} · Saldo {formatReais(balance)}
+          </p>
+          {lines.length === 0 ? <p>Nenhum lançamento neste banco.</p> : null}
+          {lines.length > 0 ? (
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Fornecedor</th>
+                  <th>Saída</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => (
+                  <tr key={line.id}>
+                    <td>{line.paid}</td>
+                    <td>{line.description}</td>
+                    <td>{line.partyName}</td>
+                    <td>{formatReais(-line.amountCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </div>
+      ) : null}
     </Panel>
   );
 }

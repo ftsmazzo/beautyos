@@ -7,10 +7,12 @@ import { SubmitButton } from "@/ui/submit-button";
 export function PurchaseForm({
   products,
   suppliers,
+  banks,
   today,
 }: {
   products: { id: string; name: string }[];
   suppliers: { id: string; name: string; city: string | null }[];
+  banks: { id: string; name: string }[];
   today: string;
 }) {
   const [rows, setRows] = useState([0]);
@@ -125,9 +127,22 @@ export function PurchaseForm({
                   <input name="brand" required minLength={2} placeholder="Visa, Master, Elo" />
                 </label>
               ) : null}
+              {banks.length > 0 ? (
+                <label>
+                  Banco
+                  <select name="bank" defaultValue="">
+                    <option value="">Fora do extrato</option>
+                    {banks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
             </div>
           ) : null}
-          <p>A conta fica no financeiro. Não sai do caixa do balcão.</p>
+          <p>A conta fica no financeiro. Se o banco estiver escolhido, a baixa entra no extrato. Não sai do caixa do balcão.</p>
         </>
       ) : null}
       <SubmitButton label="Lançar compra" pendingLabel="Lançando…" />

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listProducts, listPurchases, listSuppliers } from "@/catalog/queries";
+import { listBanks } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 import { PurchaseForm } from "@/ui/purchase-form";
@@ -17,6 +18,7 @@ export default async function PurchasePage({
   const query = await searchParams;
   const products = (await listProducts(user.accountId)).filter((product) => product.active);
   const suppliers = await listSuppliers(user.accountId);
+  const banks = await listBanks(user.accountId);
   const purchases = await listPurchases(user.accountId);
 
   return (
@@ -35,6 +37,7 @@ export default async function PurchasePage({
           <PurchaseForm
             products={products.map((product) => ({ id: product.id, name: product.name }))}
             suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, city: supplier.city }))}
+            banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
             today={todaySaoPaulo()}
           />
         </>

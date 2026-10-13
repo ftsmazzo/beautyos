@@ -6,7 +6,7 @@ export function ErrorNote({ code }: { code?: string }) {
 }
 
 export function SavedNote({ code }: { code?: string }) {
-  if (code !== "salvo" && code !== "movimento" && code !== "compra" && code !== "banco") return null;
+  if (code !== "salvo" && code !== "movimento" && code !== "compra" && code !== "banco" && code !== "baixa") return null;
   const text =
     code === "compra"
       ? "Compra lançada no estoque."
@@ -14,6 +14,8 @@ export function SavedNote({ code }: { code?: string }) {
         ? "Movimento lançado no estoque."
         : code === "banco"
           ? "Banco salvo."
-          : "Cadastro salvo.";
+          : code === "baixa"
+            ? "Baixa lançada no banco."
+            : "Cadastro salvo.";
   return <p className="ok banner">{text}</p>;
 }

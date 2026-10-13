@@ -3,8 +3,11 @@ import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listPayables, type PayableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
+import { listBanks } from "@/finance/queries";
+import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
+import { PayableSettle } from "@/ui/payable-settle";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +50,14 @@ function situationLabel(value: string) {
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtro?: string }>;
+  searchParams: Promise<{ filtro?: string; ok?: string; erro?: string }>;
 }) {
   const user = await requireAdmin();
   const query = await searchParams;
   const filter: FilterId = isFilter(query.filtro) ? query.filtro : "abertos";
   const today = todaySaoPaulo();
   const week = shiftDay(today, 7);
+  const banks = (await listBanks(user.accountId)).map((bank) => ({ id: bank.id, name: bank.name }));
   const rows = (await listPayables(user.accountId)).filter((row) => {
     const state = situation(row, today, week);
     if (filter === "todos") return true;
@@ -64,7 +68,9 @@ export default async function FinancePage({
 
   return (
     <Panel user={user} current="/financeiro" title="Contas a pagar">
-      <p>Estas contas não entram no caixa do balcão.</p>
+      <SavedNote code={query.ok} />
+      <ErrorNote code={query.erro} />
+      <p>Estas contas não entram no caixa do balcão. A baixa sai do banco escolhido.</p>
       <FinanceNav current="pagar" />
       <div className="row">
         {FILTERS.map((item) => (
@@ -89,6 +95,7 @@ export default async function FinancePage({
                 <th>Valor</th>
                 <th>Situação</th>
                 <th>Forma</th>
+                <th>Banco</th>
               </tr>
             </thead>
             <tbody>
@@ -106,6 +113,13 @@ export default async function FinancePage({
                     <td>{formatReais(row.amountCents)}</td>
                     <td>{situationLabel(state)}{row.paid ? ` · ${row.paid}` : ""}</td>
                     <td>{method}{row.cardBrand ? ` · ${row.cardBrand}` : ""}</td>
+                    <td>
+                      {row.bankName ? (
+                        row.bankName
+                      ) : (
+                        <PayableSettle id={row.id} banks={banks} today={today} paid={Boolean(row.paid)} />
+                      )}
+                    </td>
                   </tr>
                 );
               })}

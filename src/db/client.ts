@@ -238,6 +238,9 @@ async function ensureSchema() {
     ON bank_accounts (account_id, lower(name))
   `;
   await sql`
+    ALTER TABLE payables ADD COLUMN IF NOT EXISTS bank_account_id uuid REFERENCES bank_accounts(id)
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS product_components (
       product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       component_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,

@@ -216,6 +216,7 @@ export async function savePurchase(formData: FormData) {
     const paid = checked(formData, "paid");
     let method = String(formData.get("method") ?? "");
     let brand = textOrNull(formData.get("brand"));
+    let bankId = String(formData.get("bank") ?? "");
     if (bill) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || times == null || times < 1 || times > 36) throw new FormError("dados");
       if (paid && !PAYABLE_METHODS.includes(method)) throw new FormError("dados");
@@ -225,6 +226,7 @@ export async function savePurchase(formData: FormData) {
       if (!paid) {
         method = "";
         brand = null;
+        bankId = "";
       } else if (method !== "debito" && method !== "credito") {
         brand = null;
       }
@@ -297,6 +299,11 @@ export async function savePurchase(formData: FormData) {
         `;
       }
       if (bill && times != null) {
+        if (bankId) {
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bankId)) throw new FormError("dados");
+          const bank = await tx`SELECT id FROM bank_accounts WHERE id = ${bankId} AND account_id = ${user.accountId} AND active`;
+          if (!bank.length) throw new FormError("fora");
+        }
         const totalCents = lines.reduce((sum, line) => sum + line.qty * line.costCents, 0);
         const party = await tx<{ name: string }[]>`SELECT name FROM suppliers WHERE id = ${supplierId}`;
         const partyName = party[0]?.name ?? "Fornecedor";
@@ -308,7 +315,7 @@ export async function savePurchase(formData: FormData) {
             INSERT INTO payables (
               id, account_id, purchase_id, supplier_id, description, party_name,
               amount_cents, due_on, installment_index, installment_total,
-              method, card_brand, paid_on, created_by
+              method, card_brand, paid_on, bank_account_id, created_by
             )
             VALUES (
               ${randomUUID()}, ${user.accountId}, ${purchaseId}, ${supplierId},
@@ -316,7 +323,7 @@ export async function savePurchase(formData: FormData) {
               ${partyName}, ${amount}, ${shiftMonth(due, index - 1)}::date,
               ${index}, ${times},
               ${paid ? method : null}, ${paid ? brand : null}, ${paid ? day : null}::date,
-              ${user.id}
+              ${bankId || null}, ${user.id}
             )
           `;
         }

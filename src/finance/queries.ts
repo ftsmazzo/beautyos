@@ -20,3 +20,21 @@ export async function listBanks(accountId: string) {
     ORDER BY name
   `;
 }
+
+export type BankLine = {
+  id: string;
+  description: string;
+  partyName: string;
+  amountCents: number;
+  paid: string;
+};
+
+export async function listBankLines(accountId: string, bankId: string) {
+  return db()<BankLine[]>`
+    SELECT id, description, party_name AS "partyName", amount_cents AS "amountCents",
+           to_char(paid_on, 'DD/MM/YYYY') AS paid
+    FROM payables
+    WHERE account_id = ${accountId} AND bank_account_id = ${bankId} AND paid_on IS NOT NULL
+    ORDER BY paid_on, installment_index
+  `;
+}
