@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import type { TransactionSql } from "postgres";
 import { requireDesk, requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { digits, formatDay, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents } from "@/catalog/format";
+import { digits, formatDay, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents, todaySaoPaulo } from "@/catalog/format";
 import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
@@ -486,16 +486,32 @@ async function finishPackageVisit(tx: TransactionSql, accountId: string, appoint
 
 async function placePackageCredit(
   tx: TransactionSql,
-  input: { accountId: string; actorId: string; creditId: string; professionalId: string; day: string; start: string },
+  input: {
+    accountId: string;
+    actorId: string;
+    creditId: string;
+    professionalId: string;
+    day: string;
+    start: string;
+    consume?: boolean;
+    summary?: string;
+  },
 ) {
   const credit = await tx<{
     serviceId: string;
     serviceName: string;
     internalPriceCents: number;
     clientId: string;
+    clientPackageId: string;
+    validityDays: number;
+    started: boolean;
+    validUntil: string | null;
   }[]>`
     SELECT c.service_id AS "serviceId", s.name AS "serviceName",
-           c.internal_price_cents AS "internalPriceCents", cp.client_id AS "clientId"
+           c.internal_price_cents AS "internalPriceCents", cp.client_id AS "clientId",
+           cp.id AS "clientPackageId", cp.validity_days AS "validityDays",
+           cp.first_used_on IS NOT NULL AS started,
+           to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntil"
     FROM package_credits c
     JOIN client_packages cp ON cp.id = c.client_package_id
     JOIN services s ON s.id = c.service_id
@@ -503,6 +519,9 @@ async function placePackageCredit(
       AND c.status = 'falta_agendar' AND cp.status = 'ativo'
   `;
   if (!credit[0]) return { ok: false as const, code: "credito" };
+  if (input.consume && credit[0].validUntil && credit[0].validUntil < input.day) {
+    return { ok: false as const, code: "vencido" };
+  }
   const offer = await tx<{ durationMin: number; commissionPercent: number; priceCents: number }[]>`
     SELECT COALESCE(ps.duration_min, s.duration_min) AS "durationMin",
            COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent",
@@ -554,7 +573,7 @@ async function placePackageCredit(
       starts_at, ends_at, status, encaixe, kind
     ) VALUES (
       ${appointmentId}, ${input.accountId}, ${input.professionalId}, ${credit[0].clientId}, ${credit[0].serviceId}, ${targetId},
-      ${startsAt}, ${endsAt}, 'agendado', false, 'horario'
+      ${startsAt}, ${endsAt}, ${input.consume ? "realizado" : "agendado"}, false, 'horario'
     )
   `;
   await tx`
@@ -566,11 +585,34 @@ async function placePackageCredit(
       ${credit[0].serviceName}, 1, 0, ${offer[0].priceCents}, ${offer[0].commissionPercent}, ${commission}, ${input.creditId}
     )
   `;
-  await tx`
-    UPDATE package_credits
-    SET status = 'agendado', order_line_id = ${lineId}, used_on = NULL
-    WHERE id = ${input.creditId}
-  `;
+  if (input.consume) {
+    await tx`
+      UPDATE package_credits
+      SET status = 'usado', order_line_id = ${lineId}, used_on = ${input.day}::date
+      WHERE id = ${input.creditId}
+    `;
+    if (!credit[0].started) {
+      await tx`
+        UPDATE client_packages
+        SET first_used_on = ${input.day}::date,
+            valid_until = ${shiftDay(input.day, credit[0].validityDays)}::date
+        WHERE id = ${credit[0].clientPackageId} AND first_used_on IS NULL
+      `;
+    }
+    const left = await tx<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM package_credits
+      WHERE client_package_id = ${credit[0].clientPackageId} AND status <> 'usado'
+    `;
+    if ((left[0]?.n ?? 0) === 0) {
+      await tx`UPDATE client_packages SET status = 'concluido' WHERE id = ${credit[0].clientPackageId}`;
+    }
+  } else {
+    await tx`
+      UPDATE package_credits
+      SET status = 'agendado', order_line_id = ${lineId}, used_on = NULL
+      WHERE id = ${input.creditId}
+    `;
+  }
   await writeEvent(tx, {
     accountId: input.accountId,
     orderId: targetId,
@@ -578,11 +620,13 @@ async function placePackageCredit(
     appointmentId,
     actorId: input.actorId,
     kind: "valor",
-    summary: `Marcou ${credit[0].serviceName} do pacote em ${input.day} ${input.start}–${end}. Cobrança zerada. Comissão ${formatReais(commission)} sobre o interno ${formatReais(credit[0].internalPriceCents)}.`,
+    summary: input.summary ?? (input.consume
+      ? `Usou agora ${credit[0].serviceName} do pacote. Cobrança zerada. Comissão ${formatReais(commission)} sobre o interno ${formatReais(credit[0].internalPriceCents)}.`
+      : `Marcou ${credit[0].serviceName} do pacote em ${formatDay(input.day)} ${input.start}–${end}. Cobrança zerada. Comissão ${formatReais(commission)} sobre o interno ${formatReais(credit[0].internalPriceCents)}.`),
     beforeCents: offer[0].priceCents,
     afterCents: 0,
   });
-  return { ok: true as const, day: input.day, end, serviceName: credit[0].serviceName };
+  return { ok: true as const, day: input.day, end, serviceName: credit[0].serviceName, orderId: targetId, appointmentId };
 }
 
 const SKIP_SLOT = new Set(["ocupado", "fechada", "fechado", "almoco"]);
@@ -590,7 +634,9 @@ const SKIP_SLOT = new Set(["ocupado", "fechada", "fechado", "almoco"]);
 export async function schedulePackageVisit(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");
-  return settle(`/comandas/${orderId}`, async () => {
+  const packageId = idOrNull(String(formData.get("package") ?? ""));
+  const back = packageId ? `/pacotes/vendidos/${packageId}` : `/comandas/${orderId}`;
+  return settle(back, async () => {
     const creditId = idOrNull(String(formData.get("credit") ?? ""));
     const professionalId = idOrNull(String(formData.get("professional") ?? ""));
     const day = dayParam(String(formData.get("day") ?? ""));
@@ -607,7 +653,90 @@ export async function schedulePackageVisit(formData: FormData) {
       });
       if (!placed.ok) throw new FormError(placed.code);
     });
+    return back;
+  });
+}
+
+export async function usePackageVisitNow(formData: FormData) {
+  const user = await requireOperator();
+  const packageId = idOrNull(String(formData.get("package") ?? ""));
+  const back = packageId ? `/pacotes/vendidos/${packageId}` : "/pacotes/vendidos";
+  return settle(back, async () => {
+    const creditId = idOrNull(String(formData.get("credit") ?? ""));
+    const professionalId = idOrNull(String(formData.get("professional") ?? ""));
+    const start = String(formData.get("start") ?? "");
+    if (!creditId || !professionalId || !TIME.test(start)) throw new FormError("dados");
+    const orderId = await db().begin(async (tx) => {
+      const placed = await placePackageCredit(tx, {
+        accountId: user.accountId,
+        actorId: user.id,
+        creditId,
+        professionalId,
+        day: todaySaoPaulo(),
+        start,
+        consume: true,
+      });
+      if (!placed.ok) throw new FormError(placed.code);
+      return placed.orderId;
+    });
     return `/comandas/${orderId}`;
+  });
+}
+
+export async function movePackageVisit(formData: FormData) {
+  const user = await requireOperator();
+  const packageId = idOrNull(String(formData.get("package") ?? ""));
+  const back = packageId ? `/pacotes/vendidos/${packageId}` : "/pacotes/vendidos";
+  return settle(back, async () => {
+    const creditId = idOrNull(String(formData.get("credit") ?? ""));
+    const professionalId = idOrNull(String(formData.get("professional") ?? ""));
+    const day = dayParam(String(formData.get("day") ?? ""));
+    const start = String(formData.get("start") ?? "");
+    if (!creditId || !professionalId || !TIME.test(start)) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const current = await tx<{
+        lineId: string | null;
+        appointmentId: string | null;
+        orderId: string | null;
+        orderStatus: string | null;
+        when: string | null;
+        serviceName: string;
+      }[]>`
+        SELECT l.id AS "lineId", l.appointment_id AS "appointmentId", l.order_id AS "orderId",
+               o.status AS "orderStatus", s.name AS "serviceName",
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI') AS "when"
+        FROM package_credits c
+        JOIN client_packages cp ON cp.id = c.client_package_id
+        JOIN services s ON s.id = c.service_id
+        LEFT JOIN order_lines l ON l.id = c.order_line_id
+        LEFT JOIN orders o ON o.id = l.order_id
+        LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        WHERE c.id = ${creditId} AND c.account_id = ${user.accountId}
+          AND c.status = 'agendado' AND cp.status = 'ativo'
+      `;
+      if (!current[0]?.lineId) throw new FormError("credito");
+      if (current[0].orderStatus === "fechada") throw new FormError("fechada");
+      await tx`
+        UPDATE package_credits
+        SET status = 'falta_agendar', order_line_id = NULL, used_on = NULL
+        WHERE id = ${creditId}
+      `;
+      await tx`DELETE FROM order_lines WHERE id = ${current[0].lineId}`;
+      if (current[0].appointmentId) {
+        await tx`DELETE FROM appointments WHERE id = ${current[0].appointmentId} AND account_id = ${user.accountId}`;
+      }
+      const placed = await placePackageCredit(tx, {
+        accountId: user.accountId,
+        actorId: user.id,
+        creditId,
+        professionalId,
+        day,
+        start,
+        summary: `Remarcou ${current[0].serviceName} do pacote${current[0].when ? ` (era ${current[0].when})` : ""} para ${formatDay(day)} ${start}.`,
+      });
+      if (!placed.ok) throw new FormError(placed.code);
+    });
+    return back;
   });
 }
 

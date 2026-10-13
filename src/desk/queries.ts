@@ -429,15 +429,22 @@ export async function soldPackage(accountId: string, id: string, day: string) {
 export async function soldPackageVisits(accountId: string, id: string) {
   return db()<{
     id: string;
+    serviceId: string;
     serviceName: string;
     status: string;
     when: string | null;
+    day: string | null;
+    start: string | null;
+    professionalId: string | null;
     professionalName: string | null;
     orderId: string | null;
     late: boolean;
   }[]>`
-    SELECT cr.id, s.name AS "serviceName", cr.status,
+    SELECT cr.id, cr.service_id AS "serviceId", s.name AS "serviceName", cr.status,
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS "when",
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
+           COALESCE(a.professional_id, l.professional_id) AS "professionalId",
            pr.name AS "professionalName",
            l.order_id AS "orderId",
            (

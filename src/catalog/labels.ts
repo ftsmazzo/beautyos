@@ -52,5 +52,6 @@ export const FORM_ERRORS: Record<string, string> = {
   outra: "Esse pacote já teve visita usada em outra comanda.",
   credito: "Não há visita disponível desse serviço no pacote.",
   prazo: "Esse pacote não está vencido.",
+  vencido: "Esse pacote está vencido. Perdoe o prazo ou cobre a diferença.",
   diferenca: "Essa visita do pacote não dá para cobrar a diferença.",
 };
