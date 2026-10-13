@@ -6,7 +6,7 @@ export function ErrorNote({ code }: { code?: string }) {
 }
 
 export function SavedNote({ code }: { code?: string }) {
-  if (code !== "salvo" && code !== "movimento" && code !== "compra" && code !== "banco" && code !== "baixa" && code !== "cartao" && code !== "fatura" && code !== "titulo") return null;
+  if (code !== "salvo" && code !== "movimento" && code !== "compra" && code !== "banco" && code !== "baixa" && code !== "cartao" && code !== "fatura" && code !== "titulo" && code !== "encerra") return null;
   const text =
     code === "compra"
       ? "Compra lançada no estoque."
@@ -22,6 +22,8 @@ export function SavedNote({ code }: { code?: string }) {
                 ? "Fatura paga pelo banco."
                 : code === "titulo"
                   ? "Conta lançada."
-                  : "Cadastro salvo.";
+                  : code === "encerra"
+                    ? "A repetição parou."
+                    : "Cadastro salvo.";
   return <p className="ok banner">{text}</p>;
 }

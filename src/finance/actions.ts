@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto";
 import { requireAdmin } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { checked, parseIntField, parseReais, textOrNull } from "@/catalog/format";
+import { checked, parseIntField, parseReais, textOrNull, todaySaoPaulo } from "@/catalog/format";
 import { shiftMonth } from "@/desk/clock";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
@@ -314,6 +314,18 @@ export async function saveTitle(formData: FormData) {
         if (!chart.length) throw new FormError("fora");
         chartId = chartRaw;
       }
+      const recurrenceId = repeat ? randomUUID() : null;
+      if (recurrenceId) {
+        await tx`
+          INSERT INTO payable_recurrences (
+            id, account_id, description, party_name, amount_cents, anchor_on, chart_account_id, created_by
+          )
+          VALUES (
+            ${recurrenceId}, ${user.accountId}, ${description}, ${party}, ${amount},
+            ${due}::date, ${chartId}, ${user.id}
+          )
+        `;
+      }
       const base = Math.floor(amount / times);
       const rest = amount - base * times;
       for (let index = 1; index <= times; index += 1) {
@@ -327,12 +339,12 @@ export async function saveTitle(formData: FormData) {
         const thisPaid = paid && (!repeat || index === 1);
         await tx`
           INSERT INTO payables (
-            id, account_id, purchase_id, description, party_name,
+            id, account_id, purchase_id, recurrence_id, description, party_name,
             amount_cents, due_on, installment_index, installment_total,
             method, card_brand, paid_on, bank_account_id, credit_card_id, chart_account_id, created_by
           )
           VALUES (
-            ${randomUUID()}, ${user.accountId}, NULL, ${label}, ${party},
+            ${randomUUID()}, ${user.accountId}, NULL, ${recurrenceId}, ${label}, ${party},
             ${part}, ${dueOn}::date, ${repeat ? 1 : index}, ${repeat ? 1 : times},
             ${thisPaid ? method : null}, ${thisPaid && (method === "debito" || method === "credito") ? brand : null},
             ${thisPaid ? paidOn : null}::date, ${thisPaid ? bankId : null}, ${thisPaid ? cardId : null}, ${chartId}, ${user.id}
@@ -342,6 +354,70 @@ export async function saveTitle(formData: FormData) {
     });
     if (repeat && times > 1) return "/financeiro?ok=titulo&filtro=todos";
     return paid ? "/financeiro?ok=titulo&filtro=pago" : "/financeiro?ok=titulo";
+  });
+}
+
+export async function materializeRecurrences(accountId: string) {
+  const today = todaySaoPaulo();
+  const series = await db()<{
+    id: string;
+    description: string;
+    partyName: string;
+    amountCents: number;
+    anchorOn: string;
+    chartId: string | null;
+    createdBy: string | null;
+  }[]>`
+    SELECT id, description, party_name AS "partyName", amount_cents AS "amountCents",
+           to_char(anchor_on, 'YYYY-MM-DD') AS "anchorOn",
+           chart_account_id AS "chartId", created_by AS "createdBy"
+    FROM payable_recurrences
+    WHERE account_id = ${accountId} AND active
+  `;
+  for (const item of series) {
+    let cursor = item.anchorOn;
+    for (let guard = 0; guard < 36 && cursor <= today; guard += 1) {
+      const existing = await db()`
+        SELECT id FROM payables
+        WHERE recurrence_id = ${item.id} AND due_on = ${cursor}::date
+        LIMIT 1
+      `;
+      if (!existing.length) {
+        const label = `${item.description} · ${cursor.slice(5, 7)}/${cursor.slice(0, 4)}`;
+        try {
+          await db()`
+            INSERT INTO payables (
+              id, account_id, purchase_id, recurrence_id, description, party_name,
+              amount_cents, due_on, installment_index, installment_total,
+              chart_account_id, created_by
+            )
+            VALUES (
+              ${randomUUID()}, ${accountId}, NULL, ${item.id}, ${label}, ${item.partyName},
+              ${item.amountCents}, ${cursor}::date, 1, 1, ${item.chartId}, ${item.createdBy}
+            )
+          `;
+        } catch (error) {
+          const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+          if (code !== "23505") throw error;
+        }
+      }
+      cursor = shiftMonth(cursor, 1);
+    }
+  }
+}
+
+export async function stopRecurrence(formData: FormData) {
+  const user = await requireAdmin();
+  return settle("/financeiro", async () => {
+    const id = String(formData.get("id") ?? "");
+    if (!UUID.test(id)) throw new FormError("dados");
+    const updated = await db()`
+      UPDATE payable_recurrences SET active = false
+      WHERE id = ${id} AND account_id = ${user.accountId} AND active
+      RETURNING id
+    `;
+    if (!updated.length) throw new FormError("fora");
+    return "/financeiro?ok=encerra";
   });
 }
 

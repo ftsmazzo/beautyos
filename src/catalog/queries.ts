@@ -370,6 +370,8 @@ export type PayableRow = {
   cardName: string | null;
   chartName: string | null;
   manual: boolean;
+  recurrenceId: string | null;
+  recurrenceActive: boolean;
 };
 
 export type ReceivableRow = {
@@ -414,7 +416,9 @@ export async function listPayables(accountId: string) {
            credit_card_id AS "cardId",
            (SELECT c.name FROM credit_cards c WHERE c.id = payables.credit_card_id) AS "cardName",
            (SELECT h.code || ' ' || h.name FROM chart_accounts h WHERE h.id = payables.chart_account_id) AS "chartName",
-           purchase_id IS NULL AS manual
+           purchase_id IS NULL AS manual,
+           recurrence_id AS "recurrenceId",
+           COALESCE((SELECT r.active FROM payable_recurrences r WHERE r.id = payables.recurrence_id), false) AS "recurrenceActive"
     FROM payables
     WHERE account_id = ${accountId}
     ORDER BY due_on, installment_index
