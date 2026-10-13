@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
-import { movePackageVisit, schedulePackageVisit, usePackageVisitNow } from "@/desk/actions";
+import { cancelPackageSale, movePackageVisit, schedulePackageVisit, usePackageVisitNow } from "@/desk/actions";
 import { dayRoster, serviceOptions, soldPackage, soldPackageVisits } from "@/desk/queries";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -55,6 +55,7 @@ export default async function SoldPackagePage({ params }: { params: Promise<{ id
           {item.pardons > 0 ? " · já houve perdão" : ""}
           {item.nextVisit ? ` · próxima ${item.nextVisit}` : ""}
         </p>
+        {item.status === "cancelado" ? <p>Cancelado.{item.cancelReason ? ` ${item.cancelReason}` : ""}</p> : null}
       </div>
       <div className="card">
         <h2>Idas</h2>
@@ -159,6 +160,18 @@ export default async function SoldPackagePage({ params }: { params: Promise<{ id
           </table>
         ) : null}
       </div>
+      {item.status === "ativo" ? (
+        <form action={cancelPackageSale}>
+          <input type="hidden" name="package" value={item.id} />
+          <h2>Cancelar venda</h2>
+          <p>O que já foi usado permanece. O que não foi usado sai. Se o valor já entrou no caixa, o estorno sai hoje.</p>
+          <label>
+            Motivo
+            <textarea name="reason" required minLength={3} maxLength={300} />
+          </label>
+          <SubmitButton label="Cancelar venda" pendingLabel="Cancelando…" className="rose" />
+        </form>
+      ) : null}
     </Panel>
   );
 }

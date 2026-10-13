@@ -372,6 +372,7 @@ export type SoldPackage = {
   waiting: boolean;
   nextVisit: string | null;
   orderId: string | null;
+  cancelReason: string | null;
 };
 
 export async function soldPackages(accountId: string, day: string) {
@@ -413,7 +414,8 @@ export async function soldPackages(accountId: string, day: string) {
                WHERE cr.client_package_id = cp.id AND cr.status = 'falta_agendar'
              ) THEN 'falta agendar' END
            ) AS "nextVisit",
-           cp.order_id AS "orderId"
+           cp.order_id AS "orderId",
+           cp.cancel_reason AS "cancelReason"
     FROM client_packages cp
     JOIN clients c ON c.id = cp.client_id
     WHERE cp.account_id = ${accountId}

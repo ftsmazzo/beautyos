@@ -740,6 +740,150 @@ export async function movePackageVisit(formData: FormData) {
   });
 }
 
+export async function cancelPackageSale(formData: FormData) {
+  const user = await requireOperator();
+  const packageId = idOrNull(String(formData.get("package") ?? ""));
+  const back = packageId ? `/pacotes/vendidos/${packageId}` : "/pacotes/vendidos";
+  return settle(back, async () => {
+    const reason = String(formData.get("reason") ?? "").trim();
+    if (!packageId || reason.length < 3 || reason.length > 300) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const held = await tx<{
+        name: string;
+        priceCents: number;
+        status: string;
+        orderId: string | null;
+        lineId: string | null;
+        orderStatus: string | null;
+        clientName: string;
+        catalogId: string | null;
+        commissionPercent: number;
+      }[]>`
+        SELECT cp.name, cp.price_cents AS "priceCents", cp.status,
+               cp.order_id AS "orderId", cp.order_line_id AS "lineId",
+               o.status AS "orderStatus", c.name AS "clientName",
+               cp.package_id AS "catalogId",
+               COALESCE(l.commission_percent, 0) AS "commissionPercent"
+        FROM client_packages cp
+        JOIN clients c ON c.id = cp.client_id
+        LEFT JOIN orders o ON o.id = cp.order_id
+        LEFT JOIN order_lines l ON l.id = cp.order_line_id
+        WHERE cp.id = ${packageId} AND cp.account_id = ${user.accountId}
+      `;
+      if (held[0]?.status !== "ativo") throw new FormError("pacote");
+      const open = await tx<{
+        id: string;
+        internalPriceCents: number;
+        lineId: string | null;
+        linePrice: number | null;
+        appointmentId: string | null;
+        orderId: string | null;
+        serviceName: string;
+      }[]>`
+        SELECT cr.id, cr.internal_price_cents AS "internalPriceCents",
+               cr.order_line_id AS "lineId", l.price_cents AS "linePrice",
+               l.appointment_id AS "appointmentId", l.order_id AS "orderId",
+               s.name AS "serviceName"
+        FROM package_credits cr
+        JOIN services s ON s.id = cr.service_id
+        LEFT JOIN order_lines l ON l.id = cr.order_line_id
+        WHERE cr.client_package_id = ${packageId} AND cr.status <> 'usado'
+      `;
+      const used = await tx<{ internalPriceCents: number }[]>`
+        SELECT internal_price_cents AS "internalPriceCents"
+        FROM package_credits
+        WHERE client_package_id = ${packageId} AND status = 'usado'
+      `;
+      for (const row of open) {
+        if (row.orderId) {
+          await writeEvent(tx, {
+            accountId: user.accountId,
+            orderId: row.orderId,
+            lineId: row.lineId,
+            appointmentId: row.appointmentId,
+            actorId: user.id,
+            kind: "cancelamento",
+            summary: `${row.serviceName} saiu do pacote ${held[0].name}. ${reason}`,
+            beforeCents: row.linePrice,
+            afterCents: null,
+          });
+        }
+        if (row.lineId) await tx`DELETE FROM order_lines WHERE id = ${row.lineId}`;
+        if (row.appointmentId) {
+          await tx`DELETE FROM appointments WHERE id = ${row.appointmentId} AND account_id = ${user.accountId}`;
+        }
+        await tx`DELETE FROM package_credits WHERE id = ${row.id}`;
+      }
+      const keptServices = used.reduce((sum, row) => sum + row.internalPriceCents, 0);
+      const allServices = keptServices + open.reduce((sum, row) => sum + row.internalPriceCents, 0);
+      const productValue = Math.max(0, held[0].priceCents - allServices);
+      const kept = used.length > 0 ? keptServices + productValue : 0;
+      const refund = Math.max(0, held[0].priceCents - kept);
+      if (held[0].orderStatus === "aberta" && held[0].lineId) {
+        const commission = Math.round(kept * held[0].commissionPercent / 100);
+        await tx`
+          UPDATE order_lines
+          SET price_cents = ${kept}, commission_cents = ${commission}
+          WHERE id = ${held[0].lineId}
+        `;
+      }
+      const paidRows = held[0].orderId
+        ? await tx<{ paid: number }[]>`
+            SELECT COALESCE(SUM(amount_cents), 0)::int AS paid FROM payments WHERE order_id = ${held[0].orderId}
+          `
+        : [{ paid: 0 }];
+      const paid = paidRows[0]?.paid ?? 0;
+      const cashOut = !held[0].orderId || held[0].orderStatus === "fechada"
+        ? refund
+        : Math.max(0, Math.min(refund, paid - kept));
+      if (cashOut > 0) {
+        await tx`
+          INSERT INTO cash_movements (id, account_id, day, amount_cents, origin, label, order_id)
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, ${todaySaoPaulo()}::date, ${-cashOut}, 'estorno',
+            ${`Estorno ${held[0].name} · ${held[0].clientName}. ${reason}`}, ${held[0].orderId}
+          )
+        `;
+      }
+      if (used.length === 0 && held[0].catalogId) {
+        const products = await tx<{ productId: string; qty: number }[]>`
+          SELECT product_id AS "productId", qty FROM package_items
+          WHERE package_id = ${held[0].catalogId} AND kind = 'product'
+        `;
+        for (const product of products) {
+          await tx`
+            INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
+            VALUES (
+              ${randomUUID()}, ${user.accountId}, ${product.productId}, ${product.qty}, 'ajuste',
+              ${"estorno do pacote"}, ${user.id}
+            )
+          `;
+        }
+      }
+      await tx`
+        UPDATE client_packages
+        SET status = 'cancelado', cancel_reason = ${reason}
+        WHERE id = ${packageId}
+      `;
+      const where = cashOut > 0
+        ? `Estorno ${formatReais(cashOut)} no caixa de hoje.`
+        : `A comanda passou a ${formatReais(kept)}. O caixa não mexeu porque esse valor ainda não tinha entrado.`;
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId: held[0].orderId,
+        lineId: held[0].lineId,
+        appointmentId: null,
+        actorId: user.id,
+        kind: "cancelamento",
+        summary: `Cancelou o pacote ${held[0].name}. ${reason} ${where}`,
+        beforeCents: held[0].priceCents,
+        afterCents: kept,
+      });
+    });
+    return back;
+  });
+}
+
 export async function repeatPackageVisits(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");

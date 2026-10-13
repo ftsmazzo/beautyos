@@ -417,4 +417,5 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS package_pardons_package_idx ON package_pardons (client_package_id, sequence)`;
+  await sql`ALTER TABLE client_packages ADD COLUMN IF NOT EXISTS cancel_reason text`;
 }
