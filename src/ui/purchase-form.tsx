@@ -14,6 +14,9 @@ export function PurchaseForm({
   today: string;
 }) {
   const [rows, setRows] = useState([0]);
+  const [bill, setBill] = useState(false);
+  const [paid, setPaid] = useState(false);
+  const [method, setMethod] = useState("pix");
 
   return (
     <form action={savePurchase}>
@@ -84,6 +87,49 @@ export function PurchaseForm({
         Incluir produto
       </button>
       <p>O custo desta entrada passa a ser o custo do produto. Preço de venda e comissão não mudam.</p>
+      <label className="check">
+        <input type="checkbox" name="bill" value="1" checked={bill} onChange={(event) => setBill(event.target.checked)} />
+        Lançar em contas a pagar
+      </label>
+      {bill ? (
+        <>
+          <div className="split">
+            <label>
+              Vencimento
+              <input type="date" name="due" required defaultValue={today} />
+            </label>
+            <label>
+              Vezes
+              <input name="times" type="number" min={1} max={36} defaultValue={1} required />
+            </label>
+          </div>
+          <label className="check">
+            <input type="checkbox" name="paid" value="1" checked={paid} onChange={(event) => setPaid(event.target.checked)} />
+            Já pagou
+          </label>
+          {paid ? (
+            <div className="split">
+              <label>
+                Forma
+                <select name="method" value={method} onChange={(event) => setMethod(event.target.value)}>
+                  <option value="pix">Pix</option>
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="debito">Débito</option>
+                  <option value="credito">Crédito</option>
+                  <option value="outros">Outros</option>
+                </select>
+              </label>
+              {method === "debito" || method === "credito" ? (
+                <label>
+                  Bandeira
+                  <input name="brand" required minLength={2} placeholder="Visa, Master, Elo" />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+          <p>A conta fica no financeiro. Não sai do caixa do balcão.</p>
+        </>
+      ) : null}
       <SubmitButton label="Lançar compra" pendingLabel="Lançando…" />
     </form>
   );

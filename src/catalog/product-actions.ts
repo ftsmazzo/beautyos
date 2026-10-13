@@ -4,9 +4,11 @@ import { randomUUID } from "crypto";
 import { requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
 import { checked, digits, parseIntField, parsePercent, parseReais, textOrNull } from "@/catalog/format";
+
+const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
-import { dayParam } from "@/desk/clock";
+import { dayParam, shiftMonth } from "@/desk/clock";
 
 export async function saveProduct(formData: FormData) {
   const user = await requireOperator();
@@ -208,6 +210,27 @@ export async function savePurchase(formData: FormData) {
       lines.push({ productId, qty, costCents });
     }
     if (document.length < 1 || lines.length === 0) throw new FormError("dados");
+    const bill = checked(formData, "bill");
+    const due = String(formData.get("due") ?? "");
+    const times = parseIntField(formData.get("times"));
+    const paid = checked(formData, "paid");
+    let method = String(formData.get("method") ?? "");
+    let brand = textOrNull(formData.get("brand"));
+    if (bill) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || times == null || times < 1 || times > 36) throw new FormError("dados");
+      if (paid && !PAYABLE_METHODS.includes(method)) throw new FormError("dados");
+      if (paid && (method === "debito" || method === "credito") && (!brand || brand.length < 2)) {
+        throw new FormError("bandeira");
+      }
+      if (!paid) {
+        method = "";
+        brand = null;
+      } else if (method !== "debito" && method !== "credito") {
+        brand = null;
+      }
+      const totalCents = lines.reduce((sum, line) => sum + line.qty * line.costCents, 0);
+      if (totalCents < 1) throw new FormError("dados");
+    }
     await db().begin(async (tx) => {
       let supplierId = "";
       if (chosen) {
@@ -272,6 +295,31 @@ export async function savePurchase(formData: FormData) {
           SET cost_cents = ${line.costCents}, supplier_id = ${supplierId}
           WHERE id = ${line.productId} AND account_id = ${user.accountId}
         `;
+      }
+      if (bill && times != null) {
+        const totalCents = lines.reduce((sum, line) => sum + line.qty * line.costCents, 0);
+        const party = await tx<{ name: string }[]>`SELECT name FROM suppliers WHERE id = ${supplierId}`;
+        const partyName = party[0]?.name ?? "Fornecedor";
+        const base = Math.floor(totalCents / times);
+        const rest = totalCents - base * times;
+        for (let index = 1; index <= times; index += 1) {
+          const amount = base + (index === times ? rest : 0);
+          await tx`
+            INSERT INTO payables (
+              id, account_id, purchase_id, supplier_id, description, party_name,
+              amount_cents, due_on, installment_index, installment_total,
+              method, card_brand, paid_on, created_by
+            )
+            VALUES (
+              ${randomUUID()}, ${user.accountId}, ${purchaseId}, ${supplierId},
+              ${times === 1 ? `Nota ${document}` : `Nota ${document} · ${index}/${times}`},
+              ${partyName}, ${amount}, ${shiftMonth(due, index - 1)}::date,
+              ${index}, ${times},
+              ${paid ? method : null}, ${paid ? brand : null}, ${paid ? day : null}::date,
+              ${user.id}
+            )
+          `;
+        }
       }
     });
     return "/produtos/compra?ok=compra";

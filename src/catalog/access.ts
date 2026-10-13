@@ -14,3 +14,10 @@ export async function requireOperator(): Promise<SessionUser> {
   if (user.role !== "administrador" && user.role !== "balcao") redirect("/inicio");
   return user;
 }
+
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await currentUser();
+  if (!user) redirect("/entrar");
+  if (user.role !== "administrador") redirect("/inicio");
+  return user;
+}

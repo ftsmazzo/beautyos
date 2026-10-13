@@ -57,6 +57,9 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/pacotes/relatorio") {
     return <svg {...common}><path d="M5 19V10M12 19V5M19 19v-7" /></svg>;
   }
+  if (href === "/financeiro") {
+    return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M7 11h4M7 15h10" /></svg>;
+  }
   return <svg {...common}><rect x="6" y="10" width="12" height="9" rx="1.5" /><path d="M8 10V8a4 4 0 0 1 8 0v2" /></svg>;
 }
 
@@ -85,7 +88,10 @@ export function Panel({
     : user.role === "profissional"
       ? OPERATION.slice()
       : OPERATION.filter((link) => link.href === "/inicio")).slice();
-  if (user.role === "administrador") links.push({ href: "/acesso", label: "Acesso" });
+  if (user.role === "administrador") {
+    links.push({ href: "/financeiro", label: "Financeiro" });
+    links.push({ href: "/acesso", label: "Acesso" });
+  }
 
   return (
     <div className="app">

@@ -352,6 +352,33 @@ export async function listPurchases(accountId: string) {
   `;
 }
 
+export type PayableRow = {
+  id: string;
+  description: string;
+  partyName: string;
+  amountCents: number;
+  due: string;
+  dueIso: string;
+  installmentIndex: number;
+  installmentTotal: number;
+  method: string | null;
+  cardBrand: string | null;
+  paid: string | null;
+};
+
+export async function listPayables(accountId: string) {
+  return db()<PayableRow[]>`
+    SELECT id, description, party_name AS "partyName", amount_cents AS "amountCents",
+           to_char(due_on, 'DD/MM/YYYY') AS due, to_char(due_on, 'YYYY-MM-DD') AS "dueIso",
+           installment_index AS "installmentIndex", installment_total AS "installmentTotal",
+           method, card_brand AS "cardBrand", to_char(paid_on, 'DD/MM/YYYY') AS paid
+    FROM payables
+    WHERE account_id = ${accountId}
+    ORDER BY due_on, installment_index
+    LIMIT 80
+  `;
+}
+
 export type ComponentRow = { componentId: string; name: string; qty: number };
 
 export async function listComponents(productId: string) {

@@ -194,6 +194,32 @@ async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS payables (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      purchase_id uuid NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+      supplier_id uuid REFERENCES suppliers(id) ON DELETE SET NULL,
+      description text NOT NULL,
+      party_name text NOT NULL,
+      amount_cents integer NOT NULL CHECK (amount_cents >= 0),
+      due_on date NOT NULL,
+      installment_index integer NOT NULL CHECK (installment_index >= 1),
+      installment_total integer NOT NULL CHECK (installment_total >= 1),
+      method text CHECK (method IS NULL OR method IN ('dinheiro', 'pix', 'debito', 'credito', 'outros')),
+      card_brand text,
+      paid_on date,
+      created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CHECK (installment_index <= installment_total),
+      CHECK (paid_on IS NULL OR method IS NOT NULL),
+      CHECK (card_brand IS NULL OR method IN ('debito', 'credito'))
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS payables_purchase_installment_uidx
+    ON payables (purchase_id, installment_index)
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS product_components (
       product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       component_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,

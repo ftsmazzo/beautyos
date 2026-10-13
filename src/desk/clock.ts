@@ -11,6 +11,15 @@ export function shiftDay(day: string, delta: number) {
   return date.toISOString().slice(0, 10);
 }
 
+export function shiftMonth(day: string, delta: number) {
+  const [year, month, date] = day.split("-").map(Number);
+  const cursor = new Date(Date.UTC(year, month - 1 + delta, 1, 12));
+  const last = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0, 12)).getUTCDate();
+  const dayNum = Math.min(date, last);
+  const result = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), dayNum, 12));
+  return result.toISOString().slice(0, 10);
+}
+
 export function weekdayOf(day: string) {
   return new Date(`${day}T12:00:00-03:00`).getUTCDay();
 }
