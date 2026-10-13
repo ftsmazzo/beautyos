@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listProducts, listPurchases, listSuppliers } from "@/catalog/queries";
-import { listBanks, listCards } from "@/finance/queries";
+import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 import { PurchaseForm } from "@/ui/purchase-form";
@@ -20,6 +20,7 @@ export default async function PurchasePage({
   const suppliers = await listSuppliers(user.accountId);
   const banks = await listBanks(user.accountId);
   const cards = await listCards(user.accountId);
+  const charts = await listChart(user.accountId);
   const purchases = await listPurchases(user.accountId);
 
   return (
@@ -40,6 +41,7 @@ export default async function PurchasePage({
             suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, city: supplier.city }))}
             banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
             cards={cards.map((card) => ({ id: card.id, name: card.name }))}
+            charts={charts.map((chart) => ({ id: chart.id, code: chart.code, name: chart.name }))}
             today={todaySaoPaulo()}
           />
         </>

@@ -9,12 +9,14 @@ export function PurchaseForm({
   suppliers,
   banks,
   cards,
+  charts,
   today,
 }: {
   products: { id: string; name: string }[];
   suppliers: { id: string; name: string; city: string | null }[];
   banks: { id: string; name: string }[];
   cards: { id: string; name: string }[];
+  charts: { id: string; code: string; name: string }[];
   today: string;
 }) {
   const [rows, setRows] = useState([0]);
@@ -107,6 +109,19 @@ export function PurchaseForm({
               <input name="times" type="number" min={1} max={36} defaultValue={1} required />
             </label>
           </div>
+          {charts.length > 0 ? (
+            <label>
+              Plano
+              <select name="chart" defaultValue="">
+                <option value="">Sem conta</option>
+                {charts.map((chart) => (
+                  <option key={chart.id} value={chart.id}>
+                    {chart.code} {chart.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label className="check">
             <input type="checkbox" name="paid" value="1" checked={paid} onChange={(event) => setPaid(event.target.checked)} />
             Já pagou

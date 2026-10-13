@@ -276,6 +276,28 @@ async function ensureSchema() {
     ALTER TABLE payables ADD COLUMN IF NOT EXISTS card_settlement_id uuid REFERENCES card_settlements(id)
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS chart_accounts (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      code text NOT NULL,
+      name text NOT NULL,
+      synthetic_name text,
+      dfc_group_1 text,
+      dfc_group_2 text,
+      dre_group_1 text,
+      dre_group_2 text,
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS chart_accounts_code_uidx
+    ON chart_accounts (account_id, lower(code))
+  `;
+  await sql`
+    ALTER TABLE payables ADD COLUMN IF NOT EXISTS chart_account_id uuid REFERENCES chart_accounts(id)
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS product_components (
       product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       component_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,

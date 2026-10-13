@@ -88,6 +88,16 @@ export async function settlePayable(formData: FormData) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !PAYABLE_METHODS.includes(method)) throw new FormError("dados");
       if ((method === "debito" || method === "credito") && (!brand || brand.length < 2)) throw new FormError("bandeira");
     }
+    const chartRaw = String(formData.get("chart") ?? "");
+    let chartId: string | null = null;
+    if (chartRaw) {
+      if (!UUID.test(chartRaw)) throw new FormError("dados");
+      const chart = await db()`
+        SELECT id FROM chart_accounts WHERE id = ${chartRaw} AND account_id = ${user.accountId} AND active
+      `;
+      if (!chart.length) throw new FormError("fora");
+      chartId = chartRaw;
+    }
     if (credit) {
       if (!UUID.test(cardId)) throw new FormError("dados");
       const card = await db()`
@@ -96,13 +106,14 @@ export async function settlePayable(formData: FormData) {
       if (!card.length) throw new FormError("fora");
       const updated = row.paidOn
         ? await db()`
-            UPDATE payables SET credit_card_id = ${cardId}
+            UPDATE payables SET credit_card_id = ${cardId}, chart_account_id = COALESCE(${chartId}::uuid, chart_account_id)
             WHERE id = ${id} AND account_id = ${user.accountId} AND credit_card_id IS NULL AND bank_account_id IS NULL
             RETURNING id
           `
         : await db()`
             UPDATE payables
-            SET paid_on = ${day}::date, method = 'credito', card_brand = ${brand}, credit_card_id = ${cardId}
+            SET paid_on = ${day}::date, method = 'credito', card_brand = ${brand}, credit_card_id = ${cardId},
+                chart_account_id = COALESCE(${chartId}::uuid, chart_account_id)
             WHERE id = ${id} AND account_id = ${user.accountId} AND paid_on IS NULL AND credit_card_id IS NULL AND bank_account_id IS NULL
             RETURNING id
           `;
@@ -117,13 +128,14 @@ export async function settlePayable(formData: FormData) {
     const cardBrand = method === "debito" ? brand : null;
     const updated = row.paidOn
       ? await db()`
-          UPDATE payables SET bank_account_id = ${bankId}
+          UPDATE payables SET bank_account_id = ${bankId}, chart_account_id = COALESCE(${chartId}::uuid, chart_account_id)
           WHERE id = ${id} AND account_id = ${user.accountId} AND bank_account_id IS NULL AND credit_card_id IS NULL
           RETURNING id
         `
       : await db()`
           UPDATE payables
-          SET paid_on = ${day}::date, method = ${method}, card_brand = ${cardBrand}, bank_account_id = ${bankId}
+          SET paid_on = ${day}::date, method = ${method}, card_brand = ${cardBrand}, bank_account_id = ${bankId},
+              chart_account_id = COALESCE(${chartId}::uuid, chart_account_id)
           WHERE id = ${id} AND account_id = ${user.accountId} AND paid_on IS NULL AND bank_account_id IS NULL AND credit_card_id IS NULL
           RETURNING id
         `;
@@ -211,5 +223,45 @@ export async function payCardInvoice(formData: FormData) {
       settlementBank = bankId;
     });
     return `/financeiro/bancos?ok=fatura&banco=${settlementBank}`;
+  });
+}
+
+export async function saveChart(formData: FormData) {
+  const user = await requireAdmin();
+  return settle("/financeiro/plano", async () => {
+    const code = String(formData.get("code") ?? "").trim();
+    const name = String(formData.get("name") ?? "").trim();
+    if (code.length < 1 || name.length < 2) throw new FormError("dados");
+    const same = await db()`
+      SELECT id FROM chart_accounts
+      WHERE account_id = ${user.accountId} AND lower(code) = ${code.toLowerCase()}
+    `;
+    if (same.length) throw new FormError("apr");
+    await db()`
+      INSERT INTO chart_accounts (
+        id, account_id, code, name, synthetic_name, dfc_group_1, dfc_group_2, dre_group_1, dre_group_2
+      )
+      VALUES (
+        ${randomUUID()}, ${user.accountId}, ${code}, ${name},
+        ${textOrNull(formData.get("synthetic"))},
+        ${textOrNull(formData.get("dfc1"))}, ${textOrNull(formData.get("dfc2"))},
+        ${textOrNull(formData.get("dre1"))}, ${textOrNull(formData.get("dre2"))}
+      )
+    `;
+    return "/financeiro/plano?ok=salvo";
+  });
+}
+
+export async function deleteChart(formData: FormData) {
+  const user = await requireAdmin();
+  return settle("/financeiro/plano", async () => {
+    const id = String(formData.get("id") ?? "");
+    if (!UUID.test(id)) throw new FormError("dados");
+    const found = await db()`SELECT id FROM chart_accounts WHERE id = ${id} AND account_id = ${user.accountId}`;
+    if (!found.length) throw new FormError("fora");
+    const used = await db()`SELECT id FROM payables WHERE chart_account_id = ${id} LIMIT 1`;
+    if (used.length) throw new FormError("presa");
+    await db()`DELETE FROM chart_accounts WHERE id = ${id} AND account_id = ${user.accountId}`;
+    return "/financeiro/plano";
   });
 }

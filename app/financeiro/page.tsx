@@ -3,7 +3,7 @@ import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listPayables, type PayableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
-import { listBanks, listCards } from "@/finance/queries";
+import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
@@ -59,6 +59,7 @@ export default async function FinancePage({
   const week = shiftDay(today, 7);
   const banks = (await listBanks(user.accountId)).map((bank) => ({ id: bank.id, name: bank.name }));
   const cards = (await listCards(user.accountId)).map((card) => ({ id: card.id, name: card.name }));
+  const charts = (await listChart(user.accountId)).map((chart) => ({ id: chart.id, code: chart.code, name: chart.name }));
   const rows = (await listPayables(user.accountId)).filter((row) => {
     const state = situation(row, today, week);
     if (filter === "todos") return true;
@@ -92,6 +93,7 @@ export default async function FinancePage({
                 <th>Vencimento</th>
                 <th>Fornecedor</th>
                 <th>Nota</th>
+                <th>Plano</th>
                 <th>Parcela</th>
                 <th>Valor</th>
                 <th>Situação</th>
@@ -108,6 +110,7 @@ export default async function FinancePage({
                     <td>{row.due}</td>
                     <td>{row.partyName}</td>
                     <td>{row.description}</td>
+                    <td>{row.chartName ?? ""}</td>
                     <td>
                       {row.installmentIndex}/{row.installmentTotal}
                     </td>
@@ -120,6 +123,7 @@ export default async function FinancePage({
                           id={row.id}
                           banks={banks}
                           cards={cards}
+                          charts={charts}
                           today={today}
                           paid={Boolean(row.paid)}
                           method={row.method}

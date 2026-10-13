@@ -8,6 +8,7 @@ export function PayableSettle({
   id,
   banks,
   cards,
+  charts,
   today,
   paid,
   method: paidMethod,
@@ -15,6 +16,7 @@ export function PayableSettle({
   id: string;
   banks: { id: string; name: string }[];
   cards: { id: string; name: string }[];
+  charts: { id: string; code: string; name: string }[];
   today: string;
   paid: boolean;
   method: string | null;
@@ -30,6 +32,19 @@ export function PayableSettle({
       {missing ? null : (
         <form action={settlePayable}>
           <input type="hidden" name="id" value={id} />
+          {charts.length > 0 ? (
+            <label>
+              Plano
+              <select name="chart" defaultValue="">
+                <option value="">Sem conta</option>
+                {charts.map((chart) => (
+                  <option key={chart.id} value={chart.id}>
+                    {chart.code} {chart.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           {credit ? (
             <label>
               Cartão

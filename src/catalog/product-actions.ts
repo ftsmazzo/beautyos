@@ -218,6 +218,7 @@ export async function savePurchase(formData: FormData) {
     let brand = textOrNull(formData.get("brand"));
     let bankId = String(formData.get("bank") ?? "");
     let cardId = String(formData.get("card") ?? "");
+    let chartId = String(formData.get("chart") ?? "");
     if (bill) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || times == null || times < 1 || times > 36) throw new FormError("dados");
       if (paid && !PAYABLE_METHODS.includes(method)) throw new FormError("dados");
@@ -239,6 +240,8 @@ export async function savePurchase(formData: FormData) {
       }
       const totalCents = lines.reduce((sum, line) => sum + line.qty * line.costCents, 0);
       if (totalCents < 1) throw new FormError("dados");
+    } else {
+      chartId = "";
     }
     await db().begin(async (tx) => {
       let supplierId = "";
@@ -316,6 +319,11 @@ export async function savePurchase(formData: FormData) {
           const card = await tx`SELECT id FROM credit_cards WHERE id = ${cardId} AND account_id = ${user.accountId} AND active`;
           if (!card.length) throw new FormError("fora");
         }
+        if (chartId) {
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chartId)) throw new FormError("dados");
+          const chart = await tx`SELECT id FROM chart_accounts WHERE id = ${chartId} AND account_id = ${user.accountId} AND active`;
+          if (!chart.length) throw new FormError("fora");
+        }
         const totalCents = lines.reduce((sum, line) => sum + line.qty * line.costCents, 0);
         const party = await tx<{ name: string }[]>`SELECT name FROM suppliers WHERE id = ${supplierId}`;
         const partyName = party[0]?.name ?? "Fornecedor";
@@ -327,7 +335,7 @@ export async function savePurchase(formData: FormData) {
             INSERT INTO payables (
               id, account_id, purchase_id, supplier_id, description, party_name,
               amount_cents, due_on, installment_index, installment_total,
-              method, card_brand, paid_on, bank_account_id, credit_card_id, created_by
+              method, card_brand, paid_on, bank_account_id, credit_card_id, chart_account_id, created_by
             )
             VALUES (
               ${randomUUID()}, ${user.accountId}, ${purchaseId}, ${supplierId},
@@ -335,7 +343,7 @@ export async function savePurchase(formData: FormData) {
               ${partyName}, ${amount}, ${shiftMonth(due, index - 1)}::date,
               ${index}, ${times},
               ${paid ? method : null}, ${paid ? brand : null}, ${paid ? day : null}::date,
-              ${bankId || null}, ${cardId || null}, ${user.id}
+              ${bankId || null}, ${cardId || null}, ${chartId || null}, ${user.id}
             )
           `;
         }

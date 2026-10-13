@@ -48,6 +48,28 @@ export async function listBankLines(accountId: string, bankId: string) {
   `;
 }
 
+export type ChartRow = {
+  id: string;
+  code: string;
+  name: string;
+  syntheticName: string | null;
+  dfcGroup1: string | null;
+  dfcGroup2: string | null;
+  dreGroup1: string | null;
+  dreGroup2: string | null;
+};
+
+export async function listChart(accountId: string) {
+  return db()<ChartRow[]>`
+    SELECT id, code, name, synthetic_name AS "syntheticName",
+           dfc_group_1 AS "dfcGroup1", dfc_group_2 AS "dfcGroup2",
+           dre_group_1 AS "dreGroup1", dre_group_2 AS "dreGroup2"
+    FROM chart_accounts
+    WHERE account_id = ${accountId} AND active
+    ORDER BY code
+  `;
+}
+
 export type CardRow = {
   id: string;
   name: string;

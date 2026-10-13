@@ -44,6 +44,8 @@ export const FORM_ERRORS: Record<string, string> = {
   cartao: "Já existe um cartão com esse nome.",
   ligado: "Esse cartão já tem lançamento.",
   fatura: "Essa fatura não tem lançamento.",
+  apr: "Já existe uma conta com esse código.",
+  presa: "Essa conta do plano já está em um título.",
   soma: "Inclua um serviço e o preço interno de cada ida.",
   desconto: "O desconto precisa do dia e do valor, com o horário completo ou o dia inteiro.",
   insumo: "O insumo precisa do produto e da quantidade.",
