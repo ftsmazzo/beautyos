@@ -241,6 +241,41 @@ async function ensureSchema() {
     ALTER TABLE payables ADD COLUMN IF NOT EXISTS bank_account_id uuid REFERENCES bank_accounts(id)
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS credit_cards (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      institution text,
+      limit_cents integer NOT NULL DEFAULT 0 CHECK (limit_cents >= 0),
+      closing_day integer NOT NULL CHECK (closing_day BETWEEN 1 AND 31),
+      due_day integer NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS credit_cards_name_uidx
+    ON credit_cards (account_id, lower(name))
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS card_settlements (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      credit_card_id uuid NOT NULL REFERENCES credit_cards(id),
+      bank_account_id uuid NOT NULL REFERENCES bank_accounts(id),
+      paid_on date NOT NULL,
+      amount_cents integer NOT NULL CHECK (amount_cents > 0),
+      created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    ALTER TABLE payables ADD COLUMN IF NOT EXISTS credit_card_id uuid REFERENCES credit_cards(id)
+  `;
+  await sql`
+    ALTER TABLE payables ADD COLUMN IF NOT EXISTS card_settlement_id uuid REFERENCES card_settlements(id)
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS product_components (
       product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       component_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,

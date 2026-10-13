@@ -3,7 +3,7 @@ import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listPayables, type PayableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
-import { listBanks } from "@/finance/queries";
+import { listBanks, listCards } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
@@ -58,6 +58,7 @@ export default async function FinancePage({
   const today = todaySaoPaulo();
   const week = shiftDay(today, 7);
   const banks = (await listBanks(user.accountId)).map((bank) => ({ id: bank.id, name: bank.name }));
+  const cards = (await listCards(user.accountId)).map((card) => ({ id: card.id, name: card.name }));
   const rows = (await listPayables(user.accountId)).filter((row) => {
     const state = situation(row, today, week);
     if (filter === "todos") return true;
@@ -70,7 +71,7 @@ export default async function FinancePage({
     <Panel user={user} current="/financeiro" title="Contas a pagar">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>Estas contas não entram no caixa do balcão. A baixa sai do banco escolhido.</p>
+      <p>Estas contas não entram no caixa do balcão. No crédito, a compra fica na fatura. O banco sai quando a fatura é paga.</p>
       <FinanceNav current="pagar" />
       <div className="row">
         {FILTERS.map((item) => (
@@ -95,7 +96,7 @@ export default async function FinancePage({
                 <th>Valor</th>
                 <th>Situação</th>
                 <th>Forma</th>
-                <th>Banco</th>
+                <th>Lançamento</th>
               </tr>
             </thead>
             <tbody>
@@ -114,10 +115,15 @@ export default async function FinancePage({
                     <td>{situationLabel(state)}{row.paid ? ` · ${row.paid}` : ""}</td>
                     <td>{method}{row.cardBrand ? ` · ${row.cardBrand}` : ""}</td>
                     <td>
-                      {row.bankName ? (
-                        row.bankName
-                      ) : (
-                        <PayableSettle id={row.id} banks={banks} today={today} paid={Boolean(row.paid)} />
+                      {row.bankName ?? row.cardName ?? (
+                        <PayableSettle
+                          id={row.id}
+                          banks={banks}
+                          cards={cards}
+                          today={today}
+                          paid={Boolean(row.paid)}
+                          method={row.method}
+                        />
                       )}
                     </td>
                   </tr>

@@ -366,6 +366,8 @@ export type PayableRow = {
   paid: string | null;
   bankId: string | null;
   bankName: string | null;
+  cardId: string | null;
+  cardName: string | null;
 };
 
 export type ReceivableRow = {
@@ -406,7 +408,9 @@ export async function listPayables(accountId: string) {
            installment_index AS "installmentIndex", installment_total AS "installmentTotal",
            method, card_brand AS "cardBrand", to_char(paid_on, 'DD/MM/YYYY') AS paid,
            bank_account_id AS "bankId",
-           (SELECT b.name FROM bank_accounts b WHERE b.id = payables.bank_account_id) AS "bankName"
+           (SELECT b.name FROM bank_accounts b WHERE b.id = payables.bank_account_id) AS "bankName",
+           credit_card_id AS "cardId",
+           (SELECT c.name FROM credit_cards c WHERE c.id = payables.credit_card_id) AS "cardName"
     FROM payables
     WHERE account_id = ${accountId}
     ORDER BY due_on, installment_index

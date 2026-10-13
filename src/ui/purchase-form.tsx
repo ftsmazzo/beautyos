@@ -8,11 +8,13 @@ export function PurchaseForm({
   products,
   suppliers,
   banks,
+  cards,
   today,
 }: {
   products: { id: string; name: string }[];
   suppliers: { id: string; name: string; city: string | null }[];
   banks: { id: string; name: string }[];
+  cards: { id: string; name: string }[];
   today: string;
 }) {
   const [rows, setRows] = useState([0]);
@@ -127,7 +129,20 @@ export function PurchaseForm({
                   <input name="brand" required minLength={2} placeholder="Visa, Master, Elo" />
                 </label>
               ) : null}
-              {banks.length > 0 ? (
+              {method === "credito" && cards.length > 0 ? (
+                <label>
+                  Cartão
+                  <select name="card" defaultValue="">
+                    <option value="">Fora da fatura</option>
+                    {cards.map((card) => (
+                      <option key={card.id} value={card.id}>
+                        {card.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {method !== "credito" && banks.length > 0 ? (
                 <label>
                   Banco
                   <select name="bank" defaultValue="">
@@ -142,7 +157,7 @@ export function PurchaseForm({
               ) : null}
             </div>
           ) : null}
-          <p>A conta fica no financeiro. Se o banco estiver escolhido, a baixa entra no extrato. Não sai do caixa do balcão.</p>
+          <p>No crédito, a compra fica na fatura. Nas outras formas, o banco escolhido recebe a baixa. Não sai do caixa do balcão.</p>
         </>
       ) : null}
       <SubmitButton label="Lançar compra" pendingLabel="Lançando…" />
