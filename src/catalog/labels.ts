@@ -51,4 +51,6 @@ export const FORM_ERRORS: Record<string, string> = {
   pacote: "Esse pacote não pode ser alterado por aqui.",
   outra: "Esse pacote já teve visita usada em outra comanda.",
   credito: "Não há visita disponível desse serviço no pacote.",
+  prazo: "Esse pacote não está vencido.",
+  diferenca: "Essa visita do pacote não dá para cobrar a diferença.",
 };

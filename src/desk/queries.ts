@@ -257,18 +257,34 @@ export async function packagesForSale(accountId: string) {
   `;
 }
 
-export async function clientPackages(accountId: string, clientId: string) {
+export async function clientPackages(accountId: string, clientId: string, day: string) {
   return db()<{
     id: string;
     name: string;
     validUntil: string | null;
+    validUntilIso: string | null;
     started: boolean;
+    expired: boolean;
+    late: boolean;
+    pardons: number;
     total: number;
     used: number;
   }[]>`
     SELECT cp.id, cp.name,
            to_char(cp.valid_until, 'DD/MM/YYYY') AS "validUntil",
+           to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntilIso",
            cp.first_used_on IS NOT NULL AS started,
+           (cp.valid_until IS NOT NULL AND cp.valid_until < ${day}::date) AS expired,
+           EXISTS (
+             SELECT 1
+             FROM package_credits c
+             JOIN order_lines l ON l.id = c.order_line_id
+             JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+             WHERE c.client_package_id = cp.id
+               AND cp.valid_until IS NOT NULL
+               AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
+           ) AS late,
+           (SELECT count(*) FROM package_pardons p WHERE p.client_package_id = cp.id)::int AS pardons,
            (SELECT count(*) FROM package_credits c WHERE c.client_package_id = cp.id)::int AS total,
            (SELECT count(*) FROM package_credits c WHERE c.client_package_id = cp.id AND c.status = 'usado')::int AS used
     FROM client_packages cp
@@ -280,21 +296,28 @@ export async function clientPackages(accountId: string, clientId: string) {
 export async function packageVisits(accountId: string, clientId: string) {
   return db()<{
     id: string;
+    packageId: string;
     serviceId: string;
     serviceName: string;
     status: string;
     when: string | null;
+    day: string | null;
     professionalName: string | null;
     late: boolean;
+    internalPriceCents: number;
+    listPriceCents: number | null;
   }[]>`
-    SELECT c.id, c.service_id AS "serviceId", s.name AS "serviceName", c.status,
+    SELECT c.id, cp.id AS "packageId", c.service_id AS "serviceId", s.name AS "serviceName", c.status,
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI') AS "when",
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
            pr.name AS "professionalName",
            (
              cp.valid_until IS NOT NULL
              AND a.starts_at IS NOT NULL
              AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
-           ) AS late
+           ) AS late,
+           c.internal_price_cents AS "internalPriceCents",
+           l.list_price_cents AS "listPriceCents"
     FROM package_credits c
     JOIN client_packages cp ON cp.id = c.client_package_id
     JOIN services s ON s.id = c.service_id

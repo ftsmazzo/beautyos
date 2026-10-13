@@ -9,7 +9,9 @@ import {
   addServiceToOrder,
   adjustLinePrice,
   applyPackageUse,
+  chargePackageDifference,
   moveLineProfessional,
+  pardonPackage,
   removeLine,
   attachClient,
   closeOrder,
@@ -55,7 +57,7 @@ export default async function OrderPage({
   const roster = order.kind === "cliente" ? await dayRoster(user.accountId, null) : [];
   const catalog = order.kind === "cliente" ? await serviceOptions(user.accountId) : [];
   const stock = order.kind === "consumo" && open ? await consumptionProducts(user.accountId) : [];
-  const held = order.kind === "cliente" && order.clientId ? await clientPackages(user.accountId, order.clientId) : [];
+  const held = order.kind === "cliente" && order.clientId ? await clientPackages(user.accountId, order.clientId, order.day) : [];
   const visits = order.kind === "cliente" && order.clientId ? await packageVisits(user.accountId, order.clientId) : [];
   const forSale = operator && open && order.kind === "cliente" && order.clientId ? await packagesForSale(user.accountId) : [];
   const covered = new Set(
@@ -311,20 +313,57 @@ export default async function OrderPage({
         <div className="card">
           <h2>Pacote</h2>
           {held.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
-          {held.map((item) => (
-            <p key={item.id}>
-              {item.name} · {item.used} de {item.total} usadas
-              {item.started && item.validUntil ? ` · válido até ${item.validUntil}` : " · prazo ainda não começou"}
-            </p>
-          ))}
-          {visits.map((visit) => (
-            <p key={visit.id}>
-              {visit.serviceName}
-              {visit.status === "usado" ? " · usada" : visit.when ? ` · ${visit.when}` : " · falta agendar"}
-              {visit.professionalName && visit.status !== "falta_agendar" ? ` · ${visit.professionalName}` : ""}
-              {visit.late ? " · depois do prazo" : ""}
-            </p>
-          ))}
+          {held.map((item) => {
+            const warned = item.expired || item.late;
+            return (
+              <div key={item.id}>
+                <p>
+                  {item.name} · {item.used} de {item.total} usadas
+                  {item.started && item.validUntil ? ` · válido até ${item.validUntil}` : " · prazo ainda não começou"}
+                </p>
+                {warned ? (
+                  <p>
+                    Pacote vencido.
+                    {item.pardons > 0 ? ` Já houve perdão. Esta é a ${item.pardons + 1}ª vez.` : ""}
+                  </p>
+                ) : null}
+                {operator && warned ? (
+                  <form action={pardonPackage}>
+                    <input type="hidden" name="order" value={order.id} />
+                    <input type="hidden" name="package" value={item.id} />
+                    <SubmitButton label="Perdoar" pendingLabel="Perdoando…" className="quiet" />
+                  </form>
+                ) : null}
+              </div>
+            );
+          })}
+          {visits.map((visit) => {
+            const due = visit.late && visit.listPriceCents != null
+              ? Math.max(0, visit.listPriceCents - visit.internalPriceCents)
+              : null;
+            return (
+              <div key={visit.id}>
+                <p>
+                  {visit.serviceName}
+                  {visit.status === "usado" ? " · usada" : visit.when ? ` · ${visit.when}` : " · falta agendar"}
+                  {visit.professionalName && visit.status !== "falta_agendar" ? ` · ${visit.professionalName}` : ""}
+                  {visit.late ? " · depois do prazo" : ""}
+                  {due != null ? ` · diferença ${formatReais(due)}` : ""}
+                </p>
+                {operator && visit.late ? (
+                  <form action={chargePackageDifference}>
+                    <input type="hidden" name="order" value={order.id} />
+                    <input type="hidden" name="credit" value={visit.id} />
+                    <SubmitButton
+                      label={due != null ? `Cobrar diferença ${formatReais(due)}` : "Cobrar diferença"}
+                      pendingLabel="Cobrando…"
+                      className="quiet"
+                    />
+                  </form>
+                ) : null}
+              </div>
+            );
+          })}
           {operator && visits.some((visit) => visit.status === "falta_agendar") ? (
             <Modal label="Marcar visita" title="Marcar visita do pacote" tone="blue">
               <PackageVisitForm

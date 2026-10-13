@@ -393,4 +393,28 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS package_credits_package_idx ON package_credits (client_package_id, status)`;
+  await sql`ALTER TABLE client_packages DROP CONSTRAINT IF EXISTS client_packages_status_check`;
+  await sql`
+    ALTER TABLE client_packages
+    ADD CONSTRAINT client_packages_status_check
+    CHECK (status IN ('ativo', 'concluido', 'cancelado', 'encerrado'))
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS package_pardons (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      client_package_id uuid NOT NULL REFERENCES client_packages(id) ON DELETE CASCADE,
+      client_id uuid NOT NULL REFERENCES clients(id),
+      order_id uuid REFERENCES orders(id) ON DELETE SET NULL,
+      credit_id uuid,
+      actor_id uuid REFERENCES users(id) ON DELETE SET NULL,
+      expired_on date NOT NULL,
+      late_on date NOT NULL,
+      renewed_until date NOT NULL,
+      sequence integer NOT NULL CHECK (sequence > 0),
+      weeks_lost integer NOT NULL CHECK (weeks_lost >= 0),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS package_pardons_package_idx ON package_pardons (client_package_id, sequence)`;
 }

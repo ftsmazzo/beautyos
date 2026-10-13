@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import type { TransactionSql } from "postgres";
 import { requireDesk, requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { digits, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents } from "@/catalog/format";
+import { digits, formatDay, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents } from "@/catalog/format";
 import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
@@ -662,6 +662,205 @@ export async function repeatPackageVisits(formData: FormData) {
         }
         if (!placed) throw new FormError(lastCode);
       }
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function pardonPackage(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const packageId = idOrNull(String(formData.get("package") ?? ""));
+    const creditId = idOrNull(String(formData.get("credit") ?? ""));
+    if (!packageId) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ clientId: string | null; day: string; kind: string }[]>`
+        SELECT client_id AS "clientId", to_char(day, 'YYYY-MM-DD') AS day, kind
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.kind !== "cliente" || !order[0].clientId) throw new FormError("cliente");
+      const held = await tx<{
+        validityDays: number;
+        validUntil: string | null;
+        name: string;
+      }[]>`
+        SELECT validity_days AS "validityDays", to_char(valid_until, 'YYYY-MM-DD') AS "validUntil", name
+        FROM client_packages
+        WHERE id = ${packageId} AND account_id = ${user.accountId}
+          AND client_id = ${order[0].clientId} AND status = 'ativo'
+      `;
+      if (!held[0]?.validUntil) throw new FormError("prazo");
+      const lateRows = await tx<{ creditId: string; day: string; serviceName: string }[]>`
+        SELECT c.id AS "creditId",
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+               s.name AS "serviceName"
+        FROM package_credits c
+        JOIN services s ON s.id = c.service_id
+        JOIN order_lines l ON l.id = c.order_line_id
+        JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        WHERE c.client_package_id = ${packageId}
+          AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > ${held[0].validUntil}::date
+        ORDER BY a.starts_at
+      `;
+      const expired = held[0].validUntil < order[0].day;
+      if (!expired && !lateRows.length) throw new FormError("prazo");
+      const late = creditId
+        ? lateRows.find((row) => row.creditId === creditId) ?? lateRows[0]
+        : lateRows[0];
+      const lateOn = late?.day ?? order[0].day;
+      const last = await tx<{ day: string | null }[]>`
+        SELECT to_char(max(a.starts_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS day
+        FROM package_credits c
+        JOIN order_lines l ON l.id = c.order_line_id
+        JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        WHERE c.client_package_id = ${packageId}
+      `;
+      let renewed = shiftDay(held[0].validUntil, held[0].validityDays);
+      if (last[0]?.day && last[0].day > renewed) renewed = last[0].day;
+      const sequenceRows = await tx<{ n: number }[]>`
+        SELECT COALESCE(max(sequence), 0)::int AS n FROM package_pardons WHERE client_package_id = ${packageId}
+      `;
+      const sequence = (sequenceRows[0]?.n ?? 0) + 1;
+      const expiredAt = new Date(`${held[0].validUntil}T12:00:00-03:00`).getTime();
+      const lateAt = new Date(`${lateOn}T12:00:00-03:00`).getTime();
+      const weeksLost = Math.max(0, Math.ceil((lateAt - expiredAt) / (7 * 24 * 60 * 60 * 1000)));
+      await tx`
+        UPDATE client_packages SET valid_until = ${renewed}::date WHERE id = ${packageId}
+      `;
+      await tx`
+        INSERT INTO package_pardons (
+          id, account_id, client_package_id, client_id, order_id, credit_id, actor_id,
+          expired_on, late_on, renewed_until, sequence, weeks_lost
+        ) VALUES (
+          ${randomUUID()}, ${user.accountId}, ${packageId}, ${order[0].clientId}, ${orderId}, ${late?.creditId ?? null}, ${user.id},
+          ${held[0].validUntil}::date, ${lateOn}::date, ${renewed}::date, ${sequence}, ${weeksLost}
+        )
+      `;
+      const weekWord = weeksLost === 1 ? "semana perdida" : "semanas perdidas";
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId,
+        lineId: null,
+        appointmentId: null,
+        actorId: user.id,
+        kind: "valor",
+        summary: `Perdão ${sequence} do pacote ${held[0].name}. Prazo ${formatDay(held[0].validUntil)} → ${formatDay(renewed)}${late ? `. Ida atrasada ${late.serviceName} em ${formatDay(late.day)}` : ""}. ${weeksLost} ${weekWord}.`,
+        beforeCents: null,
+        afterCents: null,
+      });
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function chargePackageDifference(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const creditId = idOrNull(String(formData.get("credit") ?? ""));
+    if (!creditId) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const credit = await tx<{
+        clientPackageId: string;
+        packageName: string;
+        serviceName: string;
+        internalPriceCents: number;
+        lineId: string | null;
+        lineOrderId: string | null;
+        lineOrderStatus: string | null;
+        appointmentId: string | null;
+        listPriceCents: number | null;
+        commissionPercent: number | null;
+        validUntil: string | null;
+        day: string | null;
+      }[]>`
+        SELECT c.client_package_id AS "clientPackageId", cp.name AS "packageName", s.name AS "serviceName",
+               c.internal_price_cents AS "internalPriceCents", c.order_line_id AS "lineId",
+               l.order_id AS "lineOrderId", o.status AS "lineOrderStatus", l.appointment_id AS "appointmentId",
+               l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
+               to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntil",
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day
+        FROM package_credits c
+        JOIN client_packages cp ON cp.id = c.client_package_id
+        JOIN services s ON s.id = c.service_id
+        LEFT JOIN order_lines l ON l.id = c.order_line_id
+        LEFT JOIN orders o ON o.id = l.order_id
+        LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        WHERE c.id = ${creditId} AND c.account_id = ${user.accountId} AND cp.status = 'ativo'
+      `;
+      if (!credit[0]?.lineId || !credit[0].day || !credit[0].validUntil || credit[0].listPriceCents == null) throw new FormError("diferenca");
+      if (credit[0].lineOrderStatus === "fechada") throw new FormError("diferenca");
+      if (credit[0].day <= credit[0].validUntil) throw new FormError("diferenca");
+      const avulso = credit[0].listPriceCents ?? 0;
+      const due = Math.max(0, avulso - credit[0].internalPriceCents);
+      const percent = credit[0].commissionPercent ?? 0;
+      const commission = Math.round(due * percent / 100);
+      await tx`
+        UPDATE order_lines
+        SET price_cents = ${due}, commission_cents = ${commission}, package_credit_id = NULL, courtesy = false
+        WHERE id = ${credit[0].lineId}
+      `;
+      await tx`
+        UPDATE package_credits
+        SET status = 'usado', used_on = ${credit[0].day}::date
+        WHERE id = ${creditId}
+      `;
+      const leftovers = await tx<{
+        id: string;
+        lineId: string | null;
+        appointmentId: string | null;
+        orderId: string | null;
+        orderStatus: string | null;
+        serviceName: string;
+      }[]>`
+        SELECT c.id, c.order_line_id AS "lineId", l.appointment_id AS "appointmentId",
+               l.order_id AS "orderId", o.status AS "orderStatus", s.name AS "serviceName"
+        FROM package_credits c
+        JOIN services s ON s.id = c.service_id
+        LEFT JOIN order_lines l ON l.id = c.order_line_id
+        LEFT JOIN orders o ON o.id = l.order_id
+        WHERE c.client_package_id = ${credit[0].clientPackageId} AND c.id <> ${creditId} AND c.status <> 'usado'
+      `;
+      for (const row of leftovers) {
+        if (row.orderStatus === "fechada") {
+          if (row.lineId) await tx`UPDATE order_lines SET package_credit_id = NULL WHERE id = ${row.lineId}`;
+        } else if (row.lineId && row.orderId) {
+          await writeEvent(tx, {
+            accountId: user.accountId,
+            orderId: row.orderId,
+            lineId: row.lineId,
+            appointmentId: row.appointmentId,
+            actorId: user.id,
+            kind: "cancelamento",
+            summary: `${row.serviceName} cancelado ao cobrar a diferença do pacote`,
+            beforeCents: 0,
+            afterCents: null,
+          });
+          await tx`DELETE FROM order_lines WHERE id = ${row.lineId}`;
+          if (row.appointmentId) {
+            await tx`
+              UPDATE appointments SET status = 'cancelado'
+              WHERE id = ${row.appointmentId} AND account_id = ${user.accountId}
+            `;
+          }
+        }
+        await tx`DELETE FROM package_credits WHERE id = ${row.id}`;
+      }
+      await tx`
+        UPDATE client_packages SET status = 'encerrado' WHERE id = ${credit[0].clientPackageId}
+      `;
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId: credit[0].lineOrderId ?? orderId,
+        lineId: credit[0].lineId,
+        appointmentId: credit[0].appointmentId,
+        actorId: user.id,
+        kind: "valor",
+        summary: `Cobrou a diferença de ${credit[0].serviceName} do pacote ${credit[0].packageName}. ${formatReais(0)} → ${formatReais(due)} (avulso ${formatReais(avulso)} − interno ${formatReais(credit[0].internalPriceCents)}). Pacote encerrado.`,
+        beforeCents: 0,
+        afterCents: due,
+      });
     });
     return `/comandas/${orderId}`;
   });
