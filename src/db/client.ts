@@ -220,6 +220,9 @@ async function ensureSchema() {
     ON payables (purchase_id, installment_index)
   `;
   await sql`
+    ALTER TABLE payables ALTER COLUMN purchase_id DROP NOT NULL
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS bank_accounts (
       id uuid PRIMARY KEY,
       account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

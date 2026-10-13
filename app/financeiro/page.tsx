@@ -3,11 +3,14 @@ import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listPayables, type PayableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
+import { deleteTitle } from "@/finance/actions";
 import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
+import { PayableForm } from "@/ui/payable-form";
 import { PayableSettle } from "@/ui/payable-settle";
+import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -72,8 +75,9 @@ export default async function FinancePage({
     <Panel user={user} current="/financeiro" title="Contas a pagar">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>Estas contas não entram no caixa do balcão. No crédito, a compra fica na fatura. O banco sai quando a fatura é paga.</p>
+      <p>Aluguel e luz entram aqui, sem compra de produto. Estas contas não entram no caixa do balcão. No crédito, o título fica na fatura. O banco sai quando a fatura é paga.</p>
       <FinanceNav current="pagar" />
+      <PayableForm banks={banks} cards={cards} charts={charts} today={today} />
       <div className="row">
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro?filtro=${item.id}`}>
@@ -118,17 +122,25 @@ export default async function FinancePage({
                     <td>{situationLabel(state)}{row.paid ? ` · ${row.paid}` : ""}</td>
                     <td>{method}{row.cardBrand ? ` · ${row.cardBrand}` : ""}</td>
                     <td>
-                      {row.bankName ?? row.cardName ?? (
-                        <PayableSettle
-                          id={row.id}
-                          banks={banks}
-                          cards={cards}
-                          charts={charts}
-                          today={today}
-                          paid={Boolean(row.paid)}
-                          method={row.method}
-                        />
-                      )}
+                      <div className="row">
+                        {row.bankName ?? row.cardName ?? (
+                          <PayableSettle
+                            id={row.id}
+                            banks={banks}
+                            cards={cards}
+                            charts={charts}
+                            today={today}
+                            paid={Boolean(row.paid)}
+                            method={row.method}
+                          />
+                        )}
+                        {row.manual ? (
+                          <form action={deleteTitle}>
+                            <input type="hidden" name="id" value={row.id} />
+                            <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                          </form>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );

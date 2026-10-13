@@ -46,6 +46,7 @@ export const FORM_ERRORS: Record<string, string> = {
   fatura: "Essa fatura não tem lançamento.",
   apr: "Já existe uma conta com esse código.",
   presa: "Essa conta do plano já está em um título.",
+  quitada: "Essa conta já entrou numa fatura paga.",
   soma: "Inclua um serviço e o preço interno de cada ida.",
   desconto: "O desconto precisa do dia e do valor, com o horário completo ou o dia inteiro.",
   insumo: "O insumo precisa do produto e da quantidade.",

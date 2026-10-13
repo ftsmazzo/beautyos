@@ -3,7 +3,8 @@
 import { randomUUID } from "crypto";
 import { requireAdmin } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { parseReais, textOrNull } from "@/catalog/format";
+import { checked, parseIntField, parseReais, textOrNull } from "@/catalog/format";
+import { shiftMonth } from "@/desk/clock";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
 
@@ -263,5 +264,91 @@ export async function deleteChart(formData: FormData) {
     if (used.length) throw new FormError("presa");
     await db()`DELETE FROM chart_accounts WHERE id = ${id} AND account_id = ${user.accountId}`;
     return "/financeiro/plano";
+  });
+}
+
+export async function saveTitle(formData: FormData) {
+  const user = await requireAdmin();
+  return settle("/financeiro", async () => {
+    const description = String(formData.get("description") ?? "").trim();
+    const party = String(formData.get("party") ?? "").trim();
+    const amount = parseReais(String(formData.get("amount") ?? ""));
+    const due = String(formData.get("due") ?? "");
+    const timesRaw = parseIntField(formData.get("times"));
+    const times = timesRaw ?? 1;
+    const paid = checked(formData, "paid");
+    const paidOn = String(formData.get("day") ?? "");
+    const method = String(formData.get("method") ?? "");
+    const brand = textOrNull(formData.get("brand"));
+    if (description.length < 2 || party.length < 2 || amount == null || amount < 1) throw new FormError("dados");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || times < 1 || times > 36) throw new FormError("dados");
+    if (paid && !/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) throw new FormError("dados");
+    if (paid && !PAYABLE_METHODS.includes(method)) throw new FormError("dados");
+    if (paid && (method === "debito" || method === "credito") && (!brand || brand.length < 2)) throw new FormError("bandeira");
+    const credit = paid && method === "credito";
+    const bankRaw = credit ? "" : String(formData.get("bank") ?? "");
+    const cardRaw = credit ? String(formData.get("card") ?? "") : "";
+    const chartRaw = String(formData.get("chart") ?? "");
+    await db().begin(async (tx) => {
+      let bankId: string | null = null;
+      let cardId: string | null = null;
+      let chartId: string | null = null;
+      if (bankRaw) {
+        if (!UUID.test(bankRaw)) throw new FormError("dados");
+        const bank = await tx`SELECT id FROM bank_accounts WHERE id = ${bankRaw} AND account_id = ${user.accountId} AND active`;
+        if (!bank.length) throw new FormError("fora");
+        bankId = bankRaw;
+      }
+      if (cardRaw) {
+        if (!UUID.test(cardRaw)) throw new FormError("dados");
+        const card = await tx`SELECT id FROM credit_cards WHERE id = ${cardRaw} AND account_id = ${user.accountId} AND active`;
+        if (!card.length) throw new FormError("fora");
+        cardId = cardRaw;
+      }
+      if (chartRaw) {
+        if (!UUID.test(chartRaw)) throw new FormError("dados");
+        const chart = await tx`SELECT id FROM chart_accounts WHERE id = ${chartRaw} AND account_id = ${user.accountId} AND active`;
+        if (!chart.length) throw new FormError("fora");
+        chartId = chartRaw;
+      }
+      const base = Math.floor(amount / times);
+      const rest = amount - base * times;
+      for (let index = 1; index <= times; index += 1) {
+        const part = base + (index === times ? rest : 0);
+        const label = times === 1 ? description : `${description} · ${index}/${times}`;
+        await tx`
+          INSERT INTO payables (
+            id, account_id, purchase_id, description, party_name,
+            amount_cents, due_on, installment_index, installment_total,
+            method, card_brand, paid_on, bank_account_id, credit_card_id, chart_account_id, created_by
+          )
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, NULL, ${label}, ${party},
+            ${part}, ${shiftMonth(due, index - 1)}::date, ${index}, ${times},
+            ${paid ? method : null}, ${paid && (method === "debito" || method === "credito") ? brand : null},
+            ${paid ? paidOn : null}::date, ${bankId}, ${cardId}, ${chartId}, ${user.id}
+          )
+        `;
+      }
+    });
+    return paid ? "/financeiro?ok=titulo&filtro=pago" : "/financeiro?ok=titulo";
+  });
+}
+
+export async function deleteTitle(formData: FormData) {
+  const user = await requireAdmin();
+  return settle("/financeiro", async () => {
+    const id = String(formData.get("id") ?? "");
+    if (!UUID.test(id)) throw new FormError("dados");
+    const rows = await db()<{ purchaseId: string | null; settlementId: string | null }[]>`
+      SELECT purchase_id AS "purchaseId", card_settlement_id AS "settlementId"
+      FROM payables
+      WHERE id = ${id} AND account_id = ${user.accountId}
+    `;
+    const row = rows[0];
+    if (!row || row.purchaseId) throw new FormError("fora");
+    if (row.settlementId) throw new FormError("quitada");
+    await db()`DELETE FROM payables WHERE id = ${id} AND account_id = ${user.accountId} AND purchase_id IS NULL`;
+    return "/financeiro";
   });
 }
