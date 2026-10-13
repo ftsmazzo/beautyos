@@ -366,6 +366,37 @@ export type PayableRow = {
   paid: string | null;
 };
 
+export type ReceivableRow = {
+  id: string;
+  day: string;
+  dayIso: string;
+  clientName: string;
+  phone: string | null;
+  totalCents: number;
+  paidCents: number;
+};
+
+export async function listReceivables(accountId: string) {
+  return db()<ReceivableRow[]>`
+    SELECT o.id,
+           to_char(o.day, 'DD/MM/YYYY') AS day,
+           to_char(o.day, 'YYYY-MM-DD') AS "dayIso",
+           COALESCE(c.name, 'Sem nome') AS "clientName",
+           c.phone,
+           COALESCE(SUM(l.price_cents), 0)::int AS "totalCents",
+           COALESCE((SELECT SUM(p.amount_cents) FROM payments p WHERE p.order_id = o.id), 0)::int AS "paidCents"
+    FROM orders o
+    LEFT JOIN clients c ON c.id = o.client_id
+    LEFT JOIN order_lines l ON l.order_id = o.id
+    WHERE o.account_id = ${accountId} AND o.kind = 'cliente' AND o.status = 'aberta'
+    GROUP BY o.id, o.day, c.name, c.phone
+    HAVING COALESCE(SUM(l.price_cents), 0) >
+           COALESCE((SELECT SUM(p.amount_cents) FROM payments p WHERE p.order_id = o.id), 0)
+    ORDER BY o.day, c.name
+    LIMIT 80
+  `;
+}
+
 export async function listPayables(accountId: string) {
   return db()<PayableRow[]>`
     SELECT id, description, party_name AS "partyName", amount_cents AS "amountCents",
