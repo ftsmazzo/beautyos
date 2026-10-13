@@ -542,3 +542,67 @@ export async function dayCash(accountId: string, day: string) {
   `;
   return { movements, byMethod, commissions };
 }
+
+export async function packageReport(accountId: string, start: string, end: string) {
+  const sales = await db()<{ name: string; sales: number; soldCents: number; avulsoCents: number }[]>`
+    SELECT cp.name, count(*)::int AS sales,
+           COALESCE(SUM(cp.price_cents), 0)::int AS "soldCents",
+           COALESCE(SUM(av.avulso), 0)::int AS "avulsoCents"
+    FROM client_packages cp
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(SUM(s.price_cents), 0)::int AS avulso
+      FROM package_credits cr
+      JOIN services s ON s.id = cr.service_id
+      WHERE cr.client_package_id = cp.id
+    ) av ON true
+    WHERE cp.account_id = ${accountId}
+      AND cp.status <> 'cancelado'
+      AND cp.sold_on >= ${start}::date
+      AND cp.sold_on <= ${end}::date
+    GROUP BY cp.name
+    ORDER BY count(*) DESC, cp.name
+  `;
+  const services = await db()<{ name: string; visits: number; internalCents: number; avulsoCents: number }[]>`
+    SELECT s.name, count(*)::int AS visits,
+           COALESCE(SUM(cr.internal_price_cents), 0)::int AS "internalCents",
+           COALESCE(SUM(s.price_cents), 0)::int AS "avulsoCents"
+    FROM package_credits cr
+    JOIN client_packages cp ON cp.id = cr.client_package_id
+    JOIN services s ON s.id = cr.service_id
+    WHERE cp.account_id = ${accountId}
+      AND cp.status <> 'cancelado'
+      AND cp.sold_on >= ${start}::date
+      AND cp.sold_on <= ${end}::date
+    GROUP BY s.name
+    ORDER BY count(*) DESC, s.name
+  `;
+  const pardonRows = await db()<{ times: number; weeks: number; clients: number }[]>`
+    SELECT count(*)::int AS times,
+           COALESCE(SUM(weeks_lost), 0)::int AS weeks,
+           COUNT(DISTINCT client_id)::int AS clients
+    FROM package_pardons
+    WHERE account_id = ${accountId}
+      AND (created_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${start}::date
+      AND (created_at AT TIME ZONE 'America/Sao_Paulo')::date <= ${end}::date
+  `;
+  const repeats = await db()<{ clientId: string; clientName: string; times: number; weeks: number; sequence: number }[]>`
+    SELECT c.id AS "clientId", c.name AS "clientName",
+           count(*)::int AS times,
+           COALESCE(SUM(p.weeks_lost), 0)::int AS weeks,
+           MAX(p.sequence)::int AS sequence
+    FROM package_pardons p
+    JOIN clients c ON c.id = p.client_id
+    WHERE p.account_id = ${accountId}
+      AND (p.created_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${start}::date
+      AND (p.created_at AT TIME ZONE 'America/Sao_Paulo')::date <= ${end}::date
+    GROUP BY c.id, c.name
+    HAVING count(*) > 1 OR MAX(p.sequence) > 1
+    ORDER BY count(*) DESC, c.name
+  `;
+  return {
+    sales,
+    services,
+    pardons: pardonRows[0] ?? { times: 0, weeks: 0, clients: 0 },
+    repeats,
+  };
+}

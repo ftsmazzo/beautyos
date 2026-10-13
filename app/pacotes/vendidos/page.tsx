@@ -59,6 +59,9 @@ export default async function SoldPackagesPage({
   return (
     <Panel user={user} current="/pacotes/vendidos" title="Pacotes vendidos">
       <div className="row">
+        <Link className="btn quiet" href="/pacotes/relatorio">
+          Relatório
+        </Link>
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/pacotes/vendidos?filtro=${item.id}`}>
             {item.label}
