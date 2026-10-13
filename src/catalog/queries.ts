@@ -333,6 +333,25 @@ export async function listSuppliers(accountId: string) {
   `;
 }
 
+export async function listPurchases(accountId: string) {
+  return db()<{
+    id: string;
+    supplierName: string;
+    document: string;
+    day: string;
+    totalCents: number;
+  }[]>`
+    SELECT p.id, s.name AS "supplierName", p.document,
+           to_char(p.purchased_on, 'DD/MM/YYYY') AS day,
+           COALESCE((SELECT SUM(l.qty * l.cost_cents) FROM purchase_lines l WHERE l.purchase_id = p.id), 0)::int AS "totalCents"
+    FROM purchases p
+    JOIN suppliers s ON s.id = p.supplier_id
+    WHERE p.account_id = ${accountId}
+    ORDER BY p.purchased_on DESC, p.created_at DESC
+    LIMIT 30
+  `;
+}
+
 export type ComponentRow = { componentId: string; name: string; qty: number };
 
 export async function listComponents(productId: string) {

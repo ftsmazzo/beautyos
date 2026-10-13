@@ -6,6 +6,7 @@ import { FormError } from "@/catalog/errors";
 import { checked, digits, parseIntField, parsePercent, parseReais, textOrNull } from "@/catalog/format";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
+import { dayParam } from "@/desk/clock";
 
 export async function saveProduct(formData: FormData) {
   const user = await requireOperator();
@@ -178,5 +179,101 @@ export async function moveStock(formData: FormData) {
       `;
     });
     return `${failBase}?ok=movimento`;
+  });
+}
+
+export async function savePurchase(formData: FormData) {
+  const user = await requireOperator();
+  return settle("/produtos/compra", async () => {
+    const document = String(formData.get("document") ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+    const day = dayParam(String(formData.get("day") ?? ""));
+    const chosen = String(formData.get("supplier") ?? "");
+    const name = String(formData.get("supplier_name") ?? "").trim();
+    const phone = digits(String(formData.get("supplier_phone") ?? "")) || null;
+    const cnpj = digits(String(formData.get("supplier_cnpj") ?? "")) || null;
+    const city = textOrNull(formData.get("supplier_city"));
+    const productIds = formData.getAll("product").map(String);
+    const qtys = formData.getAll("qty").map(String);
+    const costs = formData.getAll("cost").map(String);
+    const lines: { productId: string; qty: number; costCents: number }[] = [];
+    const seen = new Set<string>();
+    for (let index = 0; index < productIds.length; index += 1) {
+      const productId = productIds[index];
+      if (!productId) continue;
+      if (seen.has(productId)) throw new FormError("linha");
+      seen.add(productId);
+      const qty = parseIntField(qtys[index] ?? null);
+      const costCents = parseReais(costs[index] ?? "");
+      if (qty == null || qty < 1 || costCents == null) throw new FormError("estoque");
+      lines.push({ productId, qty, costCents });
+    }
+    if (document.length < 1 || lines.length === 0) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      let supplierId = "";
+      if (chosen) {
+        const found = await tx<{ id: string }[]>`
+          SELECT id FROM suppliers WHERE id = ${chosen} AND account_id = ${user.accountId}
+        `;
+        if (!found[0]) throw new FormError("fora");
+        supplierId = found[0].id;
+      } else {
+        if (name.length < 2) throw new FormError("dados");
+        if (cnpj) {
+          const sameCnpj = await tx<{ id: string }[]>`
+            SELECT id FROM suppliers WHERE account_id = ${user.accountId} AND cnpj = ${cnpj} LIMIT 1
+          `;
+          supplierId = sameCnpj[0]?.id ?? "";
+        }
+        if (!supplierId) {
+          const sameName = await tx<{ id: string }[]>`
+            SELECT id FROM suppliers
+            WHERE account_id = ${user.accountId} AND lower(name) = ${name.toLowerCase()}
+            LIMIT 1
+          `;
+          supplierId = sameName[0]?.id ?? "";
+        }
+        if (!supplierId) {
+          supplierId = randomUUID();
+          await tx`
+            INSERT INTO suppliers (id, account_id, name, phone, cnpj, city)
+            VALUES (${supplierId}, ${user.accountId}, ${name}, ${phone}, ${cnpj}, ${city})
+          `;
+        }
+      }
+      const owned = await tx<{ id: string }[]>`
+        SELECT id FROM products
+        WHERE account_id = ${user.accountId} AND id IN ${tx(lines.map((line) => line.productId))}
+      `;
+      if (owned.length !== lines.length) throw new FormError("fora");
+      const duplicate = await tx`
+        SELECT id FROM purchases
+        WHERE account_id = ${user.accountId} AND supplier_id = ${supplierId} AND document = ${document}
+      `;
+      if (duplicate.length) throw new FormError("nota");
+      const purchaseId = randomUUID();
+      await tx`
+        INSERT INTO purchases (id, account_id, supplier_id, document, purchased_on, created_by)
+        VALUES (${purchaseId}, ${user.accountId}, ${supplierId}, ${document}, ${day}::date, ${user.id})
+      `;
+      for (const line of lines) {
+        await tx`
+          INSERT INTO purchase_lines (id, purchase_id, product_id, qty, cost_cents)
+          VALUES (${randomUUID()}, ${purchaseId}, ${line.productId}, ${line.qty}, ${line.costCents})
+        `;
+        await tx`
+          INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, ${line.productId}, ${line.qty}, 'compra',
+            ${`nota ${document} · ${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`}, ${user.id}
+          )
+        `;
+        await tx`
+          UPDATE products
+          SET cost_cents = ${line.costCents}, supplier_id = ${supplierId}
+          WHERE id = ${line.productId} AND account_id = ${user.accountId}
+        `;
+      }
+    });
+    return "/produtos/compra?ok=compra";
   });
 }

@@ -170,6 +170,30 @@ async function ensureSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS stock_movements_product_idx ON stock_movements (product_id)`;
   await sql`
+    CREATE TABLE IF NOT EXISTS purchases (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      supplier_id uuid NOT NULL REFERENCES suppliers(id),
+      document text NOT NULL,
+      purchased_on date NOT NULL,
+      created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS purchases_document_uidx
+    ON purchases (account_id, supplier_id, document)
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS purchase_lines (
+      id uuid PRIMARY KEY,
+      purchase_id uuid NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+      product_id uuid NOT NULL REFERENCES products(id),
+      qty integer NOT NULL CHECK (qty > 0),
+      cost_cents integer NOT NULL CHECK (cost_cents >= 0)
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS product_components (
       product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
       component_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,

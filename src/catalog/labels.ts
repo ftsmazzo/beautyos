@@ -35,6 +35,8 @@ export const FORM_ERRORS: Record<string, string> = {
   ciclo: "Esse item já contém este produto.",
   igual: "A contagem fechou igual ao saldo.",
   estoque: "Revise a quantidade deste movimento.",
+  nota: "Essa nota desse fornecedor já entrou.",
+  linha: "A mesma nota não repete o produto.",
   soma: "Inclua um serviço e o preço interno de cada ida.",
   desconto: "O desconto precisa do dia e do valor, com o horário completo ou o dia inteiro.",
   insumo: "O insumo precisa do produto e da quantidade.",

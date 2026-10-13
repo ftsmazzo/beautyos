@@ -22,6 +22,9 @@ export default async function ProductsPage({
         <Link className="btn" href="/produtos/novo">
           Novo produto
         </Link>
+        <Link className="btn quiet" href="/produtos/compra">
+          Compra por nota
+        </Link>
       </div>
       <div className="card">
         {products.length === 0 ? <p>Nenhum produto ainda.</p> : null}
