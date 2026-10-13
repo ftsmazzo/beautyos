@@ -274,12 +274,15 @@ export async function saveTitle(formData: FormData) {
     const party = String(formData.get("party") ?? "").trim();
     const amount = parseReais(String(formData.get("amount") ?? ""));
     const due = String(formData.get("due") ?? "");
+    const mode = String(formData.get("mode") ?? "uma");
     const timesRaw = parseIntField(formData.get("times"));
-    const times = timesRaw ?? 1;
+    const times = mode === "uma" ? 1 : timesRaw ?? 1;
+    const repeat = mode === "repete";
     const paid = checked(formData, "paid");
     const paidOn = String(formData.get("day") ?? "");
     const method = String(formData.get("method") ?? "");
     const brand = textOrNull(formData.get("brand"));
+    if (!["uma", "parcela", "repete"].includes(mode)) throw new FormError("dados");
     if (description.length < 2 || party.length < 2 || amount == null || amount < 1) throw new FormError("dados");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || times < 1 || times > 36) throw new FormError("dados");
     if (paid && !/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) throw new FormError("dados");
@@ -314,8 +317,14 @@ export async function saveTitle(formData: FormData) {
       const base = Math.floor(amount / times);
       const rest = amount - base * times;
       for (let index = 1; index <= times; index += 1) {
-        const part = base + (index === times ? rest : 0);
-        const label = times === 1 ? description : `${description} · ${index}/${times}`;
+        const dueOn = shiftMonth(due, index - 1);
+        const part = repeat ? amount : base + (index === times ? rest : 0);
+        const label = repeat
+          ? `${description} · ${dueOn.slice(5, 7)}/${dueOn.slice(0, 4)}`
+          : times === 1
+            ? description
+            : `${description} · ${index}/${times}`;
+        const thisPaid = paid && (!repeat || index === 1);
         await tx`
           INSERT INTO payables (
             id, account_id, purchase_id, description, party_name,
@@ -324,13 +333,14 @@ export async function saveTitle(formData: FormData) {
           )
           VALUES (
             ${randomUUID()}, ${user.accountId}, NULL, ${label}, ${party},
-            ${part}, ${shiftMonth(due, index - 1)}::date, ${index}, ${times},
-            ${paid ? method : null}, ${paid && (method === "debito" || method === "credito") ? brand : null},
-            ${paid ? paidOn : null}::date, ${bankId}, ${cardId}, ${chartId}, ${user.id}
+            ${part}, ${dueOn}::date, ${repeat ? 1 : index}, ${repeat ? 1 : times},
+            ${thisPaid ? method : null}, ${thisPaid && (method === "debito" || method === "credito") ? brand : null},
+            ${thisPaid ? paidOn : null}::date, ${thisPaid ? bankId : null}, ${thisPaid ? cardId : null}, ${chartId}, ${user.id}
           )
         `;
       }
     });
+    if (repeat && times > 1) return "/financeiro?ok=titulo&filtro=todos";
     return paid ? "/financeiro?ok=titulo&filtro=pago" : "/financeiro?ok=titulo";
   });
 }

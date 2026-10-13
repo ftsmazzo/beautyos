@@ -17,6 +17,7 @@ export function PayableForm({
 }) {
   const [paid, setPaid] = useState(false);
   const [method, setMethod] = useState("pix");
+  const [mode, setMode] = useState("uma");
 
   return (
     <form action={saveTitle}>
@@ -38,10 +39,22 @@ export function PayableForm({
           <input type="date" name="due" required defaultValue={today} />
         </label>
         <label>
-          Vezes
-          <input name="times" type="number" min={1} max={36} defaultValue={1} required />
+          Lançamento
+          <select name="mode" value={mode} onChange={(event) => setMode(event.target.value)}>
+            <option value="uma">Uma vez</option>
+            <option value="parcela">Parcelar o valor</option>
+            <option value="repete">Repetir todo mês</option>
+          </select>
         </label>
+        {mode !== "uma" ? (
+          <label>
+            {mode === "repete" ? "Meses" : "Vezes"}
+            <input name="times" type="number" min={1} max={36} defaultValue={2} required />
+          </label>
+        ) : null}
       </div>
+      {mode === "parcela" ? <p>O valor se divide nas vezes.</p> : null}
+      {mode === "repete" ? <p>Cada mês entra com o mesmo valor. Se já pagou, só o primeiro mês sai do banco.</p> : null}
       {charts.length > 0 ? (
         <label>
           Plano

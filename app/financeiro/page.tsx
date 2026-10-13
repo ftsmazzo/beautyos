@@ -75,7 +75,7 @@ export default async function FinancePage({
     <Panel user={user} current="/financeiro" title="Contas a pagar">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>Aluguel e luz entram aqui, sem compra de produto. Estas contas não entram no caixa do balcão. No crédito, o título fica na fatura. O banco sai quando a fatura é paga.</p>
+      <p>Aluguel e luz entram aqui, sem compra de produto. Repetir todo mês lança o mesmo valor de novo. Estas contas não entram no caixa do balcão. No crédito, o título fica na fatura. O banco sai quando a fatura é paga.</p>
       <FinanceNav current="pagar" />
       <PayableForm banks={banks} cards={cards} charts={charts} today={today} />
       <div className="row">
