@@ -23,6 +23,7 @@ import {
   toggleFromOutside,
 } from "@/desk/actions";
 import { clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions } from "@/desk/queries";
+import { listBanks } from "@/finance/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { OrderServiceForm } from "@/ui/order-service-form";
@@ -54,6 +55,7 @@ export default async function OrderPage({
   const paid = order.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
   const people = order.incomplete ? await clientOptions(user.accountId) : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
+  const banks = operator && open && order.kind === "cliente" ? await listBanks(user.accountId) : [];
   const roster = order.kind === "cliente" ? await dayRoster(user.accountId, null) : [];
   const catalog = order.kind === "cliente" ? await serviceOptions(user.accountId) : [];
   const stock = order.kind === "consumo" && open ? await consumptionProducts(user.accountId) : [];
@@ -443,7 +445,10 @@ export default async function OrderPage({
               <tbody>
                 {order.payments.map((payment) => (
                   <tr key={payment.id}>
-                    <td>{PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}</td>
+                    <td>
+                      {PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}
+                      {payment.bankName ? ` · ${payment.bankName}` : ""}
+                    </td>
                     <td>{formatReais(payment.amountCents)}</td>
                     <td>
                       {operator && open ? (
@@ -477,7 +482,21 @@ export default async function OrderPage({
                   Valor
                   <input name="amount" inputMode="decimal" placeholder="0,00" required />
                 </label>
+                {banks.length > 0 ? (
+                  <label>
+                    Destino
+                    <select name="bank" defaultValue="">
+                      <option value="">Caixa do balcão</option>
+                      {banks.map((bank) => (
+                        <option key={bank.id} value={bank.id}>
+                          {bank.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
               </div>
+              {banks.length > 0 ? <p>No banco, o recebimento entra no extrato e não passa pela gaveta.</p> : null}
               <SubmitButton label="Lançar pagamento" pendingLabel="Lançando…" />
             </form>
           ) : null}

@@ -235,11 +235,12 @@ export async function getOrder(accountId: string, id: string) {
     WHERE l.order_id = ${id}
     ORDER BY l.created_at
   `;
-  const payments = await db()<{ id: string; method: string; amountCents: number }[]>`
-    SELECT id, method, amount_cents AS "amountCents"
-    FROM payments
-    WHERE order_id = ${id}
-    ORDER BY created_at
+  const payments = await db()<{ id: string; method: string; amountCents: number; bankName: string | null }[]>`
+    SELECT pay.id, pay.method, pay.amount_cents AS "amountCents", b.name AS "bankName"
+    FROM payments pay
+    LEFT JOIN bank_accounts b ON b.id = pay.bank_account_id
+    WHERE pay.order_id = ${id}
+    ORDER BY pay.created_at
   `;
   return { ...rows[0], lines, payments };
 }

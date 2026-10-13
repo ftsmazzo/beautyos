@@ -26,7 +26,7 @@ export default async function BanksPage({
   const banks = await listBanks(user.accountId);
   const selected = banks.find((bank) => bank.id === query.banco) ?? banks[0] ?? null;
   const lines = selected ? await listBankLines(user.accountId, selected.id) : [];
-  const balance = (selected?.openingCents ?? 0) - lines.reduce((sum, line) => sum + line.amountCents, 0);
+  const balance = (selected?.openingCents ?? 0) + lines.reduce((sum, line) => sum + line.amountCents, 0);
 
   return (
     <Panel user={user} current="/financeiro" title="Bancos">
@@ -125,7 +125,7 @@ export default async function BanksPage({
                   <th>Data</th>
                   <th>Descrição</th>
                   <th>Fornecedor</th>
-                  <th>Saída</th>
+                  <th>Valor</th>
                 </tr>
               </thead>
               <tbody>
@@ -134,7 +134,7 @@ export default async function BanksPage({
                     <td>{line.paid}</td>
                     <td>{line.description}</td>
                     <td>{line.partyName}</td>
-                    <td>{formatReais(-line.amountCents)}</td>
+                    <td>{formatReais(line.amountCents)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1364,6 +1364,7 @@ export async function addPayment(formData: FormData) {
     if (!["dinheiro", "pix", "debito", "credito", "outros"].includes(method) || amount == null || amount < 1) {
       throw new FormError("dados");
     }
+    const bankRaw = String(formData.get("bank") ?? "");
     await db().begin(async (tx) => {
       const order = await tx<{ status: string; day: string; clientName: string | null }[]>`
         SELECT o.status, to_char(o.day, 'YYYY-MM-DD') AS day, c.name AS "clientName"
@@ -1372,18 +1373,32 @@ export async function addPayment(formData: FormData) {
         WHERE o.id = ${orderId} AND o.account_id = ${user.accountId} AND o.kind = 'cliente'
       `;
       if (order[0]?.status !== "aberta") throw new FormError("fechada");
+      let bankId: string | null = null;
+      if (bankRaw) {
+        if (!UUID.test(bankRaw)) throw new FormError("dados");
+        const bank = await tx`
+          SELECT id FROM bank_accounts WHERE id = ${bankRaw} AND account_id = ${user.accountId} AND active
+        `;
+        if (!bank.length) throw new FormError("fora");
+        bankId = bankRaw;
+      }
       const paymentId = randomUUID();
       await tx`
-        INSERT INTO payments (id, account_id, order_id, method, amount_cents)
-        VALUES (${paymentId}, ${user.accountId}, ${orderId}, ${method}, ${amount})
-      `;
-      await tx`
-        INSERT INTO cash_movements (id, account_id, day, amount_cents, origin, label, payment_id, order_id)
+        INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on)
         VALUES (
-          ${randomUUID()}, ${user.accountId}, ${order[0].day}, ${amount}, 'pagamento',
-          ${order[0].clientName ?? "Sem nome"}, ${paymentId}, ${orderId}
+          ${paymentId}, ${user.accountId}, ${orderId}, ${method}, ${amount},
+          ${bankId}, ${bankId ? todaySaoPaulo() : null}::date
         )
       `;
+      if (!bankId) {
+        await tx`
+          INSERT INTO cash_movements (id, account_id, day, amount_cents, origin, label, payment_id, order_id)
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, ${order[0].day}, ${amount}, 'pagamento',
+            ${order[0].clientName ?? "Sem nome"}, ${paymentId}, ${orderId}
+          )
+        `;
+      }
     });
     return `/comandas/${orderId}`;
   });

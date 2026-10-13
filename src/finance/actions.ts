@@ -59,6 +59,8 @@ export async function deleteBank(formData: FormData) {
     if (!found.length) throw new FormError("fora");
     const used = await db()`SELECT id FROM payables WHERE bank_account_id = ${id} LIMIT 1`;
     if (used.length) throw new FormError("uso");
+    const received = await db()`SELECT id FROM payments WHERE bank_account_id = ${id} LIMIT 1`;
+    if (received.length) throw new FormError("uso");
     const settled = await db()`SELECT id FROM card_settlements WHERE bank_account_id = ${id} LIMIT 1`;
     if (settled.length) throw new FormError("uso");
     await db()`DELETE FROM bank_accounts WHERE id = ${id} AND account_id = ${user.accountId}`;

@@ -33,16 +33,23 @@ export async function listBankLines(accountId: string, bankId: string) {
   return db()<BankLine[]>`
     SELECT id, description, party_name AS "partyName", amount_cents AS "amountCents", paid
     FROM (
-      SELECT p.id, p.description, p.party_name, p.amount_cents,
+      SELECT p.id, p.description, p.party_name, -p.amount_cents,
              to_char(p.paid_on, 'DD/MM/YYYY') AS paid, p.paid_on AS sort_on, p.installment_index AS sort_n
       FROM payables p
       WHERE p.account_id = ${accountId} AND p.bank_account_id = ${bankId} AND p.paid_on IS NOT NULL
       UNION ALL
-      SELECT s.id, 'Fatura ' || c.name, c.name, s.amount_cents,
+      SELECT s.id, 'Fatura ' || c.name, c.name, -s.amount_cents,
              to_char(s.paid_on, 'DD/MM/YYYY'), s.paid_on, 0
       FROM card_settlements s
       JOIN credit_cards c ON c.id = s.credit_card_id
       WHERE s.account_id = ${accountId} AND s.bank_account_id = ${bankId}
+      UNION ALL
+      SELECT pay.id, 'Recebimento', COALESCE(cl.name, 'Sem nome'), pay.amount_cents,
+             to_char(pay.paid_on, 'DD/MM/YYYY'), pay.paid_on, 0
+      FROM payments pay
+      JOIN orders o ON o.id = pay.order_id
+      LEFT JOIN clients cl ON cl.id = o.client_id
+      WHERE pay.account_id = ${accountId} AND pay.bank_account_id = ${bankId} AND pay.paid_on IS NOT NULL
     ) lines
     ORDER BY sort_on, sort_n
   `;
@@ -128,6 +135,32 @@ export function listOutflowMonths(accountId: string, start: string, next: string
     ) lines
     GROUP BY to_char(paid_on, 'YYYY-MM')
     ORDER BY 1
+  `;
+}
+
+export function listInflowMonths(accountId: string, start: string, next: string) {
+  return db()<DayTotal[]>`
+    SELECT to_char(paid_on, 'YYYY-MM') AS day, SUM(amount_cents)::int AS "totalCents"
+    FROM payments
+    WHERE account_id = ${accountId}
+      AND bank_account_id IS NOT NULL
+      AND paid_on >= ${start}::date
+      AND paid_on < ${next}::date
+    GROUP BY to_char(paid_on, 'YYYY-MM')
+    ORDER BY 1
+  `;
+}
+
+export function listInflowDays(accountId: string, start: string, next: string) {
+  return db()<DayTotal[]>`
+    SELECT to_char(paid_on, 'YYYY-MM-DD') AS day, SUM(amount_cents)::int AS "totalCents"
+    FROM payments
+    WHERE account_id = ${accountId}
+      AND bank_account_id IS NOT NULL
+      AND paid_on >= ${start}::date
+      AND paid_on < ${next}::date
+    GROUP BY paid_on
+    ORDER BY paid_on
   `;
 }
 

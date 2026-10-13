@@ -51,7 +51,7 @@ export default async function ReceivablesPage({
 
   return (
     <Panel user={user} current="/financeiro" title="Contas a receber">
-      <p>O que o cliente ainda deve. O recebimento continua na comanda e entra no caixa do dia.</p>
+      <p>O que o cliente ainda deve. O recebimento continua na comanda. Sem banco, entra na gaveta. Com banco, entra no extrato.</p>
       <FinanceNav current="receber" />
       <div className="row">
         {FILTERS.map((item) => (
