@@ -535,7 +535,7 @@ export async function dayCash(accountId: string, day: string) {
     SELECT pay.method, SUM(pay.amount_cents)::int AS "amountCents"
     FROM payments pay
     JOIN orders o ON o.id = pay.order_id
-    WHERE pay.account_id = ${accountId} AND o.day = ${day}
+    WHERE pay.account_id = ${accountId} AND o.day = ${day} AND pay.bank_account_id IS NULL
     GROUP BY pay.method
     ORDER BY pay.method
   `;

@@ -41,7 +41,8 @@ export default async function CashPage({
       </div>
       <div className="card">
         <h2>Por forma</h2>
-        {cash.byMethod.length === 0 ? <p>Nenhum pagamento neste dia.</p> : null}
+        <p>O que entrou na gaveta. Recebimento no banco fica no extrato.</p>
+        {cash.byMethod.length === 0 ? <p>Nenhum pagamento na gaveta neste dia.</p> : null}
         {cash.byMethod.length > 0 ? (
           <table>
             <thead>
