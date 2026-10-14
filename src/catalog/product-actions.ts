@@ -180,7 +180,9 @@ export async function deleteProduct(formData: FormData) {
 export async function moveStock(formData: FormData) {
   const user = await requireOperator();
   const productId = String(formData.get("id") ?? "");
-  const failBase = `/produtos/${productId}`;
+  const back = String(formData.get("back") ?? "");
+  const onList = back === "lista" || back === "conferencia";
+  const failBase = onList ? "/produtos" : `/produtos/${productId}`;
   return settle(failBase, async () => {
     const reason = String(formData.get("reason") ?? "");
     await db().begin(async (tx) => {
@@ -202,7 +204,8 @@ export async function moveStock(formData: FormData) {
       } else if (reason === "ajuste") {
         const amount = parseIntField(formData.get("qty"));
         if (amount == null || amount === 0) throw new FormError("estoque");
-        qty = amount;
+        const sign = String(formData.get("sign") ?? "");
+        qty = sign === "out" ? -Math.abs(amount) : amount;
       } else if (reason === "conferencia") {
         const counted = parseIntField(formData.get("qty"));
         if (counted == null || counted < 0) throw new FormError("estoque");
@@ -219,6 +222,8 @@ export async function moveStock(formData: FormData) {
         )
       `;
     });
+    if (back === "conferencia") return "/produtos?modo=conferencia&ok=movimento";
+    if (back === "lista") return "/produtos?ok=movimento";
     return `${failBase}?ok=movimento`;
   });
 }

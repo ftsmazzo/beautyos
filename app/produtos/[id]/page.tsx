@@ -284,6 +284,7 @@ export default async function ProductFormPage({
                     <th>Quando</th>
                     <th>Motivo</th>
                     <th>Qtd</th>
+                    <th>Quem</th>
                     <th>Nota</th>
                   </tr>
                 </thead>
@@ -293,6 +294,7 @@ export default async function ProductFormPage({
                       <td>{movement.at}</td>
                       <td>{STOCK_REASONS[movement.reason] ?? movement.reason}</td>
                       <td>{movement.qty > 0 ? `+${movement.qty}` : movement.qty}</td>
+                      <td>{movement.who || "—"}</td>
                       <td>{movement.note || "—"}</td>
                     </tr>
                   ))}

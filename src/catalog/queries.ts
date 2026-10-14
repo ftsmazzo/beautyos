@@ -475,15 +475,17 @@ export async function listComponents(productId: string) {
   `;
 }
 
-export type MovementRow = { qty: number; reason: string; note: string | null; at: string };
+export type MovementRow = { qty: number; reason: string; note: string | null; at: string; who: string | null };
 
 export async function listMovements(productId: string) {
   return db()<MovementRow[]>`
-    SELECT qty, reason, note,
-           to_char(created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at
-    FROM stock_movements
-    WHERE product_id = ${productId}
-    ORDER BY created_at DESC
+    SELECT m.qty, m.reason, m.note,
+           to_char(m.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at,
+           u.name AS who
+    FROM stock_movements m
+    LEFT JOIN users u ON u.id = m.created_by
+    WHERE m.product_id = ${productId}
+    ORDER BY m.created_at DESC
     LIMIT 20
   `;
 }
