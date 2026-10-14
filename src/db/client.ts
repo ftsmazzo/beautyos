@@ -40,6 +40,8 @@ async function ensureSchema() {
   `;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS referral_commission_percent integer NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS staff_consumption_percent integer NOT NULL DEFAULT 30`;
+  await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS card_debit_percent integer NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS card_credit_percent integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS users (
       id uuid PRIMARY KEY,
@@ -507,6 +509,17 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS cash_movements_day_idx ON cash_movements (account_id, day)`;
+  await sql`ALTER TABLE payments ADD COLUMN IF NOT EXISTS fee_cents integer NOT NULL DEFAULT 0`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS card_fee_shares (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      payment_id uuid NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+      line_id uuid NOT NULL REFERENCES order_lines(id) ON DELETE CASCADE,
+      abatement_cents integer NOT NULL CHECK (abatement_cents > 0)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS card_fee_shares_payment_idx ON card_fee_shares (payment_id)`;
   await sql`
     CREATE TABLE IF NOT EXISTS order_events (
       id uuid PRIMARY KEY,

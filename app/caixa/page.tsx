@@ -64,6 +64,7 @@ export default async function CashPage({
       </div>
       <div className="card">
         <h2>Movimentos</h2>
+        <p>A taxa de cartão aparece aqui, separada. Metade sai da comissão de quem executou.</p>
         {cash.movements.length === 0 ? <p>Nada lançado neste dia.</p> : null}
         {cash.movements.length > 0 ? (
           <table>

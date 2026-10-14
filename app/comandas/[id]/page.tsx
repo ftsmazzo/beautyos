@@ -449,7 +449,10 @@ export default async function OrderPage({
                       {PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}
                       {payment.bankName ? ` · ${payment.bankName}` : ""}
                     </td>
-                    <td>{formatReais(payment.amountCents)}</td>
+                    <td>
+                      {formatReais(payment.amountCents)}
+                      {payment.feeCents > 0 ? ` · taxa ${formatReais(payment.feeCents)}` : ""}
+                    </td>
                     <td>
                       {operator && open ? (
                         <form action={removePayment}>

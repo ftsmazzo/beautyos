@@ -15,13 +15,15 @@ export async function applyDuePrices(accountId: string) {
 }
 
 export async function houseRules(accountId: string) {
-  const rows = await db()<{ referral: number; consumption: number }[]>`
+  const rows = await db()<{ referral: number; consumption: number; debit: number; credit: number }[]>`
     SELECT referral_commission_percent AS referral,
-           staff_consumption_percent AS consumption
+           staff_consumption_percent AS consumption,
+           card_debit_percent AS debit,
+           card_credit_percent AS credit
     FROM accounts
     WHERE id = ${accountId}
   `;
-  return rows[0] ?? { referral: 0, consumption: 30 };
+  return rows[0] ?? { referral: 0, consumption: 30, debit: 0, credit: 0 };
 }
 
 export async function catalogCounts(accountId: string) {

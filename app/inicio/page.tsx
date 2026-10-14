@@ -25,7 +25,7 @@ export default async function StartPage({
   return (
     <Panel user={user} current="/inicio" title="Início">
       {params.ok === "regras" ? <p className="ok">Regras salvas.</p> : null}
-      {params.erro === "dados" ? <p className="error">Informe os dois percentuais, de 0 a 100.</p> : null}
+      {params.erro === "dados" ? <p className="error">Informe os percentuais, de 0 a 100.</p> : null}
       {operator && counts ? (
         <>
           <p>O dia abre na agenda. A comanda e o caixa acompanham o atendimento.</p>
@@ -93,6 +93,15 @@ export default async function StartPage({
               <input name="consumption" type="number" min={0} max={100} required defaultValue={rules.consumption} />
             </label>
             <p>O preço de consumo de cada produto segue este percentual, até alguém gravar um valor próprio.</p>
+            <label>
+              Taxa do débito (%)
+              <input name="debit" type="number" min={0} max={100} required defaultValue={rules.debit} />
+            </label>
+            <label>
+              Taxa do crédito (%)
+              <input name="credit" type="number" min={0} max={100} required defaultValue={rules.credit} />
+            </label>
+            <p>Zero não cobra. A taxa entra no caixa, separada. Metade fica com a casa e metade sai da comissão de quem executou o que foi pago no cartão.</p>
             <SubmitButton label="Salvar regras" />
           </form>
         </Modal>

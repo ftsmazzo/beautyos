@@ -8,6 +8,7 @@ import { digits, formatDay, formatReais, parseIntField, parsePercent, parseReais
 import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
+import { cardFeeShares } from "@/desk/card-fee";
 import { addMinutes, dayParam, firstWeekdayAfter, minutes, periodsFor, placementIssue, shiftDay, stamp } from "@/desk/clock";
 import { linkedProfessional } from "@/desk/queries";
 
@@ -1355,6 +1356,15 @@ export async function adjustLinePrice(formData: FormData) {
   });
 }
 
+async function cardRate(tx: TransactionSql, accountId: string, method: string) {
+  if (method !== "debito" && method !== "credito") return 0;
+  const rows = await tx<{ debit: number; credit: number }[]>`
+    SELECT card_debit_percent AS debit, card_credit_percent AS credit
+    FROM accounts WHERE id = ${accountId}
+  `;
+  return method === "debito" ? rows[0]?.debit ?? 0 : rows[0]?.credit ?? 0;
+}
+
 export async function addPayment(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");
@@ -1383,11 +1393,22 @@ export async function addPayment(formData: FormData) {
         bankId = bankRaw;
       }
       const paymentId = randomUUID();
+      const rate = await cardRate(tx, user.accountId, method);
+      const lines = rate > 0
+        ? await tx<{ id: string; priceCents: number; commissionCents: number; abatementCents: number }[]>`
+            SELECT id, price_cents AS "priceCents", commission_cents AS "commissionCents",
+                   abatement_cents AS "abatementCents"
+            FROM order_lines
+            WHERE order_id = ${orderId} AND professional_id IS NOT NULL
+            ORDER BY created_at, id
+          `
+        : [];
+      const fee = cardFeeShares(amount, rate, lines);
       await tx`
-        INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on)
+        INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on, fee_cents)
         VALUES (
           ${paymentId}, ${user.accountId}, ${orderId}, ${method}, ${amount},
-          ${bankId}, ${bankId ? todaySaoPaulo() : null}::date
+          ${bankId}, ${bankId ? todaySaoPaulo() : null}::date, ${fee.feeCents}
         )
       `;
       if (!bankId) {
@@ -1397,6 +1418,26 @@ export async function addPayment(formData: FormData) {
             ${randomUUID()}, ${user.accountId}, ${order[0].day}, ${amount}, 'pagamento',
             ${order[0].clientName ?? "Sem nome"}, ${paymentId}, ${orderId}
           )
+        `;
+      }
+      if (fee.feeCents > 0) {
+        await tx`
+          INSERT INTO cash_movements (id, account_id, day, amount_cents, origin, label, payment_id, order_id)
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, ${bankId ? todaySaoPaulo() : order[0].day}, ${-fee.feeCents},
+            'taxa_cartao', ${"Taxa de cartão"}, ${paymentId}, ${orderId}
+          )
+        `;
+      }
+      for (const share of fee.shares) {
+        await tx`
+          UPDATE order_lines
+          SET abatement_cents = abatement_cents + ${share.abatementCents}
+          WHERE id = ${share.id} AND order_id = ${orderId}
+        `;
+        await tx`
+          INSERT INTO card_fee_shares (id, account_id, payment_id, line_id, abatement_cents)
+          VALUES (${randomUUID()}, ${user.accountId}, ${paymentId}, ${share.id}, ${share.abatementCents})
         `;
       }
     });
@@ -1413,6 +1454,19 @@ export async function removePayment(formData: FormData) {
       SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
     `;
     if (order[0]?.status !== "aberta") throw new FormError("fechada");
+    const shares = await tx<{ lineId: string; abatementCents: number }[]>`
+      SELECT line_id AS "lineId", abatement_cents AS "abatementCents"
+      FROM card_fee_shares
+      WHERE payment_id = ${paymentId} AND account_id = ${user.accountId}
+    `;
+    for (const share of shares) {
+      await tx`
+        UPDATE order_lines
+        SET abatement_cents = GREATEST(0, abatement_cents - ${share.abatementCents})
+        WHERE id = ${share.lineId} AND order_id = ${orderId}
+      `;
+    }
+    await tx`DELETE FROM card_fee_shares WHERE payment_id = ${paymentId} AND account_id = ${user.accountId}`;
     await tx`DELETE FROM cash_movements WHERE payment_id = ${paymentId} AND account_id = ${user.accountId}`;
     await tx`DELETE FROM payments WHERE id = ${paymentId} AND order_id = ${orderId}`;
   });
