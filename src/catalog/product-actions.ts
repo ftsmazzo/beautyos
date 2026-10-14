@@ -132,9 +132,48 @@ export async function saveProduct(formData: FormData) {
           ON CONFLICT (product_id, component_id) DO UPDATE SET qty = ${qty}
         `;
       }
+      const people = await tx<{ id: string }[]>`
+        SELECT id FROM professionals WHERE account_id = ${user.accountId} AND active
+      `;
+      await tx`DELETE FROM professional_products WHERE product_id = ${productId}`;
+      for (const person of people) {
+        const raw = String(formData.get(`pro_${person.id}`) ?? "").trim();
+        if (!raw) continue;
+        const percent = parsePercent(raw);
+        if (percent == null) throw new FormError("dados");
+        if (percent === values.commission) continue;
+        await tx`
+          INSERT INTO professional_products (professional_id, product_id, commission_percent)
+          VALUES (${person.id}, ${productId}, ${percent})
+        `;
+      }
       return productId;
     });
     return `/produtos?ok=salvo`;
+  });
+}
+
+export async function deleteProduct(formData: FormData) {
+  const user = await requireOperator();
+  const productId = String(formData.get("id") ?? "");
+  return settle(`/produtos/${productId}`, async () => {
+    const owned = await db()`SELECT id FROM products WHERE id = ${productId} AND account_id = ${user.accountId}`;
+    if (!owned.length) throw new FormError("fora");
+    const used = await db()`
+      SELECT 1 FROM order_lines WHERE product_id = ${productId} AND account_id = ${user.accountId}
+      UNION ALL
+      SELECT 1 FROM purchase_lines pl
+      JOIN purchases pu ON pu.id = pl.purchase_id
+      WHERE pl.product_id = ${productId} AND pu.account_id = ${user.accountId}
+      UNION ALL
+      SELECT 1 FROM package_items i
+      JOIN packages p ON p.id = i.package_id
+      WHERE i.product_id = ${productId} AND p.account_id = ${user.accountId}
+      LIMIT 1
+    `;
+    if (used.length) throw new FormError("produto");
+    await db()`DELETE FROM products WHERE id = ${productId} AND account_id = ${user.accountId}`;
+    return "/produtos?ok=salvo";
   });
 }
 

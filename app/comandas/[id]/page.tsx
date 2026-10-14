@@ -306,6 +306,17 @@ export default async function OrderPage({
                 Quantidade
                 <input name="qty" type="number" min={1} defaultValue={1} required />
               </label>
+              <label>
+                Quem vendeu
+                <select name="professional" defaultValue="">
+                  <option value="">Sem profissional</option>
+                  {roster.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.nickname || person.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <SubmitButton label="Lançar" pendingLabel="Lançando…" className="teal" />
             </form>
           </Modal>

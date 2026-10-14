@@ -431,6 +431,26 @@ export async function listPayables(accountId: string) {
 
 export type ComponentRow = { componentId: string; name: string; qty: number };
 
+export async function productIsFree(productId: string) {
+  const used = await db()`
+    SELECT 1 FROM order_lines WHERE product_id = ${productId}
+    UNION ALL
+    SELECT 1 FROM purchase_lines WHERE product_id = ${productId}
+    UNION ALL
+    SELECT 1 FROM package_items WHERE product_id = ${productId}
+    LIMIT 1
+  `;
+  return used.length === 0;
+}
+
+export async function listProductCommissions(productId: string) {
+  return db()<{ professionalId: string; commissionPercent: number | null }[]>`
+    SELECT professional_id AS "professionalId", commission_percent AS "commissionPercent"
+    FROM professional_products
+    WHERE product_id = ${productId}
+  `;
+}
+
 export async function listComponents(productId: string) {
   return db()<ComponentRow[]>`
     SELECT c.component_id AS "componentId", p.name, c.qty

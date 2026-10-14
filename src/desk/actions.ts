@@ -212,6 +212,7 @@ export async function setStatus(formData: FormData) {
         UPDATE appointments SET status = 'cancelado'
         WHERE id = ${appointmentId} AND account_id = ${user.accountId}
       `;
+      await applyServiceUse(tx, user.accountId, appointmentId, user.id);
       await tx`DELETE FROM order_lines WHERE appointment_id = ${appointmentId} AND account_id = ${user.accountId}`;
     });
   } else {
@@ -221,6 +222,7 @@ export async function setStatus(formData: FormData) {
         WHERE id = ${appointmentId} AND account_id = ${user.accountId} AND kind = 'horario'
       `;
       if (status === "realizado") await finishPackageVisit(tx, user.accountId, appointmentId);
+      await applyServiceUse(tx, user.accountId, appointmentId, user.id);
     });
   }
   const { redirect } = await import("next/navigation");
@@ -240,9 +242,12 @@ export async function addProduct(formData: FormData) {
       `;
       if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
       const product = await tx<{ name: string; priceCents: number; commissionPercent: number }[]>`
-        SELECT name, sale_price_cents AS "priceCents", commission_percent AS "commissionPercent"
-        FROM products
-        WHERE id = ${productId} AND account_id = ${user.accountId} AND sells_to_client
+        SELECT p.name, p.sale_price_cents AS "priceCents",
+               COALESCE(pp.commission_percent, p.commission_percent) AS "commissionPercent"
+        FROM products p
+        LEFT JOIN professional_products pp
+          ON pp.product_id = p.id AND pp.professional_id = ${professionalId}
+        WHERE p.id = ${productId} AND p.account_id = ${user.accountId} AND p.sells_to_client
       `;
       if (!product[0] || qty < 1) throw new FormError("estoque");
       const price = product[0].priceCents * qty;
@@ -258,10 +263,22 @@ export async function addProduct(formData: FormData) {
         )
       `;
       await stampReferral(tx, user.accountId, orderId, lineId, price);
-      await tx`
-        INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
-        VALUES (${randomUUID()}, ${user.accountId}, ${productId}, ${-qty}, 'venda', ${"comanda"}, ${user.id})
+      const parts = await tx<{ componentId: string; qty: number }[]>`
+        SELECT component_id AS "componentId", qty
+        FROM product_components
+        WHERE product_id = ${productId}
       `;
+      const leaving = parts.length
+        ? parts.map((part) => ({ productId: part.componentId, qty: part.qty * qty }))
+        : [{ productId, qty }];
+      for (const item of leaving) {
+        await tx`
+          INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by, line_id)
+          VALUES (
+            ${randomUUID()}, ${user.accountId}, ${item.productId}, ${-item.qty}, 'venda', ${"comanda"}, ${user.id}, ${lineId}
+          )
+        `;
+      }
     });
     return `/comandas/${orderId}`;
   });
@@ -452,6 +469,50 @@ async function releasePackageVisits(tx: TransactionSql, accountId: string, appoi
   }
 }
 
+async function applyServiceUse(tx: TransactionSql, accountId: string, appointmentId: string, actorId: string) {
+  const rows = await tx<{ status: string; serviceId: string | null }[]>`
+    SELECT a.status, l.service_id AS "serviceId"
+    FROM appointments a
+    LEFT JOIN order_lines l ON l.appointment_id = a.id
+    WHERE a.id = ${appointmentId} AND a.account_id = ${accountId}
+  `;
+  const supplies = rows[0]?.status === "realizado" && rows[0].serviceId
+    ? await tx<{ productId: string; qty: number }[]>`
+        SELECT product_id AS "productId", qty
+        FROM service_supplies
+        WHERE service_id = ${rows[0].serviceId}
+      `
+    : [];
+  const wanted = new Map(supplies.map((supply) => [supply.productId, -supply.qty]));
+  const current = await tx<{ productId: string; qty: number }[]>`
+    SELECT product_id AS "productId", COALESCE(SUM(qty), 0)::int AS qty
+    FROM stock_movements
+    WHERE appointment_id = ${appointmentId} AND account_id = ${accountId} AND reason = 'uso'
+    GROUP BY product_id
+  `;
+  const seen = new Set(current.map((row) => row.productId));
+  for (const row of current) {
+    const delta = (wanted.get(row.productId) ?? 0) - row.qty;
+    if (delta === 0) continue;
+    await tx`
+      INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by, appointment_id)
+      VALUES (
+        ${randomUUID()}, ${accountId}, ${row.productId}, ${delta}, 'uso',
+        ${delta < 0 ? "uso no serviço" : "estorno do serviço"}, ${actorId}, ${appointmentId}
+      )
+    `;
+  }
+  for (const [productId, qty] of wanted) {
+    if (seen.has(productId) || qty === 0) continue;
+    await tx`
+      INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by, appointment_id)
+      VALUES (
+        ${randomUUID()}, ${accountId}, ${productId}, ${qty}, 'uso', ${"uso no serviço"}, ${actorId}, ${appointmentId}
+      )
+    `;
+  }
+}
+
 async function finishPackageVisit(tx: TransactionSql, accountId: string, appointmentId: string) {
   const lines = await tx<{ packageCreditId: string; day: string }[]>`
     SELECT l.package_credit_id AS "packageCreditId", to_char(o.day, 'YYYY-MM-DD') AS day
@@ -593,6 +654,7 @@ async function placePackageCredit(
     )
   `;
   await stampReferral(tx, input.accountId, targetId, lineId, credit[0].internalPriceCents);
+  await applyServiceUse(tx, input.accountId, appointmentId, input.actorId);
   if (input.consume) {
     await tx`
       UPDATE package_credits
@@ -1523,10 +1585,15 @@ export async function closeOrder(formData: FormData) {
     `;
     if ((paid[0]?.amount ?? 0) < total) return "pagamento";
     await tx`UPDATE orders SET status = 'fechada' WHERE id = ${orderId}`;
+    const visits = await tx<{ id: string }[]>`
+      SELECT id FROM appointments
+      WHERE order_id = ${orderId} AND account_id = ${user.accountId} AND status NOT IN ('cancelado', 'ausente')
+    `;
     await tx`
       UPDATE appointments SET status = 'realizado'
       WHERE order_id = ${orderId} AND status NOT IN ('cancelado', 'ausente')
     `;
+    for (const visit of visits) await applyServiceUse(tx, user.accountId, visit.id, user.id);
     return null;
   });
   const { redirect } = await import("next/navigation");
@@ -1883,10 +1950,12 @@ export async function paintSlot(input: { id: string; status: string }) {
         await logCancellation(tx, user.id, user.accountId, id);
         await releasePackageVisits(tx, user.accountId, id);
         await tx`UPDATE appointments SET status = 'cancelado' WHERE id = ${id}`;
+        await applyServiceUse(tx, user.accountId, id, user.id);
         await tx`DELETE FROM order_lines WHERE appointment_id = ${id} AND account_id = ${user.accountId}`;
       } else {
         await tx`UPDATE appointments SET status = ${input.status} WHERE id = ${id}`;
         if (input.status === "realizado") await finishPackageVisit(tx, user.accountId, id);
+        await applyServiceUse(tx, user.accountId, id, user.id);
       }
     });
   } catch (error) {
@@ -2128,13 +2197,16 @@ export async function removeLine(formData: FormData) {
         afterCents: null,
       });
       if (line[0].productId) {
-        await tx`
-          INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
-          VALUES (
-            ${randomUUID()}, ${user.accountId}, ${line[0].productId}, ${line[0].qty}, 'ajuste',
-            ${"estorno da comanda"}, ${user.id}
-          )
-        `;
+        const tied = await tx`SELECT id FROM stock_movements WHERE line_id = ${lineId} LIMIT 1`;
+        if (!tied.length) {
+          await tx`
+            INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
+            VALUES (
+              ${randomUUID()}, ${user.accountId}, ${line[0].productId}, ${line[0].qty}, 'ajuste',
+              ${"estorno da comanda"}, ${user.id}
+            )
+          `;
+        }
       }
       await tx`DELETE FROM order_lines WHERE id = ${lineId}`;
       if (line[0].appointmentId) {
@@ -2142,6 +2214,7 @@ export async function removeLine(formData: FormData) {
           UPDATE appointments SET status = 'cancelado'
           WHERE id = ${line[0].appointmentId} AND account_id = ${user.accountId}
         `;
+        await applyServiceUse(tx, user.accountId, line[0].appointmentId, user.id);
       }
       const left = await tx`SELECT id FROM order_lines WHERE order_id = ${orderId} LIMIT 1`;
       const paid = await tx`SELECT id FROM payments WHERE order_id = ${orderId} LIMIT 1`;

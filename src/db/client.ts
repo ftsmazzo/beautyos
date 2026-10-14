@@ -161,6 +161,14 @@ async function ensureSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS products_account_idx ON products (account_id)`;
   await sql`
+    CREATE TABLE IF NOT EXISTS professional_products (
+      professional_id uuid NOT NULL REFERENCES professionals(id) ON DELETE CASCADE,
+      product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      commission_percent integer,
+      PRIMARY KEY (professional_id, product_id)
+    )
+  `;
+  await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS products_barcode_uidx
     ON products (account_id, barcode) WHERE barcode IS NOT NULL
   `;
@@ -489,6 +497,8 @@ async function ensureSchema() {
   await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS referral_cents integer NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS referrer_professional_id uuid REFERENCES professionals(id) ON DELETE SET NULL`;
   await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS referrer_client_id uuid REFERENCES clients(id) ON DELETE SET NULL`;
+  await sql`ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS appointment_id uuid REFERENCES appointments(id) ON DELETE CASCADE`;
+  await sql`ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS line_id uuid REFERENCES order_lines(id) ON DELETE CASCADE`;
   await sql`
     CREATE TABLE IF NOT EXISTS payments (
       id uuid PRIMARY KEY,

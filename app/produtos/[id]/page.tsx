@@ -7,11 +7,14 @@ import {
   houseRules,
   listComponents,
   listMovements,
+  listProductCommissions,
+  productIsFree,
   listProducts,
+  listProfessionals,
   listSuppliers,
   productCategories,
 } from "@/catalog/queries";
-import { moveStock, saveProduct } from "@/catalog/product-actions";
+import { deleteProduct, moveStock, saveProduct } from "@/catalog/product-actions";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
@@ -35,16 +38,21 @@ export default async function ProductFormPage({
   if (!creating && !UUID.test(id)) redirect("/produtos");
   const product = creating ? null : await getProduct(user.accountId, id);
   if (!creating && !product) redirect("/produtos");
-  const [rules, categories, suppliers, products, components, movements] = await Promise.all([
+  const [rules, categories, suppliers, products, components, movements, people, commissions] = await Promise.all([
     houseRules(user.accountId),
     productCategories(user.accountId),
     listSuppliers(user.accountId),
     listProducts(user.accountId),
     product ? listComponents(product.id) : Promise.resolve([]),
     product ? listMovements(product.id) : Promise.resolve([]),
+    listProfessionals(user.accountId),
+    product ? listProductCommissions(product.id) : Promise.resolve([]),
   ]);
   const others = products.filter((item) => item.id !== product?.id);
+  const commissionOf = new Map(commissions.map((row) => [row.professionalId, row.commissionPercent]));
+  const sellers = people.filter((person) => person.active);
   const staffNow = product ? staffPriceCents(product.salePriceCents, product.staffPriceCents, rules.consumption) : null;
+  const free = product ? await productIsFree(product.id) : false;
 
   return (
     <Panel user={user} current="/produtos" title={product ? product.name : "Novo produto"}>
@@ -163,6 +171,20 @@ export default async function ProductFormPage({
             <input name="supplier_city" />
           </label>
         </div>
+        <h2>Comissão de quem vende</h2>
+        <p>Célula vazia segue o percentual do produto. Limpar volta ao padrão.</p>
+        {sellers.length === 0 ? <p>Nenhum profissional ativo.</p> : null}
+        {sellers.map((person) => (
+          <label key={person.id}>
+            {person.nickname || person.name}
+            <input
+              name={`pro_${person.id}`}
+              inputMode="numeric"
+              placeholder={String(product?.commissionPercent ?? 0)}
+              defaultValue={commissionOf.get(person.id) ?? ""}
+            />
+          </label>
+        ))}
         <h2>Combo</h2>
         <p>Na venda, saem os componentes. O preço e a comissão são os deste produto.</p>
         {components.map((component) => (
@@ -190,6 +212,12 @@ export default async function ProductFormPage({
         </div>
         <SubmitButton label="Salvar produto" />
       </form>
+      {product && free ? (
+        <form action={deleteProduct}>
+          <input type="hidden" name="id" value={product.id} />
+          <SubmitButton label="Excluir produto" pendingLabel="Excluindo…" className="quiet" />
+        </form>
+      ) : null}
       {product ? (
         <div className="stack">
           <div className="row">
