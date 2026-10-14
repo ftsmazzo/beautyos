@@ -12,6 +12,7 @@ import {
   chargePackageDifference,
   moveLineProfessional,
   pardonPackage,
+  deleteEmptyOrder,
   removeLine,
   attachClient,
   closeOrder,
@@ -150,6 +151,12 @@ export default async function OrderPage({
 
       <div className="card">
         {order.lines.length === 0 ? <p>Nenhuma linha ainda.</p> : null}
+        {open && order.lines.length === 0 && order.payments.length === 0 ? (
+          <form action={deleteEmptyOrder}>
+            <input type="hidden" name="order" value={order.id} />
+            <SubmitButton label="Excluir comanda" pendingLabel="Excluindo…" className="quiet" />
+          </form>
+        ) : null}
         {order.lines.length > 0 ? (
           <table>
             <thead>
@@ -195,6 +202,7 @@ export default async function OrderPage({
                   <td>
                     {formatReais(line.commissionCents)}
                     {line.abatementCents > 0 ? ` · abate ${formatReais(line.abatementCents)}` : ""}
+                    {line.referralCents > 0 ? ` · indicação ${formatReais(line.referralCents)}` : ""}
                   </td>
                   <td>
                     <div className="line-actions">

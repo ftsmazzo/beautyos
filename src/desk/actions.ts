@@ -9,6 +9,7 @@ import { FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
 import { cardFeeShares } from "@/desk/card-fee";
+import { restampOrder, stampReferral } from "@/desk/referral";
 import { addMinutes, dayParam, firstWeekdayAfter, minutes, periodsFor, placementIssue, shiftDay, stamp } from "@/desk/clock";
 import { linkedProfessional } from "@/desk/queries";
 
@@ -122,6 +123,7 @@ export async function bookSlot(formData: FormData) {
       }
 
       const appointmentId = randomUUID();
+      const lineId = randomUUID();
       await tx`
         INSERT INTO appointments (
           id, account_id, professional_id, client_id, service_id, order_id,
@@ -136,10 +138,11 @@ export async function bookSlot(formData: FormData) {
           id, account_id, order_id, appointment_id, kind, service_id, professional_id,
           description, qty, price_cents, list_price_cents, commission_percent, commission_cents
         ) VALUES (
-          ${randomUUID()}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
+          ${lineId}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
           ${offer[0].name}, 1, ${price}, ${price}, ${offer[0].commissionPercent}, ${commission}
         )
       `;
+      await stampReferral(tx, user.accountId, orderId, lineId, price);
       return orderId;
     });
     return `/comandas/${id}`;
@@ -244,15 +247,17 @@ export async function addProduct(formData: FormData) {
       if (!product[0] || qty < 1) throw new FormError("estoque");
       const price = product[0].priceCents * qty;
       const commission = Math.round(price * product[0].commissionPercent / 100);
+      const lineId = randomUUID();
       await tx`
         INSERT INTO order_lines (
           id, account_id, order_id, kind, product_id, professional_id, description, qty,
           price_cents, list_price_cents, commission_percent, commission_cents
         ) VALUES (
-          ${randomUUID()}, ${user.accountId}, ${orderId}, 'produto', ${productId}, ${professionalId},
+          ${lineId}, ${user.accountId}, ${orderId}, 'produto', ${productId}, ${professionalId},
           ${product[0].name}, ${qty}, ${price}, ${price}, ${product[0].commissionPercent}, ${commission}
         )
       `;
+      await stampReferral(tx, user.accountId, orderId, lineId, price);
       await tx`
         INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
         VALUES (${randomUUID()}, ${user.accountId}, ${productId}, ${-qty}, 'venda', ${"comanda"}, ${user.id})
@@ -354,6 +359,7 @@ export async function sellPackage(formData: FormData) {
           ${pack[0].priceCents}, ${pack[0].priceCents}, ${salePercent}, ${saleCommission}
         )
       `;
+      await stampReferral(tx, user.accountId, orderId, lineId, pack[0].priceCents);
       const serviceIds = [...new Set(visits.map((visit) => visit.serviceId as string))];
       for (const serviceId of serviceIds) {
         const matches = await tx<{ id: string }[]>`
@@ -586,6 +592,7 @@ async function placePackageCredit(
       ${credit[0].serviceName}, 1, 0, ${offer[0].priceCents}, ${offer[0].commissionPercent}, ${commission}, ${input.creditId}
     )
   `;
+  await stampReferral(tx, input.accountId, targetId, lineId, credit[0].internalPriceCents);
   if (input.consume) {
     await tx`
       UPDATE package_credits
@@ -827,6 +834,9 @@ export async function cancelPackageSale(formData: FormData) {
           SET price_cents = ${kept}, commission_cents = ${commission}
           WHERE id = ${held[0].lineId}
         `;
+        if (held[0].orderId) {
+          await stampReferral(tx, user.accountId, held[0].orderId, held[0].lineId, kept);
+        }
       }
       const paidRows = held[0].orderId
         ? await tx<{ paid: number }[]>`
@@ -1075,6 +1085,9 @@ export async function chargePackageDifference(formData: FormData) {
         SET price_cents = ${due}, commission_cents = ${commission}, package_credit_id = NULL, courtesy = false
         WHERE id = ${credit[0].lineId}
       `;
+      if (credit[0].lineOrderId) {
+        await stampReferral(tx, user.accountId, credit[0].lineOrderId, credit[0].lineId, due);
+      }
       await tx`
         UPDATE package_credits
         SET status = 'usado', used_on = ${credit[0].day}::date
@@ -1205,6 +1218,7 @@ async function takePackageCredit(
         courtesy = false, package_credit_id = ${credit[0].id}
     WHERE id = ${input.lineId}
   `;
+  await stampReferral(tx, input.accountId, input.orderId, input.lineId, credit[0].internalPriceCents);
   await tx`
     UPDATE package_credits
     SET status = 'usado', order_line_id = ${input.lineId}, used_on = ${input.day}::date
@@ -1271,6 +1285,7 @@ export async function toggleCourtesy(formData: FormData) {
       SET courtesy = ${courtesy}, price_cents = ${price}, commission_cents = ${commission}
       WHERE id = ${lineId}
     `;
+    await stampReferral(tx, user.accountId, orderId, lineId, line[0].listPriceCents);
     await writeEvent(tx, {
       accountId: user.accountId,
       orderId,
@@ -1340,6 +1355,7 @@ export async function adjustLinePrice(formData: FormData) {
         SET price_cents = ${next}, commission_cents = ${commission}, courtesy = false
         WHERE id = ${lineId}
       `;
+      await stampReferral(tx, user.accountId, orderId, lineId, next);
       await writeEvent(tx, {
         accountId: user.accountId,
         orderId,
@@ -1571,12 +1587,14 @@ export async function attachClient(formData: FormData) {
         await tx`UPDATE cash_movements SET order_id = ${other[0].id} WHERE order_id = ${orderId}`;
         await tx`UPDATE appointments SET order_id = ${other[0].id}, client_id = ${clientId} WHERE order_id = ${orderId}`;
         await tx`DELETE FROM orders WHERE id = ${orderId}`;
+        await restampOrder(tx, user.accountId, other[0].id);
         return other[0].id;
       }
       await tx`
         UPDATE orders SET client_id = ${clientId}, incomplete = false WHERE id = ${orderId}
       `;
       await tx`UPDATE appointments SET client_id = ${clientId} WHERE order_id = ${orderId}`;
+      await restampOrder(tx, user.accountId, orderId);
       return orderId;
     });
     return `/comandas/${next}`;
@@ -1906,6 +1924,7 @@ export async function addServiceToOrder(formData: FormData) {
         if (clash.length) throw new FormError("ocupado");
       }
       const appointmentId = randomUUID();
+      const lineId = randomUUID();
       const price = offer[0].priceCents;
       const commission = Math.round(price * offer[0].commissionPercent / 100);
       await tx`
@@ -1922,10 +1941,11 @@ export async function addServiceToOrder(formData: FormData) {
           id, account_id, order_id, appointment_id, kind, service_id, professional_id,
           description, qty, price_cents, list_price_cents, commission_percent, commission_cents
         ) VALUES (
-          ${randomUUID()}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
+          ${lineId}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
           ${offer[0].name}, 1, ${price}, ${price}, ${offer[0].commissionPercent}, ${commission}
         )
       `;
+      await stampReferral(tx, user.accountId, orderId, lineId, price);
     });
     return `/comandas/${orderId}`;
   });
@@ -1996,6 +2016,7 @@ export async function removeLine(formData: FormData) {
               SET price_cents = ${price}, commission_cents = ${commission}, package_credit_id = NULL, courtesy = false
               WHERE id = ${credit.lineId}
             `;
+            await stampReferral(tx, user.accountId, orderId, credit.lineId, price);
             await writeEvent(tx, {
               accountId: user.accountId,
               orderId,
@@ -2091,6 +2112,30 @@ export async function removeLine(formData: FormData) {
       return `/comandas/${orderId}`;
     });
     return next;
+  });
+}
+
+export async function deleteEmptyOrder(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const day = await db().begin(async (tx) => {
+      const order = await tx<{ status: string; day: string }[]>`
+        SELECT status, to_char(day, 'YYYY-MM-DD') AS day
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta") throw new FormError("fechada");
+      const left = await tx`SELECT id FROM order_lines WHERE order_id = ${orderId} LIMIT 1`;
+      const paid = await tx`SELECT id FROM payments WHERE order_id = ${orderId} LIMIT 1`;
+      if (left.length || paid.length) throw new FormError("dados");
+      await tx`
+        DELETE FROM appointments
+        WHERE order_id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      await tx`DELETE FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}`;
+      return order[0].day;
+    });
+    return `/comandas?dia=${day}`;
   });
 }
 

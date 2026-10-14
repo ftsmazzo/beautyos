@@ -209,6 +209,7 @@ export async function getOrder(accountId: string, id: string) {
     commissionPercent: number;
     commissionCents: number;
     abatementCents: number;
+    referralCents: number;
     courtesy: boolean;
     packageCreditId: string | null;
     appointmentId: string | null;
@@ -223,6 +224,7 @@ export async function getOrder(accountId: string, id: string) {
     SELECT l.id, l.kind, l.description, l.qty, l.price_cents AS "priceCents",
            l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
            l.commission_cents AS "commissionCents", l.abatement_cents AS "abatementCents",
+           l.referral_cents AS "referralCents",
            l.courtesy, l.package_credit_id AS "packageCreditId", l.appointment_id AS "appointmentId", l.service_id AS "serviceId",
            l.professional_id AS "professionalId",
            p.name AS "professionalName",
@@ -540,15 +542,30 @@ export async function dayCash(accountId: string, day: string) {
     ORDER BY pay.method
   `;
   const commissions = await db()<{ name: string; amountCents: number; abatementCents: number }[]>`
-    SELECT p.name,
-           COALESCE(SUM(l.commission_cents), 0)::int AS "amountCents",
-           COALESCE(SUM(l.abatement_cents), 0)::int AS "abatementCents"
-    FROM order_lines l
-    JOIN orders o ON o.id = l.order_id
-    JOIN professionals p ON p.id = l.professional_id
-    WHERE o.account_id = ${accountId} AND o.day = ${day}
-    GROUP BY p.name
-    ORDER BY p.name
+    SELECT name,
+           SUM(amount)::int AS "amountCents",
+           SUM(abatement)::int AS "abatementCents"
+    FROM (
+      SELECT p.name AS name, l.commission_cents AS amount, l.abatement_cents AS abatement
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN professionals p ON p.id = l.professional_id
+      WHERE o.account_id = ${accountId} AND o.day = ${day}
+      UNION ALL
+      SELECT p.name, l.referral_cents, 0
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN professionals p ON p.id = l.referrer_professional_id
+      WHERE o.account_id = ${accountId} AND o.day = ${day} AND l.referral_cents > 0
+      UNION ALL
+      SELECT c.name, l.referral_cents, 0
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN clients c ON c.id = l.referrer_client_id
+      WHERE o.account_id = ${accountId} AND o.day = ${day} AND l.referral_cents > 0
+    ) rows
+    GROUP BY name
+    ORDER BY name
   `;
   return { movements, byMethod, commissions };
 }

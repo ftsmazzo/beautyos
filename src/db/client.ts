@@ -485,6 +485,9 @@ async function ensureSchema() {
   await sql`ALTER TABLE order_lines DROP CONSTRAINT IF EXISTS order_lines_kind_check`;
   await sql`ALTER TABLE order_lines ADD CONSTRAINT order_lines_kind_check CHECK (kind IN ('servico', 'produto', 'pacote'))`;
   await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS package_credit_id uuid`;
+  await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS referral_cents integer NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS referrer_professional_id uuid REFERENCES professionals(id) ON DELETE SET NULL`;
+  await sql`ALTER TABLE order_lines ADD COLUMN IF NOT EXISTS referrer_client_id uuid REFERENCES clients(id) ON DELETE SET NULL`;
   await sql`
     CREATE TABLE IF NOT EXISTS payments (
       id uuid PRIMARY KEY,

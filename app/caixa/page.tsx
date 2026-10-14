@@ -87,13 +87,13 @@ export default async function CashPage({
       </div>
       <div className="card">
         <h2>Comissão do dia</h2>
-        <p>Nasce na linha. Cortesia continua comissionando o valor de tabela. Consumo abate, sem comissão de produto.</p>
+        <p>Nasce na linha. Cortesia continua comissionando o valor de tabela. Consumo abate, sem comissão de produto. Indicação soma na pessoa que trouxe, por cima de quem executou.</p>
         {cash.commissions.length === 0 ? <p>Nenhuma linha com profissional neste dia.</p> : null}
         {cash.commissions.length > 0 ? (
           <table>
             <thead>
               <tr>
-                <th>Profissional</th>
+                <th>Pessoa</th>
                 <th>Comissão</th>
                 <th>Abate</th>
               </tr>
