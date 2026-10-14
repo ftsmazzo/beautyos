@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais } from "@/catalog/format";
-import { listServices } from "@/catalog/queries";
+import { listServices, openPriceNotices } from "@/catalog/queries";
+import { PriceNotice } from "@/ui/price-notice";
 import { SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 
@@ -15,9 +16,11 @@ export default async function ServicesPage({
   const user = await requireOperator();
   const query = await searchParams;
   const services = await listServices(user.accountId);
+  const notices = await openPriceNotices(user.accountId);
   return (
     <Panel user={user} current="/servicos" title="Serviços">
       <SavedNote code={query.ok} />
+      <PriceNotice notices={notices} back="servicos" />
       <div className="row">
         <Link className="btn" href="/servicos/novo">
           Novo serviço

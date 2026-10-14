@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
-import { applyDuePrices, catalogCounts, houseRules } from "@/catalog/queries";
+import { applyDuePrices, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
+import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -19,6 +20,7 @@ export default async function StartPage({
   const params = await searchParams;
   const operator = user.role === "administrador" || user.role === "balcao";
   if (operator) await applyDuePrices(user.accountId);
+  const notices = operator ? await openPriceNotices(user.accountId) : [];
   const counts = operator ? await catalogCounts(user.accountId) : null;
   const rules = user.role === "administrador" ? await houseRules(user.accountId) : null;
 
@@ -28,6 +30,7 @@ export default async function StartPage({
       {params.erro === "dados" ? <p className="error">Informe os percentuais, de 0 a 100.</p> : null}
       {operator && counts ? (
         <>
+          <PriceNotice notices={notices} back="inicio" />
           <p>O dia abre na agenda. A comanda e o caixa acompanham o atendimento.</p>
           <div className="tiles">
             <Link className="tile tile-blue" href="/agenda">

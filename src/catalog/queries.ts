@@ -1,16 +1,43 @@
+import { randomUUID } from "crypto";
 import { db } from "@/db/client";
 
 export async function applyDuePrices(accountId: string) {
-  await db()`
-    UPDATE services
-    SET price_cents = next_price_cents,
-        price_changed_on = (timezone('America/Sao_Paulo', now()))::date,
-        next_price_cents = NULL,
-        next_price_on = NULL
-    WHERE account_id = ${accountId}
-      AND next_price_on IS NOT NULL
-      AND next_price_on <= (timezone('America/Sao_Paulo', now()))::date
-      AND next_price_cents IS NOT NULL
+  await db().begin(async (tx) => {
+    const due = await tx<{ id: string; name: string; beforeCents: number; afterCents: number }[]>`
+      SELECT id, name, price_cents AS "beforeCents", next_price_cents AS "afterCents"
+      FROM services
+      WHERE account_id = ${accountId}
+        AND next_price_on IS NOT NULL
+        AND next_price_on <= (timezone('America/Sao_Paulo', now()))::date
+        AND next_price_cents IS NOT NULL
+    `;
+    for (const row of due) {
+      await tx`
+        UPDATE services
+        SET price_cents = ${row.afterCents},
+            price_changed_on = (timezone('America/Sao_Paulo', now()))::date,
+            next_price_cents = NULL,
+            next_price_on = NULL
+        WHERE id = ${row.id} AND account_id = ${accountId}
+      `;
+      await tx`
+        INSERT INTO price_notices (id, account_id, service_id, service_name, before_cents, after_cents, changed_on)
+        VALUES (
+          ${randomUUID()}, ${accountId}, ${row.id}, ${row.name}, ${row.beforeCents}, ${row.afterCents},
+          (timezone('America/Sao_Paulo', now()))::date
+        )
+      `;
+    }
+  });
+}
+
+export async function openPriceNotices(accountId: string) {
+  return db()<{ id: string; serviceId: string | null; serviceName: string; beforeCents: number; afterCents: number }[]>`
+    SELECT id, service_id AS "serviceId", service_name AS "serviceName",
+           before_cents AS "beforeCents", after_cents AS "afterCents"
+    FROM price_notices
+    WHERE account_id = ${accountId} AND seen_at IS NULL
+    ORDER BY changed_on, service_name
   `;
 }
 

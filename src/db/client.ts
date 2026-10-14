@@ -86,6 +86,19 @@ async function ensureSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS services_account_idx ON services (account_id)`;
   await sql`
+    CREATE TABLE IF NOT EXISTS price_notices (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      service_id uuid REFERENCES services(id) ON DELETE CASCADE,
+      service_name text NOT NULL,
+      before_cents integer NOT NULL,
+      after_cents integer NOT NULL,
+      changed_on date NOT NULL,
+      seen_at timestamptz
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS price_notices_open_idx ON price_notices (account_id) WHERE seen_at IS NULL`;
+  await sql`
     CREATE TABLE IF NOT EXISTS professionals (
       id uuid PRIMARY KEY,
       account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

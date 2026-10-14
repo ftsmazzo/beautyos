@@ -129,3 +129,15 @@ export async function saveService(formData: FormData) {
     return `/servicos?ok=salvo`;
   });
 }
+
+export async function seePriceNotices(formData: FormData) {
+  const user = await requireOperator();
+  const back = String(formData.get("back") ?? "") === "servicos" ? "/servicos" : "/inicio";
+  return settle(back, async () => {
+    await db()`
+      UPDATE price_notices SET seen_at = now()
+      WHERE account_id = ${user.accountId} AND seen_at IS NULL
+    `;
+    return back;
+  });
+}
