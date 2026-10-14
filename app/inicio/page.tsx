@@ -94,6 +94,11 @@ export default async function StartPage({
             </label>
             <p>O preço de consumo de cada produto segue este percentual, até alguém gravar um valor próprio.</p>
             <label>
+              Desconto do serviço entre profissionais (%)
+              <input name="service_discount" type="number" min={0} max={100} required defaultValue={rules.serviceDiscount} />
+            </label>
+            <p>Zero não desconta. O valor da ficha, já com esse desconto, vira a comissão de quem executou e o abate de quem recebeu. Não entra na agenda nem no caixa.</p>
+            <label>
               Taxa do débito (%)
               <input name="debit" type="number" min={0} max={100} required defaultValue={rules.debit} />
             </label>

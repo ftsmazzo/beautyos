@@ -1666,6 +1666,50 @@ export async function addConsumption(formData: FormData) {
   });
 }
 
+export async function addStaffService(formData: FormData) {
+  const user = await requireDesk();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const professionalId = idOrNull(String(formData.get("professional") ?? ""));
+    const serviceId = idOrNull(String(formData.get("service") ?? ""));
+    if (!professionalId || !serviceId) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; kind: string; professionalId: string }[]>`
+        SELECT status, kind, professional_id AS "professionalId"
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.kind !== "consumo" || order[0].status !== "aberta") throw new FormError("fechada");
+      if (professionalId === order[0].professionalId) throw new FormError("mesmo");
+      const offer = await tx<{ name: string; priceCents: number; commissionPercent: number }[]>`
+        SELECT s.name,
+               COALESCE(ps.price_cents, s.price_cents) AS "priceCents",
+               COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent"
+        FROM services s
+        JOIN professional_services ps ON ps.service_id = s.id AND ps.professional_id = ${professionalId}
+        JOIN professionals p ON p.id = ${professionalId} AND p.account_id = ${user.accountId} AND p.active
+        WHERE s.id = ${serviceId} AND s.account_id = ${user.accountId} AND s.active
+      `;
+      if (!offer[0]) throw new FormError("servico");
+      const house = await tx<{ discount: number }[]>`
+        SELECT staff_service_discount_percent AS discount FROM accounts WHERE id = ${user.accountId}
+      `;
+      const discount = house[0]?.discount ?? 0;
+      const base = Math.max(0, Math.round(offer[0].priceCents * (100 - discount) / 100));
+      const commission = Math.round(base * offer[0].commissionPercent / 100);
+      await tx`
+        INSERT INTO order_lines (
+          id, account_id, order_id, kind, service_id, professional_id, description, qty,
+          price_cents, list_price_cents, commission_percent, commission_cents, abatement_cents
+        ) VALUES (
+          ${randomUUID()}, ${user.accountId}, ${orderId}, 'servico', ${serviceId}, ${professionalId},
+          ${offer[0].name}, 1, 0, ${offer[0].priceCents}, ${offer[0].commissionPercent}, ${commission}, ${base}
+        )
+      `;
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
 export async function toggleFromOutside(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");

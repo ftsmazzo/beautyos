@@ -60,6 +60,7 @@ export const FORM_ERRORS: Record<string, string> = {
   falta: "Todo serviço precisa de profissional e de horário na agenda para fechar.",
   cliente: "Escolha um cliente desta casa.",
   servico: "Esse profissional não faz este serviço.",
+  mesmo: "Quem executa o serviço não pode ser quem recebe.",
   pacote: "Esse pacote não pode ser alterado por aqui.",
   outra: "Esse pacote já teve visita usada em outra comanda.",
   credito: "Não há visita disponível desse serviço no pacote.",

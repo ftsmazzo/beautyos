@@ -546,11 +546,20 @@ export async function dayCash(accountId: string, day: string) {
            SUM(amount)::int AS "amountCents",
            SUM(abatement)::int AS "abatementCents"
     FROM (
-      SELECT p.name AS name, l.commission_cents AS amount, l.abatement_cents AS abatement
+      SELECT p.name AS name,
+             l.commission_cents AS amount,
+             CASE WHEN o.kind = 'consumo' AND l.kind = 'servico' THEN 0 ELSE l.abatement_cents END AS abatement
       FROM order_lines l
       JOIN orders o ON o.id = l.order_id
       JOIN professionals p ON p.id = l.professional_id
       WHERE o.account_id = ${accountId} AND o.day = ${day}
+      UNION ALL
+      SELECT r.name, 0, l.abatement_cents
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN professionals r ON r.id = o.professional_id
+      WHERE o.account_id = ${accountId} AND o.day = ${day}
+        AND o.kind = 'consumo' AND l.kind = 'servico' AND l.abatement_cents > 0
       UNION ALL
       SELECT p.name, l.referral_cents, 0
       FROM order_lines l

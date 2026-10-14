@@ -28,6 +28,7 @@ import { listBanks } from "@/finance/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { OrderServiceForm } from "@/ui/order-service-form";
+import { StaffServiceForm } from "@/ui/staff-service-form";
 import { PackageVisitForm } from "@/ui/package-visit-form";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
@@ -57,8 +58,8 @@ export default async function OrderPage({
   const people = order.incomplete ? await clientOptions(user.accountId) : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
   const banks = operator && open && order.kind === "cliente" ? await listBanks(user.accountId) : [];
-  const roster = order.kind === "cliente" ? await dayRoster(user.accountId, null) : [];
-  const catalog = order.kind === "cliente" ? await serviceOptions(user.accountId) : [];
+  const roster = order.kind === "cliente" || order.kind === "consumo" ? await dayRoster(user.accountId, null) : [];
+  const catalog = order.kind === "cliente" || order.kind === "consumo" ? await serviceOptions(user.accountId) : [];
   const stock = order.kind === "consumo" && open ? await consumptionProducts(user.accountId) : [];
   const held = order.kind === "cliente" && order.clientId ? await clientPackages(user.accountId, order.clientId, order.day) : [];
   const visits = order.kind === "cliente" && order.clientId ? await packageVisits(user.accountId, order.clientId) : [];
@@ -201,7 +202,11 @@ export default async function OrderPage({
                   </td>
                   <td>
                     {formatReais(line.commissionCents)}
-                    {line.abatementCents > 0 ? ` · abate ${formatReais(line.abatementCents)}` : ""}
+                    {line.abatementCents > 0
+                      ? order.kind === "consumo" && line.kind === "servico"
+                        ? ` · abate de quem recebeu ${formatReais(line.abatementCents)}`
+                        : ` · abate ${formatReais(line.abatementCents)}`
+                      : ""}
                     {line.referralCents > 0 ? ` · indicação ${formatReais(line.referralCents)}` : ""}
                   </td>
                   <td>
@@ -321,6 +326,22 @@ export default async function OrderPage({
               <p>Baixa uma unidade. Não gera comissão. O abate sai do preço de consumo.</p>
               <SubmitButton label="Lançar consumo" pendingLabel="Lançando…" className="teal" />
             </form>
+          </Modal>
+        ) : null}
+        {open && order.kind === "consumo" && roster.some((person) => person.id !== order.professionalId) ? (
+          <Modal label="Serviço recebido" title="Serviço entre profissionais" tone="blue">
+            <StaffServiceForm
+              orderId={order.id}
+              professionals={roster
+                .filter((person) => person.id !== order.professionalId)
+                .map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+              services={[...catalog.reduce((map, row) => {
+                const current = map.get(row.id) ?? { id: row.id, name: row.name, professionalIds: [] as string[] };
+                current.professionalIds.push(row.professionalId);
+                map.set(row.id, current);
+                return map;
+              }, new Map<string, { id: string; name: string; professionalIds: string[] }>()).values()]}
+            />
           </Modal>
         ) : null}
       </div>

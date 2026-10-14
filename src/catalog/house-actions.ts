@@ -12,13 +12,15 @@ export async function saveHouseRules(formData: FormData) {
   const consumption = parsePercent(formData.get("consumption"));
   const debit = parsePercent(formData.get("debit"));
   const credit = parsePercent(formData.get("credit"));
-  if (referral == null || consumption == null || debit == null || credit == null) redirect("/inicio?erro=dados");
+  const serviceDiscount = parsePercent(formData.get("service_discount"));
+  if (referral == null || consumption == null || debit == null || credit == null || serviceDiscount == null) redirect("/inicio?erro=dados");
   await db()`
     UPDATE accounts
     SET referral_commission_percent = ${referral},
         staff_consumption_percent = ${consumption},
         card_debit_percent = ${debit},
-        card_credit_percent = ${credit}
+        card_credit_percent = ${credit},
+        staff_service_discount_percent = ${serviceDiscount}
     WHERE id = ${user.accountId}
   `;
   redirect("/inicio?ok=regras");
