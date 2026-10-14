@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
-import { formatPhone } from "@/catalog/format";
+import { daysAbsent, formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
 import { CHANNELS } from "@/catalog/labels";
 import { getClient, houseRules, listClients, listProfessionals } from "@/catalog/queries";
 import { saveClient } from "@/catalog/client-actions";
+import { clientBrief } from "@/desk/queries";
+import { APPOINTMENT_STATUS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -26,15 +29,83 @@ export default async function ClientFormPage({
   if (!creating && !UUID.test(id)) redirect("/clientes");
   const person = creating ? null : await getClient(user.accountId, id);
   if (!creating && !person) redirect("/clientes");
-  const [rules, professionals, clients] = await Promise.all([
+  const [rules, professionals, clients, brief] = await Promise.all([
     houseRules(user.accountId),
     listProfessionals(user.accountId),
     listClients(user.accountId, false, ""),
+    person ? clientBrief(user.accountId, person.id, person.fromOutside) : Promise.resolve(null),
   ]);
+  const today = todaySaoPaulo();
 
   return (
     <Panel user={user} current="/clientes" title={person ? person.name : "Novo cliente"}>
       <ErrorNote code={query.erro} />
+      {person && brief ? (
+        <div className="card">
+          <h2>Resumo</h2>
+          {brief.last ? (
+            <p>
+              Última visita {formatDay(brief.last.day)} {brief.last.time} · {brief.last.service} · {brief.last.professional}
+              {" · "}
+              {daysAbsent(brief.last.day, today)}
+              {brief.last.orderId ? (
+                <>
+                  {" · "}
+                  <Link href={`/comandas/${brief.last.orderId}`}>Comanda</Link>
+                </>
+              ) : null}
+            </p>
+          ) : (
+            <p>Sem visita realizada.</p>
+          )}
+          <p>
+            Volta: {brief.returnWord}
+            {brief.returnOn ? ` · ${formatDay(brief.returnOn)}` : ""}
+          </p>
+          <p>
+            Serviço que mais faz: {brief.topService ? `${brief.topService.name} · ${brief.topService.qty === 1 ? "1 vez" : `${brief.topService.qty} vezes`}` : "—"}
+          </p>
+          <p>
+            Produto que mais leva: {brief.topProduct ? `${brief.topProduct.name} · ${brief.topProduct.qty}` : "—"}
+          </p>
+          <p>
+            Já pagou {formatReais(brief.money.paidCents)}.
+            {brief.money.dueCents > 0 ? ` A receber ${formatReais(brief.money.dueCents)}.` : ""}
+            {brief.money.creditCents > 0 ? ` Crédito ${formatReais(brief.money.creditCents)}.` : ""}
+            {brief.money.dueCents === 0 && brief.money.creditCents === 0 ? " Conta em dia." : ""}
+          </p>
+          {brief.packages.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
+          {brief.packages.map((item) => (
+            <p key={item.id}>
+              {item.name} · {item.used} de {item.total} · {packageDeadline(item)}
+            </p>
+          ))}
+          {brief.orders.length > 0 ? <h2>Comandas</h2> : null}
+          {brief.orders.map((order) => (
+            <p key={order.id}>
+              <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
+              {" · "}
+              {formatReais(order.totalCents)}
+              {" · "}
+              {order.status === "fechada" ? "fechada" : "aberta"}
+            </p>
+          ))}
+          {brief.agenda.length > 0 ? <h2>Agenda</h2> : null}
+          {brief.agenda.map((visit) => (
+            <p key={visit.id}>
+              {formatDay(visit.day)} {visit.time} · {visit.service} · {visit.professional}
+              {" · "}
+              {APPOINTMENT_STATUS[visit.status as keyof typeof APPOINTMENT_STATUS]?.word ?? visit.status}
+              {visit.orderId ? (
+                <>
+                  {" · "}
+                  <Link href={`/comandas/${visit.orderId}`}>Comanda</Link>
+                </>
+              ) : null}
+            </p>
+          ))}
+        </div>
+      ) : null}
       <form action={saveClient}>
         {person ? <input type="hidden" name="id" value={person.id} /> : null}
         <div className="split">
@@ -147,10 +218,6 @@ export default async function ClientFormPage({
             <textarea name="address" defaultValue={person?.address ?? ""} />
           </label>
         </details>
-        <div className="card">
-          <h2>Resumo</h2>
-          <p>Última visita, volta por serviço, pacotes, pontos e conta do cliente entram com a agenda e a comanda.</p>
-        </div>
         <SubmitButton label="Salvar cliente" />
       </form>
     </Panel>

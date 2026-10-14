@@ -247,8 +247,22 @@ export async function listClients(accountId: string, removed: boolean, q: string
   const nameLike = `%${term}%`;
   const phoneDigits = term.replace(/\D/g, "");
   const phoneLike = `%${phoneDigits}%`;
-  return db()<Pick<ClientRow, "id" | "name" | "phone" | "channel" | "fromOutside" | "incomplete" | "active">[]>`
-    SELECT id, name, phone, channel, from_outside AS "fromOutside", incomplete, active
+  return db()<
+    (Pick<ClientRow, "id" | "name" | "phone" | "channel" | "fromOutside" | "incomplete" | "active"> & {
+      lastVisit: string | null;
+    })[]
+  >`
+    SELECT id, name, phone, channel, from_outside AS "fromOutside", incomplete, active,
+           (
+             SELECT to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD')
+             FROM appointments a
+             WHERE a.client_id = clients.id
+               AND a.account_id = clients.account_id
+               AND a.status = 'realizado'
+               AND a.kind = 'horario'
+             ORDER BY a.starts_at DESC
+             LIMIT 1
+           ) AS "lastVisit"
     FROM clients
     WHERE account_id = ${accountId}
       AND active = ${!removed}

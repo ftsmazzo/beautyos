@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
-import { formatPhone } from "@/catalog/format";
+import { daysAbsent, formatPhone, todaySaoPaulo } from "@/catalog/format";
 import { channelLabel } from "@/catalog/labels";
 import { listClients } from "@/catalog/queries";
 import { SavedNote } from "@/ui/error-note";
@@ -17,6 +17,7 @@ export default async function ClientsPage({
   const query = await searchParams;
   const removed = query.estado === "removidos";
   const people = await listClients(user.accountId, removed, query.q ?? "");
+  const today = todaySaoPaulo();
   return (
     <Panel user={user} current="/clientes" title="Clientes">
       <SavedNote code={query.ok} />
@@ -54,7 +55,7 @@ export default async function ClientsPage({
                   <td>
                     {[person.fromOutside ? "de fora" : "", person.incomplete ? "incompleto" : ""].filter(Boolean).join(" · ") || "—"}
                   </td>
-                  <td>sem visita</td>
+                  <td>{daysAbsent(person.lastVisit, today)}</td>
                   <td>
                     <Link href={`/clientes/${person.id}`}>Abrir</Link>
                   </td>

@@ -1,3 +1,4 @@
+import { todaySaoPaulo } from "@/catalog/format";
 import { db } from "@/db/client";
 import { shiftDay, stamp } from "@/desk/clock";
 
@@ -640,5 +641,119 @@ export async function packageReport(accountId: string, start: string, end: strin
     services,
     pardons: pardonRows[0] ?? { times: 0, weeks: 0, clients: 0 },
     repeats,
+  };
+}
+
+export async function clientBrief(accountId: string, clientId: string, fromOutside: boolean) {
+  const today = todaySaoPaulo();
+  const [lastRows, serviceRows, productRows, moneyRows, orders, agenda, packages] = await Promise.all([
+    db()<{
+      day: string;
+      time: string;
+      service: string;
+      returnDays: number | null;
+      professional: string;
+      orderId: string | null;
+    }[]>`
+      SELECT to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS time,
+             COALESCE(s.name, 'Serviço') AS service,
+             s.return_days AS "returnDays",
+             pr.name AS professional,
+             a.order_id AS "orderId"
+      FROM appointments a
+      LEFT JOIN services s ON s.id = a.service_id
+      JOIN professionals pr ON pr.id = a.professional_id
+      WHERE a.account_id = ${accountId}
+        AND a.client_id = ${clientId}
+        AND a.status = 'realizado'
+        AND a.kind = 'horario'
+      ORDER BY a.starts_at DESC
+      LIMIT 1
+    `,
+    db()<{ name: string; qty: number }[]>`
+      SELECT s.name, count(*)::int AS qty
+      FROM appointments a
+      JOIN services s ON s.id = a.service_id
+      WHERE a.account_id = ${accountId} AND a.client_id = ${clientId} AND a.status = 'realizado'
+      GROUP BY s.name
+      ORDER BY count(*) DESC, s.name
+      LIMIT 1
+    `,
+    db()<{ name: string; qty: number }[]>`
+      SELECT p.name, SUM(l.qty)::int AS qty
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN products p ON p.id = l.product_id
+      WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND l.kind = 'produto'
+      GROUP BY p.name
+      ORDER BY SUM(l.qty) DESC, p.name
+      LIMIT 1
+    `,
+    db()<{ paidCents: number; dueCents: number; creditCents: number }[]>`
+      SELECT COALESCE(SUM(paid), 0)::int AS "paidCents",
+             COALESCE(SUM(GREATEST(total - paid, 0)), 0)::int AS "dueCents",
+             COALESCE(SUM(GREATEST(paid - total, 0)), 0)::int AS "creditCents"
+      FROM (
+        SELECT COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
+               COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0) AS paid
+        FROM orders o
+        WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
+      ) bills
+    `,
+    db()<{ id: string; day: string; status: string; totalCents: number }[]>`
+      SELECT o.id, to_char(o.day, 'YYYY-MM-DD') AS day, o.status,
+             COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents"
+      FROM orders o
+      WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
+      ORDER BY o.day DESC, o.created_at DESC
+      LIMIT 8
+    `,
+    db()<{
+      id: string;
+      orderId: string | null;
+      status: string;
+      day: string;
+      time: string;
+      service: string;
+      professional: string;
+    }[]>`
+      SELECT a.id, a.order_id AS "orderId", a.status,
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS time,
+             COALESCE(s.name, 'Horário') AS service,
+             pr.name AS professional
+      FROM appointments a
+      LEFT JOIN services s ON s.id = a.service_id
+      JOIN professionals pr ON pr.id = a.professional_id
+      WHERE a.account_id = ${accountId}
+        AND a.client_id = ${clientId}
+        AND a.kind = 'horario'
+        AND a.status <> 'cancelado'
+      ORDER BY a.starts_at DESC
+      LIMIT 8
+    `,
+    clientPackages(accountId, clientId, today),
+  ]);
+  const last = lastRows[0] ?? null;
+  let returnWord = "sem visita";
+  let returnOn: string | null = null;
+  if (fromOutside) returnWord = "de fora";
+  else if (packages.length) returnWord = "pacote";
+  else if (last && last.returnDays == null) returnWord = "sem volta";
+  else if (last && last.returnDays != null) {
+    returnOn = shiftDay(last.day, last.returnDays);
+    returnWord = today <= returnOn ? "no prazo" : "passou";
+  }
+  return {
+    last,
+    topService: serviceRows[0] ?? null,
+    topProduct: productRows[0] ?? null,
+    money: moneyRows[0] ?? { paidCents: 0, dueCents: 0, creditCents: 0 },
+    orders,
+    agenda,
+    packages,
+    returnWord,
+    returnOn,
   };
 }

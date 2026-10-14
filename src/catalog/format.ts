@@ -78,6 +78,17 @@ export function formatDay(value: string) {
   return `${day}/${month}/${year}`;
 }
 
+export function daysAbsent(lastDay: string | null, today: string) {
+  if (!lastDay) return "sem visita";
+  const start = new Date(`${lastDay.slice(0, 10)}T12:00:00-03:00`).getTime();
+  const end = new Date(`${today.slice(0, 10)}T12:00:00-03:00`).getTime();
+  const days = Math.round((end - start) / 86_400_000);
+  if (days === 0) return "hoje";
+  if (days < 0) return formatDay(lastDay);
+  if (days === 1) return "há 1 dia";
+  return `há ${days} dias`;
+}
+
 export function staffPriceCents(saleCents: number, customCents: number | null, housePercent: number) {
   if (customCents != null) return customCents;
   return Math.round((saleCents * housePercent) / 100);
