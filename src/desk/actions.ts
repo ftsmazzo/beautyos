@@ -10,7 +10,7 @@ import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
 import { cardFeeShares } from "@/desk/card-fee";
 import { restampOrder, stampReferral } from "@/desk/referral";
-import { addMinutes, dayParam, firstWeekdayAfter, minutes, periodsFor, placementIssue, shiftDay, stamp } from "@/desk/clock";
+import { addMinutes, dayParam, firstWeekdayAfter, minutes, periodsFor, placementIssue, shiftDay, stamp, weekdayOf } from "@/desk/clock";
 import { linkedProfessional } from "@/desk/queries";
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -19,6 +19,28 @@ const STATUSES = ["agendado", "confirmado", "chegou", "em_atendimento", "realiza
 
 function idOrNull(value: string) {
   return UUID.test(value) ? value : null;
+}
+
+async function chargedServicePrice(
+  tx: TransactionSql,
+  serviceId: string,
+  day: string,
+  start: string,
+  sheetCents: number,
+) {
+  const discounts = await tx<{ mode: string; amount: number; startTime: string | null; endTime: string | null }[]>`
+    SELECT mode, amount, start_time AS "startTime", end_time AS "endTime"
+    FROM service_discounts
+    WHERE service_id = ${serviceId} AND weekday = ${weekdayOf(day)}
+  `;
+  const hit = discounts.find((discount) => {
+    if (!discount.startTime || !discount.endTime) return true;
+    const at = minutes(start);
+    return minutes(discount.startTime) <= at && at < minutes(discount.endTime);
+  });
+  if (hit?.mode === "percentual") return Math.max(0, Math.round((sheetCents * (100 - hit.amount)) / 100));
+  if (hit?.mode === "valor") return Math.max(0, sheetCents - hit.amount);
+  return sheetCents;
 }
 
 async function scope(userId: string, role: string) {
@@ -82,20 +104,8 @@ export async function bookSlot(formData: FormData) {
         if (clash.length) throw new FormError("ocupado");
       }
 
-      const discounts = await tx<{ mode: string; amount: number; startTime: string | null; endTime: string | null }[]>`
-        SELECT mode, amount, start_time AS "startTime", end_time AS "endTime"
-        FROM service_discounts
-        WHERE service_id = ${serviceId}
-          AND weekday = ${new Date(`${day}T12:00:00-03:00`).getUTCDay()}
-      `;
-      let price = offer[0].priceCents;
-      const hit = discounts.find((discount) => {
-        if (!discount.startTime || !discount.endTime) return true;
-        const at = minutes(start);
-        return minutes(discount.startTime) <= at && at < minutes(discount.endTime);
-      });
-      if (hit?.mode === "percentual") price = Math.max(0, Math.round(price * (100 - hit.amount) / 100));
-      if (hit?.mode === "valor") price = Math.max(0, price - hit.amount);
+      const sheet = offer[0].priceCents;
+      const price = await chargedServicePrice(tx, serviceId, day, start, sheet);
       const commission = Math.round(price * offer[0].commissionPercent / 100);
 
       let orderId = "";
@@ -139,7 +149,7 @@ export async function bookSlot(formData: FormData) {
           description, qty, price_cents, list_price_cents, commission_percent, commission_cents
         ) VALUES (
           ${lineId}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
-          ${offer[0].name}, 1, ${price}, ${price}, ${offer[0].commissionPercent}, ${commission}
+          ${offer[0].name}, 1, ${price}, ${sheet}, ${offer[0].commissionPercent}, ${commission}
         )
       `;
       await stampReferral(tx, user.accountId, orderId, lineId, price);
@@ -2038,7 +2048,8 @@ export async function addServiceToOrder(formData: FormData) {
       }
       const appointmentId = randomUUID();
       const lineId = randomUUID();
-      const price = offer[0].priceCents;
+      const sheet = offer[0].priceCents;
+      const price = await chargedServicePrice(tx, serviceId, order[0].day, start, sheet);
       const commission = Math.round(price * offer[0].commissionPercent / 100);
       await tx`
         INSERT INTO appointments (
@@ -2055,7 +2066,7 @@ export async function addServiceToOrder(formData: FormData) {
           description, qty, price_cents, list_price_cents, commission_percent, commission_cents
         ) VALUES (
           ${lineId}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
-          ${offer[0].name}, 1, ${price}, ${price}, ${offer[0].commissionPercent}, ${commission}
+          ${offer[0].name}, 1, ${price}, ${sheet}, ${offer[0].commissionPercent}, ${commission}
         )
       `;
       await stampReferral(tx, user.accountId, orderId, lineId, price);
