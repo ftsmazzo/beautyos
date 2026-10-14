@@ -4,6 +4,7 @@ import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
 import { applyDuePrices, birthdaysOn, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
 import { todaySaoPaulo } from "@/catalog/format";
+import { latePackageVisits } from "@/desk/queries";
 import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
@@ -25,6 +26,7 @@ export default async function StartPage({
   const counts = operator ? await catalogCounts(user.accountId) : null;
   const rules = user.role === "administrador" ? await houseRules(user.accountId) : null;
   const birthdays = user.role === "cliente" ? null : await birthdaysOn(user.accountId, todaySaoPaulo());
+  const lateVisits = operator ? await latePackageVisits(user.accountId) : [];
 
   return (
     <Panel user={user} current="/inicio" title="Início">
@@ -49,6 +51,17 @@ export default async function StartPage({
       {operator && counts ? (
         <>
           <PriceNotice notices={notices} back="inicio" />
+          {lateVisits.length > 0 ? (
+            <div className="card">
+              <h2>Pacote fora do prazo</h2>
+              {lateVisits.map((visit) => (
+                <p key={visit.creditId}>
+                  <Link href={`/pacotes/vendidos/${visit.packageId}`}>{visit.clientName}</Link>
+                  {` · ${visit.packageName} · ida ${visit.when} · ${visit.professional}`}
+                </p>
+              ))}
+            </div>
+          ) : null}
           <p>O dia abre na agenda. A comanda e o caixa acompanham o atendimento.</p>
           <div className="tiles">
             <Link className="tile tile-blue" href="/agenda">

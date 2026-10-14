@@ -395,6 +395,32 @@ export type SoldPackage = {
   cancelReason: string | null;
 };
 
+export async function latePackageVisits(accountId: string) {
+  return db()<{
+    creditId: string;
+    packageId: string;
+    clientName: string;
+    packageName: string;
+    when: string;
+    professional: string;
+  }[]>`
+    SELECT cr.id AS "creditId", cp.id AS "packageId", c.name AS "clientName", cp.name AS "packageName",
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS "when",
+           COALESCE(pr.name, 'sem profissional') AS professional
+    FROM client_packages cp
+    JOIN clients c ON c.id = cp.client_id
+    JOIN package_credits cr ON cr.client_package_id = cp.id
+    JOIN order_lines l ON l.id = cr.order_line_id
+    JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+    LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
+    WHERE cp.account_id = ${accountId}
+      AND cp.status = 'ativo'
+      AND cp.valid_until IS NOT NULL
+      AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
+    ORDER BY a.starts_at, c.name
+  `;
+}
+
 export async function soldPackages(accountId: string, day: string) {
   return db()<SoldPackage[]>`
     SELECT cp.id, c.name AS "clientName", c.phone, cp.name, cp.price_cents AS "priceCents", cp.status,
