@@ -2191,10 +2191,12 @@ export async function moveLineProfessional(formData: FormData) {
   return settle(`/comandas/${orderId}`, async () => {
     if (!lineId || !professionalId) throw new FormError("dados");
     await db().begin(async (tx) => {
-      const order = await tx<{ status: string }[]>`
-        SELECT status FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      const order = await tx<{ status: string; kind: string; professionalId: string | null }[]>`
+        SELECT status, kind, professional_id AS "professionalId"
+        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.status !== "aberta") throw new FormError("fechada");
+      if (order[0].kind === "consumo" && professionalId === order[0].professionalId) throw new FormError("mesmo");
       const line = await tx<{ serviceId: string | null; appointmentId: string | null; packageCreditId: string | null }[]>`
         SELECT service_id AS "serviceId", appointment_id AS "appointmentId", package_credit_id AS "packageCreditId"
         FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId} AND kind = 'servico'
@@ -2207,7 +2209,17 @@ export async function moveLineProfessional(formData: FormData) {
         WHERE ps.professional_id = ${professionalId} AND ps.service_id = ${line[0].serviceId}
       `;
       if (!offer.length) throw new FormError("servico");
-      if (line[0].packageCreditId) {
+      if (order[0].kind === "consumo") {
+        const current = await tx<{ abatementCents: number }[]>`
+          SELECT abatement_cents AS "abatementCents" FROM order_lines WHERE id = ${lineId}
+        `;
+        const commission = Math.round((current[0]?.abatementCents ?? 0) * offer[0].commissionPercent / 100);
+        await tx`
+          UPDATE order_lines
+          SET professional_id = ${professionalId}, commission_percent = ${offer[0].commissionPercent}, commission_cents = ${commission}
+          WHERE id = ${lineId}
+        `;
+      } else if (line[0].packageCreditId) {
         const credit = await tx<{ internalPriceCents: number }[]>`
           SELECT internal_price_cents AS "internalPriceCents" FROM package_credits WHERE id = ${line[0].packageCreditId}
         `;

@@ -232,6 +232,7 @@ export default async function OrderPage({
                         <select name="professional" defaultValue={line.professionalId ?? ""}>
                           {catalog
                             .filter((service) => service.id === line.serviceId)
+                            .filter((service) => order.kind !== "consumo" || service.professionalId !== order.professionalId)
                             .map((service) => (
                               <option key={service.professionalId} value={service.professionalId}>
                                 {roster.find((person) => person.id === service.professionalId)?.name ?? "Profissional"}
