@@ -33,7 +33,7 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/comandas") {
     return <svg {...common}><path d="M7 4h10v16H7z" /><path d="M10 8h4M10 12h4M10 16h2" /></svg>;
   }
-  if (href === "/caixa") {
+  if (href === "/caixa" || href === "/comissao") {
     return <svg {...common}><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></svg>;
   }
   if (href === "/logs") {
@@ -86,7 +86,7 @@ export function Panel({
   const links = (operator
     ? [...OPERATION, { href: "/caixa", label: "Caixa" }, { href: "/logs", label: "Logs" }, ...CATALOG]
     : user.role === "profissional"
-      ? OPERATION.slice()
+      ? [...OPERATION, { href: "/comissao", label: "Comissão" }]
       : OPERATION.filter((link) => link.href === "/inicio")).slice();
   if (user.role === "administrador") {
     links.push({ href: "/financeiro", label: "Financeiro" });

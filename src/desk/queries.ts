@@ -623,6 +623,44 @@ export async function dayCash(accountId: string, day: string) {
   return { movements, byMethod, commissions };
 }
 
+export async function ownCommission(accountId: string, professionalId: string, day: string) {
+  const rows = await db()<{
+    origin: string;
+    description: string;
+    commissionCents: number;
+    abatementCents: number;
+  }[]>`
+    SELECT origin, description,
+           commission_cents AS "commissionCents",
+           abatement_cents AS "abatementCents"
+    FROM (
+      SELECT 'execucao' AS origin, l.description,
+             l.commission_cents,
+             CASE WHEN o.kind = 'consumo' AND l.kind = 'servico' THEN 0 ELSE l.abatement_cents END AS abatement_cents
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      WHERE o.account_id = ${accountId} AND o.day = ${day} AND l.professional_id = ${professionalId}
+      UNION ALL
+      SELECT 'abate', l.description, 0, l.abatement_cents
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      WHERE o.account_id = ${accountId} AND o.day = ${day}
+        AND o.kind = 'consumo' AND l.kind = 'servico' AND l.abatement_cents > 0
+        AND o.professional_id = ${professionalId}
+      UNION ALL
+      SELECT 'indicacao', l.description, l.referral_cents, 0
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      WHERE o.account_id = ${accountId} AND o.day = ${day}
+        AND l.referral_cents > 0 AND l.referrer_professional_id = ${professionalId}
+    ) rows
+    ORDER BY origin, description
+  `;
+  const commissionCents = rows.reduce((sum, row) => sum + row.commissionCents, 0);
+  const abatementCents = rows.reduce((sum, row) => sum + row.abatementCents, 0);
+  return { rows, commissionCents, abatementCents };
+}
+
 export async function packageReport(accountId: string, start: string, end: string) {
   const sales = await db()<{ name: string; sales: number; soldCents: number; avulsoCents: number }[]>`
     SELECT cp.name, count(*)::int AS sales,

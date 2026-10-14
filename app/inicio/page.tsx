@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
 import { applyDuePrices, birthdaysOn, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
-import { todaySaoPaulo } from "@/catalog/format";
-import { latePackageVisits } from "@/desk/queries";
+import { formatReais, todaySaoPaulo } from "@/catalog/format";
+import { latePackageVisits, linkedProfessional, ownCommission } from "@/desk/queries";
 import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
@@ -27,6 +27,8 @@ export default async function StartPage({
   const rules = user.role === "administrador" ? await houseRules(user.accountId) : null;
   const birthdays = user.role === "cliente" ? null : await birthdaysOn(user.accountId, todaySaoPaulo());
   const lateVisits = operator ? await latePackageVisits(user.accountId) : [];
+  const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
+  const mine = own ? await ownCommission(user.accountId, own, todaySaoPaulo()) : null;
 
   return (
     <Panel user={user} current="/inicio" title="Início">
@@ -104,9 +106,21 @@ export default async function StartPage({
         user.role === "profissional" ? (
           <div className="card">
             <p>Sua coluna está na agenda.</p>
-            <Link className="btn" href="/agenda">
-              Abrir agenda
-            </Link>
+            {mine ? (
+              <p>
+                Comissão de hoje {formatReais(mine.commissionCents)}. Abate {formatReais(mine.abatementCents)}.
+              </p>
+            ) : (
+              <p>Este acesso ainda não está ligado a um profissional.</p>
+            )}
+            <div className="row">
+              <Link className="btn" href="/agenda">
+                Abrir agenda
+              </Link>
+              <Link className="btn quiet" href="/comissao">
+                Ver comissão
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="card">
