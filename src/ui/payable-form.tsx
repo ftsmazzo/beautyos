@@ -55,7 +55,7 @@ export function PayableForm({
       </div>
       {mode === "parcela" ? <p>O valor se divide nas vezes.</p> : null}
       {mode === "repete" ? (
-        <p>Cada mês entra com o mesmo valor. Se já pagou, só o primeiro mês sai do banco. O mês que chega aparece ao abrir esta tela.</p>
+        <p>Cada mês entra com o mesmo valor. Se já pagou, só o primeiro mês sai do banco. O mês que chega entra no dia, com a tela fechada ou aberta.</p>
       ) : null}
       {charts.length > 0 ? (
         <label>

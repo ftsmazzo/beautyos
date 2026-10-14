@@ -3,7 +3,8 @@ import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listPayables, type PayableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
-import { deleteTitle, materializeRecurrences, stopRecurrence } from "@/finance/actions";
+import { deleteTitle, stopRecurrence } from "@/finance/actions";
+import { materializeRecurrences } from "@/finance/recurrence";
 import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
@@ -76,7 +77,7 @@ export default async function FinancePage({
     <Panel user={user} current="/financeiro" title="Contas a pagar">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>Aluguel e luz entram aqui, sem compra de produto. Repetir todo mês lança o mesmo valor de novo, e o mês que chega aparece ao abrir esta tela. Estas contas não entram no caixa do balcão. No crédito, o título fica na fatura. O banco sai quando a fatura é paga.</p>
+      <p>Aluguel e luz entram aqui, sem compra de produto. Repetir todo mês lança o mesmo valor de novo, e o mês que chega entra no dia, com a tela fechada ou aberta. Estas contas não entram no caixa do balcão. No crédito, o título fica na fatura. O banco sai quando a fatura é paga.</p>
       <FinanceNav current="pagar" />
       <PayableForm banks={banks} cards={cards} charts={charts} today={today} />
       <div className="row">
