@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
-import { applyDuePrices, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
+import { applyDuePrices, birthdaysOn, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
+import { todaySaoPaulo } from "@/catalog/format";
 import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
@@ -23,11 +24,28 @@ export default async function StartPage({
   const notices = operator ? await openPriceNotices(user.accountId) : [];
   const counts = operator ? await catalogCounts(user.accountId) : null;
   const rules = user.role === "administrador" ? await houseRules(user.accountId) : null;
+  const birthdays = user.role === "cliente" ? null : await birthdaysOn(user.accountId, todaySaoPaulo());
 
   return (
     <Panel user={user} current="/inicio" title="Início">
       {params.ok === "regras" ? <p className="ok">Regras salvas.</p> : null}
       {params.erro === "dados" ? <p className="error">Informe os percentuais, de 0 a 100.</p> : null}
+      {birthdays ? (
+        <div className="card">
+          <h2>Aniversário</h2>
+          {birthdays.clients.length + birthdays.professionals.length === 0 ? <p>Nenhum hoje.</p> : null}
+          {birthdays.clients.map((person) => (
+            <p key={person.id}>
+              Cliente · <Link href={`/clientes/${person.id}`}>{person.name}</Link>
+            </p>
+          ))}
+          {birthdays.professionals.map((person) => (
+            <p key={person.id}>
+              Equipe · <Link href={`/profissionais/${person.id}`}>{person.name}</Link>
+            </p>
+          ))}
+        </div>
+      ) : null}
       {operator && counts ? (
         <>
           <PriceNotice notices={notices} back="inicio" />

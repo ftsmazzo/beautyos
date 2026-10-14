@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireDesk } from "@/catalog/access";
 import { centsToInput, formatDay, formatPhone, formatReais, packageDeadline } from "@/catalog/format";
+import { birthdaysOn } from "@/catalog/queries";
 import {
   addConsumption,
   addPayment,
@@ -73,6 +74,10 @@ export default async function OrderPage({
   );
   const statuses = Object.entries(APPOINTMENT_STATUS).filter(([value]) => value !== "bloqueado");
   const notes = await visitNotes(user.accountId, order.id);
+  const birthdays = await birthdaysOn(user.accountId, order.day);
+  const birthday =
+    (order.clientId != null && birthdays.clients.some((person) => person.id === order.clientId)) ||
+    (order.kind === "consumo" && order.professionalId != null && birthdays.professionals.some((person) => person.id === order.professionalId));
 
   return (
     <Panel user={user} current="/comandas" title={order.kind === "consumo" ? "Consumo" : "Comanda"}>
@@ -95,6 +100,7 @@ export default async function OrderPage({
               {formatDay(order.day)} · {open ? "Aberta" : "Fechada"}
               {order.fromOutside ? " · De fora" : ""}
               {order.incomplete ? " · Cadastro pendente" : ""}
+              {birthday ? " · Aniversário" : ""}
             </p>
             {held.map((item) => (
               <p key={item.id}>

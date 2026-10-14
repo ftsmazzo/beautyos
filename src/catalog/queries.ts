@@ -31,6 +31,34 @@ export async function applyDuePrices(accountId: string) {
   });
 }
 
+export async function birthdaysOn(accountId: string, day: string) {
+  const month = Number(day.slice(5, 7));
+  const date = Number(day.slice(8, 10));
+  const [clients, professionals] = await Promise.all([
+    db()<{ id: string; name: string }[]>`
+      SELECT id, name
+      FROM clients
+      WHERE account_id = ${accountId}
+        AND active
+        AND birth_date IS NOT NULL
+        AND EXTRACT(MONTH FROM birth_date) = ${month}
+        AND EXTRACT(DAY FROM birth_date) = ${date}
+      ORDER BY name
+    `,
+    db()<{ id: string; name: string }[]>`
+      SELECT id, COALESCE(nickname, name) AS name
+      FROM professionals
+      WHERE account_id = ${accountId}
+        AND active
+        AND birth_date IS NOT NULL
+        AND EXTRACT(MONTH FROM birth_date) = ${month}
+        AND EXTRACT(DAY FROM birth_date) = ${date}
+      ORDER BY name
+    `,
+  ]);
+  return { clients, professionals };
+}
+
 export async function openPriceNotices(accountId: string) {
   return db()<{ id: string; serviceId: string | null; serviceName: string; beforeCents: number; afterCents: number }[]>`
     SELECT id, service_id AS "serviceId", service_name AS "serviceName",

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais } from "@/catalog/format";
+import { birthdaysOn } from "@/catalog/queries";
 import { blockSlot, openConsumption } from "@/desk/actions";
 import { dayParam, fromMinutes, minutes, periodsFor, shiftDay } from "@/desk/clock";
 import {
@@ -36,6 +37,9 @@ export default async function AgendaPage({
   const roster = own || user.role !== "profissional" ? await dayRoster(user.accountId, own) : [];
   const hours = await dayHours(user.accountId);
   const appointments = await dayAppointments(user.accountId, day);
+  const birthdays = await birthdaysOn(user.accountId, day);
+  const birthdayClients = new Set(birthdays.clients.map((person) => person.id));
+  const birthdayPros = new Set(birthdays.professionals.map((person) => person.id));
   const cancellations = await dayCancellations(user.accountId, day, own);
   const people = await clientOptions(user.accountId);
   const rawServices = await serviceOptions(user.accountId);
@@ -199,7 +203,10 @@ export default async function AgendaPage({
               return (
                 <section className="board-col" key={person.id}>
                   <header style={{ borderTopColor: person.columnColor }}>
-                    <strong>{person.nickname || person.name}</strong>
+                    <strong>
+                      {person.nickname || person.name}
+                      {birthdayPros.has(person.id) ? " · aniversário" : ""}
+                    </strong>
                   </header>
                   <div className="board-grid" data-pro={person.id} style={{ height }}>
                     {marks.map((mark) => (
@@ -225,7 +232,8 @@ export default async function AgendaPage({
                     {columnItems.map((item) => {
                       const paint = blockPaint(item);
                       const moved = item.status === "chegou" || item.status === "em_atendimento" || item.status === "realizado";
-                      const name = item.kind === "bloqueio" ? "Bloqueado" : item.clientName ?? "Sem nome";
+                      const birthday = item.clientId && birthdayClients.has(item.clientId) ? " · aniversário" : "";
+                      const name = item.kind === "bloqueio" ? "Bloqueado" : `${item.clientName ?? "Sem nome"}${birthday}`;
                       const marks = [item.status === "cancelado" ? "Cancelado" : "", item.encaixe ? "Encaixe" : ""].filter(Boolean);
                       const title = marks.length ? `${marks.join(" · ")} · ${name}` : name;
                       const phone = item.phone ? formatPhone(item.phone) : "";
@@ -291,7 +299,10 @@ export default async function AgendaPage({
                   <td>
                     {item.start}–{item.end}
                   </td>
-                  <td>{item.clientName ?? "Sem nome"}</td>
+                  <td>
+                    {item.clientName ?? "Sem nome"}
+                    {item.clientId && birthdayClients.has(item.clientId) ? " · aniversário" : ""}
+                  </td>
                   <td>{item.professionalName ?? "—"}</td>
                   <td>{item.serviceName ?? "—"}</td>
                   <td>{item.priceCents == null ? "—" : formatReais(item.priceCents)}</td>

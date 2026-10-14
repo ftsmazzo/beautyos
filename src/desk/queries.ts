@@ -505,6 +505,7 @@ export async function dayCancellations(accountId: string, day: string, professio
   return db()<{
     id: string;
     orderId: string | null;
+    clientId: string | null;
     clientName: string | null;
     professionalName: string | null;
     serviceName: string | null;
@@ -514,7 +515,7 @@ export async function dayCancellations(accountId: string, day: string, professio
     at: string | null;
     actorName: string | null;
   }[]>`
-    SELECT a.id, a.order_id AS "orderId", c.name AS "clientName", p.name AS "professionalName",
+    SELECT a.id, a.order_id AS "orderId", a.client_id AS "clientId", c.name AS "clientName", p.name AS "professionalName",
            s.name AS "serviceName",
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
            to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end",
