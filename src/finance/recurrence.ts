@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { todaySaoPaulo } from "@/catalog/format";
 import { shiftMonth } from "@/desk/clock";
-import { databaseReady, db } from "@/db/client";
+import { db } from "@/db/client";
 
 export async function materializeRecurrences(accountId: string) {
   const today = todaySaoPaulo();
@@ -56,12 +56,32 @@ export async function materializeRecurrences(accountId: string) {
 }
 
 export async function materializeDueRecurrences() {
-  await databaseReady();
   const accounts = await db()<{ id: string }[]>`
     SELECT DISTINCT account_id AS id FROM payable_recurrences WHERE active
   `;
   let created = 0;
   for (const account of accounts) created += await materializeRecurrences(account.id);
-  if (created > 0) console.info(`recorrencia criou ${created}`);
+  if (created > 0) console.log(`recorrencia criou ${created}`);
   return created;
+}
+
+export function startRecurrenceClock() {
+  const state = globalThis as { beautyosClock?: boolean };
+  if (state.beautyosClock) return;
+  state.beautyosClock = true;
+  console.log("recorrencia relogio");
+  let ticks = 0;
+  const run = () => {
+    ticks += 1;
+    const tick = ticks;
+    materializeDueRecurrences()
+      .then((created) => {
+        if (tick <= 3 || created > 0) console.log(`recorrencia passou ${created}`);
+      })
+      .catch((error) => {
+        console.error("recorrencia", error);
+      });
+  };
+  run();
+  setInterval(run, 60 * 1000);
 }

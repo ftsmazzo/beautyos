@@ -16,10 +16,15 @@ export function db() {
 
 export function databaseReady() {
   if (!ready) {
-    ready = ensureSchema().catch((error) => {
-      ready = null;
-      throw error;
-    });
+    ready = ensureSchema()
+      .then(async () => {
+        const { startRecurrenceClock } = await import("@/finance/recurrence");
+        startRecurrenceClock();
+      })
+      .catch((error) => {
+        ready = null;
+        throw error;
+      });
   }
   return ready;
 }
