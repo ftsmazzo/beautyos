@@ -36,6 +36,7 @@ export const FORM_ERRORS: Record<string, string> = {
   igual: "A contagem fechou igual ao saldo.",
   estoque: "Revise a quantidade deste movimento.",
   nota: "Essa nota desse fornecedor já entrou.",
+  avaliacao: "Escreva a avaliação da visita.",
   linha: "A mesma nota não repete o produto.",
   bandeira: "No cartão, informe a bandeira.",
   banco: "Já existe um banco com esse nome.",

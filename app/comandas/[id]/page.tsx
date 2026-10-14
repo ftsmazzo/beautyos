@@ -14,6 +14,8 @@ import {
   pardonPackage,
   deleteEmptyOrder,
   removeLine,
+  addVisitNote,
+  deleteVisitNote,
   attachClient,
   closeOrder,
   reopenOrder,
@@ -23,10 +25,10 @@ import {
   toggleCourtesy,
   toggleFromOutside,
 } from "@/desk/actions";
-import { clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions } from "@/desk/queries";
+import { clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
 import { listBanks } from "@/finance/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
-import { ErrorNote } from "@/ui/error-note";
+import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { OrderServiceForm } from "@/ui/order-service-form";
 import { StaffServiceForm } from "@/ui/staff-service-form";
 import { PackageVisitForm } from "@/ui/package-visit-form";
@@ -41,7 +43,7 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; ok?: string }>;
 }) {
   const user = await requireDesk();
   const { id } = await params;
@@ -70,6 +72,7 @@ export default async function OrderPage({
       : [],
   );
   const statuses = Object.entries(APPOINTMENT_STATUS).filter(([value]) => value !== "bloqueado");
+  const notes = await visitNotes(user.accountId, order.id);
 
   return (
     <Panel user={user} current="/comandas" title={order.kind === "consumo" ? "Consumo" : "Comanda"}>
@@ -81,6 +84,7 @@ export default async function OrderPage({
           Agenda
         </Link>
       </div>
+      <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       <div className="card">
         <div className="split">
@@ -179,6 +183,22 @@ export default async function OrderPage({
                     {line.courtesy ? " · cortesia" : ""}
                     {line.encaixe ? " · encaixe" : ""}
                     {line.packageCreditId ? " · pacote" : ""}
+                    {notes
+                      .filter((note) => note.appointmentId === line.appointmentId)
+                      .map((note) => (
+                        <div key={note.id}>
+                          <p>
+                            {note.body} · {note.who} · {note.at}
+                          </p>
+                          {operator ? (
+                            <form action={deleteVisitNote}>
+                              <input type="hidden" name="order" value={order.id} />
+                              <input type="hidden" name="note" value={note.id} />
+                              <SubmitButton label="Apagar" pendingLabel="Apagando…" className="quiet" />
+                            </form>
+                          ) : null}
+                        </div>
+                      ))}
                   </td>
                   <td>{line.professionalName ?? "—"}</td>
                   <td>{line.start && line.end ? `${line.start}–${line.end}` : "—"}</td>
@@ -266,6 +286,19 @@ export default async function OrderPage({
                           className="quiet"
                         />
                       </form>
+                    ) : null}
+                    {line.appointmentId ? (
+                      <Modal label="Avaliação" title={`Avaliação · ${line.description}`} tone="navy">
+                        <form action={addVisitNote}>
+                          <input type="hidden" name="order" value={order.id} />
+                          <input type="hidden" name="appointment" value={line.appointmentId} />
+                          <label>
+                            Texto
+                            <textarea name="body" required minLength={2} maxLength={400} />
+                          </label>
+                          <SubmitButton label="Registrar" pendingLabel="Registrando…" />
+                        </form>
+                      </Modal>
                     ) : null}
                     </div>
                   </td>

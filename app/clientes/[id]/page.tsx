@@ -102,6 +102,7 @@ export default async function ClientFormPage({
                   <Link href={`/comandas/${visit.orderId}`}>Comanda</Link>
                 </>
               ) : null}
+              {visit.note ? ` · ${visit.note}` : ""}
             </p>
           ))}
         </div>

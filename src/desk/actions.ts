@@ -2315,3 +2315,41 @@ export async function moveLineProfessional(formData: FormData) {
     return `/comandas/${orderId}`;
   });
 }
+
+export async function addVisitNote(formData: FormData) {
+  const user = await requireDesk();
+  const appointmentId = String(formData.get("appointment") ?? "");
+  const orderId = String(formData.get("order") ?? "");
+  const fail = UUID.test(orderId) ? `/comandas/${orderId}` : "/comandas";
+  return settle(fail, async () => {
+    const body = String(formData.get("body") ?? "").trim().replace(/\s+/g, " ");
+    if (body.length < 2 || body.length > 400) throw new FormError("avaliacao");
+    const own = await scope(user.id, user.role);
+    const rows = await db()<{ professionalId: string }[]>`
+      SELECT professional_id AS "professionalId"
+      FROM appointments
+      WHERE id = ${appointmentId} AND account_id = ${user.accountId} AND kind = 'horario'
+    `;
+    if (!rows[0]) throw new FormError("fora");
+    if (own && rows[0].professionalId !== own) throw new FormError("fora");
+    await db()`
+      INSERT INTO visit_notes (id, account_id, appointment_id, body, created_by)
+      VALUES (${randomUUID()}, ${user.accountId}, ${appointmentId}, ${body}, ${user.id})
+    `;
+    return `${fail}?ok=avaliacao`;
+  });
+}
+
+export async function deleteVisitNote(formData: FormData) {
+  const user = await requireOperator();
+  const noteId = String(formData.get("note") ?? "");
+  const orderId = String(formData.get("order") ?? "");
+  const fail = UUID.test(orderId) ? `/comandas/${orderId}` : "/comandas";
+  return settle(fail, async () => {
+    const gone = await db()`
+      DELETE FROM visit_notes WHERE id = ${noteId} AND account_id = ${user.accountId} RETURNING id
+    `;
+    if (!gone.length) throw new FormError("fora");
+    return fail;
+  });
+}

@@ -248,6 +248,22 @@ export async function getOrder(accountId: string, id: string) {
   return { ...rows[0], lines, payments };
 }
 
+export async function visitNotes(accountId: string, orderId: string) {
+  return db()<{ id: string; appointmentId: string; body: string; who: string; at: string }[]>`
+    SELECT n.id, n.appointment_id AS "appointmentId", n.body,
+           COALESCE(u.name, 'Balcão') AS who,
+           to_char(n.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at
+    FROM visit_notes n
+    LEFT JOIN users u ON u.id = n.created_by
+    WHERE n.account_id = ${accountId}
+      AND n.appointment_id IN (
+        SELECT l.appointment_id FROM order_lines l
+        WHERE l.order_id = ${orderId} AND l.appointment_id IS NOT NULL
+      )
+    ORDER BY n.created_at
+  `;
+}
+
 export async function dayLogs(accountId: string, day: string) {
   const start = stamp(day, "00:00");
   const end = stamp(shiftDay(day, 1), "00:00");
@@ -717,12 +733,23 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
       time: string;
       service: string;
       professional: string;
+      note: string | null;
     }[]>`
       SELECT a.id, a.order_id AS "orderId", a.status,
              to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
              to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS time,
              COALESCE(s.name, 'Horário') AS service,
-             pr.name AS professional
+             pr.name AS professional,
+             (
+               SELECT string_agg(
+                 to_char(n.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI')
+                 || ' ' || COALESCE(u.name, 'Balcão') || ': ' || n.body,
+                 ' · ' ORDER BY n.created_at
+               )
+               FROM visit_notes n
+               LEFT JOIN users u ON u.id = n.created_by
+               WHERE n.appointment_id = a.id
+             ) AS note
       FROM appointments a
       LEFT JOIN services s ON s.id = a.service_id
       JOIN professionals pr ON pr.id = a.professional_id
