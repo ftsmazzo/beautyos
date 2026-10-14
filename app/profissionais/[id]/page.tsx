@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
 import { centsToInput } from "@/catalog/format";
 import { getProfessional, listHours, listProServices, listServices, loginOptions } from "@/catalog/queries";
-import { saveProfessional } from "@/catalog/professional-actions";
+import { deleteProfessional, saveProfessional } from "@/catalog/professional-actions";
+import { db } from "@/db/client";
 import { ErrorNote } from "@/ui/error-note";
 import { HoursGrid } from "@/ui/hours-grid";
 import { Panel } from "@/ui/panel";
@@ -44,6 +45,16 @@ export default async function ProfessionalFormPage({
   const linked = new Map(links.map((link) => [link.serviceId, link]));
   const visible = services.filter((service) => service.active || linked.has(service.id));
   const override = hours.find((row) => row.validFrom);
+  const used = person
+    ? await db()`
+        SELECT 1 FROM order_lines WHERE account_id = ${user.accountId} AND (professional_id = ${person.id} OR referrer_professional_id = ${person.id})
+        UNION ALL
+        SELECT 1 FROM appointments WHERE account_id = ${user.accountId} AND professional_id = ${person.id}
+        UNION ALL
+        SELECT 1 FROM orders WHERE account_id = ${user.accountId} AND professional_id = ${person.id}
+        LIMIT 1
+      `
+    : [];
 
   return (
     <Panel user={user} current="/profissionais" title={person ? person.name : "Novo profissional"}>
@@ -174,6 +185,12 @@ export default async function ProfessionalFormPage({
         <HoursGrid prefix="o" values={hourValues(hours, true)} />
         <SubmitButton label="Salvar profissional" />
       </form>
+      {person && used.length === 0 ? (
+        <form action={deleteProfessional}>
+          <input type="hidden" name="id" value={person.id} />
+          <SubmitButton label="Excluir profissional" pendingLabel="Excluindo…" className="quiet" />
+        </form>
+      ) : null}
     </Panel>
   );
 }

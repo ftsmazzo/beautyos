@@ -11,6 +11,26 @@ import { db } from "@/db/client";
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 
+export async function deleteProfessional(formData: FormData) {
+  const user = await requireOperator();
+  const id = String(formData.get("id") ?? "");
+  return settle(`/profissionais/${id}`, async () => {
+    const owned = await db()`SELECT id FROM professionals WHERE id = ${id} AND account_id = ${user.accountId}`;
+    if (!owned.length) throw new FormError("fora");
+    const used = await db()`
+      SELECT 1 FROM order_lines WHERE account_id = ${user.accountId} AND (professional_id = ${id} OR referrer_professional_id = ${id})
+      UNION ALL
+      SELECT 1 FROM appointments WHERE account_id = ${user.accountId} AND professional_id = ${id}
+      UNION ALL
+      SELECT 1 FROM orders WHERE account_id = ${user.accountId} AND professional_id = ${id}
+      LIMIT 1
+    `;
+    if (used.length) throw new FormError("pessoa");
+    await db()`DELETE FROM professionals WHERE id = ${id} AND account_id = ${user.accountId}`;
+    return "/profissionais?ok=salvo";
+  });
+}
+
 export async function saveProfessional(formData: FormData) {
   const user = await requireOperator();
   const existingId = String(formData.get("id") ?? "");

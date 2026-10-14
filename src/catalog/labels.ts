@@ -61,6 +61,7 @@ export const FORM_ERRORS: Record<string, string> = {
   cliente: "Escolha um cliente desta casa.",
   servico: "Esse profissional não faz este serviço.",
   mesmo: "Quem executa o serviço não pode ser quem recebe.",
+  pessoa: "Esse profissional já entrou na agenda ou numa comanda.",
   pacote: "Esse pacote não pode ser alterado por aqui.",
   outra: "Esse pacote já teve visita usada em outra comanda.",
   credito: "Não há visita disponível desse serviço no pacote.",
