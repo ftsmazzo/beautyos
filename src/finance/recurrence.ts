@@ -70,17 +70,10 @@ export function startRecurrenceClock() {
   if (state.beautyosClock) return;
   state.beautyosClock = true;
   console.log("recorrencia relogio");
-  let ticks = 0;
   const run = () => {
-    ticks += 1;
-    const tick = ticks;
-    materializeDueRecurrences()
-      .then((created) => {
-        if (tick <= 3 || created > 0) console.log(`recorrencia passou ${created}`);
-      })
-      .catch((error) => {
-        console.error("recorrencia", error);
-      });
+    materializeDueRecurrences().catch((error) => {
+      console.error("recorrencia", error);
+    });
   };
   run();
   setInterval(run, 60 * 1000);
