@@ -375,7 +375,7 @@ export async function listProducts(accountId: string) {
            COALESCE((SELECT SUM(m.qty) FROM stock_movements m WHERE m.product_id = p.id), 0)::int AS balance
     FROM products p
     WHERE p.account_id = ${accountId}
-    ORDER BY p.name
+    ORDER BY p.category NULLS LAST, p.name
   `;
 }
 

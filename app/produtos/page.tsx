@@ -41,6 +41,7 @@ export default async function ProductsPage({
             <thead>
               <tr>
                 <th>Nome</th>
+                <th>Categoria</th>
                 <th>Saldo</th>
                 <th>Venda</th>
                 <th>Custo</th>
@@ -60,6 +61,7 @@ export default async function ProductsPage({
                       {product.active ? "" : " · inativo"}
                       {low ? " · no mínimo" : ""}
                     </td>
+                    <td>{product.category || "—"}</td>
                     <td className={low ? "warn" : undefined}>{product.balance}</td>
                     <td>{formatReais(product.salePriceCents)}</td>
                     <td>{formatReais(product.costCents)}</td>
