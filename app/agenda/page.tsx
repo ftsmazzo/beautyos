@@ -3,7 +3,7 @@ import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais } from "@/catalog/format";
 import { birthdaysOn } from "@/catalog/queries";
 import { blockSlot, openConsumption } from "@/desk/actions";
-import { dayParam, fromMinutes, minutes, periodsFor, shiftDay } from "@/desk/clock";
+import { dayParam, freeGaps, fromMinutes, minutes, periodsFor, shiftDay } from "@/desk/clock";
 import {
   clientOptions,
   dayAppointments,
@@ -28,13 +28,16 @@ const HOUR = 96;
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dia?: string; erro?: string; cliente?: string; servico?: string }>;
+  searchParams: Promise<{ dia?: string; erro?: string; cliente?: string; servico?: string; profissional?: string; inicio?: string }>;
 }) {
   const user = await requireDesk();
   const query = await searchParams;
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const bookClient = query.cliente && uuid.test(query.cliente) ? query.cliente : "";
   const bookService = query.servico && uuid.test(query.servico) ? query.servico : "";
+  const timeOk = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const bookProfessional = query.profissional && uuid.test(query.profissional) ? query.profissional : "";
+  const bookStart = query.inicio && timeOk.test(query.inicio) ? query.inicio : "";
   const day = dayParam(query.dia);
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const roster = own || user.role !== "profissional" ? await dayRoster(user.accountId, own) : [];
@@ -74,6 +77,22 @@ export default async function AgendaPage({
   for (let mark = startMin; mark <= endMin; mark += 60) marks.push(mark);
 
   const legend = [...Object.values(APPOINTMENT_STATUS), LUNCH, CLOSED, FIT_IN, OUTSIDE];
+  const visible = appointments.filter((item) => bookable.some((person) => person.id === item.professionalId));
+  const gaps = bookable.flatMap((person) => {
+    const periods = periodsFor(hours.filter((row) => row.professionalId === person.id), day);
+    const busy = visible
+      .filter((item) => item.professionalId === person.id && item.status !== "cancelado")
+      .map((item) => ({ start: item.start, end: item.end }));
+    return freeGaps(periods, busy).map((gap) => ({
+      professionalId: person.id,
+      name: person.nickname || person.name,
+      start: gap.start,
+      end: gap.end,
+    }));
+  });
+  const listed = visible
+    .filter((item) => item.kind === "horario" && item.status !== "cancelado")
+    .sort((a, b) => a.start.localeCompare(b.start) || (a.clientName ?? "").localeCompare(b.clientName ?? ""));
 
   return (
     <Panel user={user} current="/agenda" title="Agenda">
@@ -89,12 +108,14 @@ export default async function AgendaPage({
           Hoje
         </Link>
         {bookable.length > 0 ? (
-          <Modal label="Novo horário" title="Novo horário" tone="blue" startOpen={Boolean(bookClient && bookService)}>
+          <Modal label="Novo horário" title="Novo horário" tone="blue" startOpen={Boolean((bookClient && bookService) || (bookProfessional && bookStart))}>
             <BookForm
               day={day}
               lockedProfessional={own}
+              initialProfessional={bookProfessional || undefined}
               initialClient={bookClient}
               initialService={bookService}
+              initialStart={bookStart || "09:00"}
               professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
               services={services}
               clients={people.map((person) => ({ id: person.id, name: person.name }))}
@@ -166,6 +187,24 @@ export default async function AgendaPage({
       ) : null}
       {bookable.length > 0 ? (
         <>
+          <div className="card">
+            <h2>Horários livres</h2>
+            <p>O que ainda cabe num atendimento normal. Almoço, bloqueio e horário marcado não entram.</p>
+            {gaps.length === 0 ? <p>Nenhum horário livre neste dia.</p> : (
+              <div className="row">
+                {gaps.map((gap) => {
+                  const params = new URLSearchParams({ dia: day, profissional: gap.professionalId, inicio: gap.start });
+                  if (bookClient) params.set("cliente", bookClient);
+                  if (bookService) params.set("servico", bookService);
+                  return (
+                    <Link key={`${gap.professionalId}-${gap.start}`} className="btn quiet" href={`/agenda?${params.toString()}`}>
+                      {gap.name} {gap.start}–{gap.end}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <ul className="legend">
             {legend.map((item) => (
               <li key={item.word} style={{ background: item.bg, color: item.fg }}>
@@ -282,6 +321,49 @@ export default async function AgendaPage({
             })}
           </div>
           </AgendaDesk>
+          <div className="card">
+            <h2>Agendamentos do dia</h2>
+            {listed.length === 0 ? <p>Nenhum agendamento neste dia.</p> : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Horário</th>
+                    <th>Cliente</th>
+                    <th>Telefone</th>
+                    <th>Serviço</th>
+                    <th>Profissional</th>
+                    <th>Estado</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listed.map((item) => {
+                    const paint = blockPaint(item);
+                    const words = [paint.word];
+                    if (item.encaixe && paint.word !== "Encaixe") words.push("Encaixe");
+                    if (item.fromOutside && paint.word !== "De fora") words.push("De fora");
+                    const who = bookable.find((person) => person.id === item.professionalId);
+                    return (
+                      <tr key={item.id}>
+                        <td>{item.start}–{item.end}</td>
+                        <td>
+                          {item.clientName ?? "Sem nome"}
+                          {item.clientId && birthdayClients.has(item.clientId) ? " · aniversário" : ""}
+                        </td>
+                        <td>{item.phone ? formatPhone(item.phone) : "—"}</td>
+                        <td>{item.serviceName ?? "—"}</td>
+                        <td>{who ? who.nickname || who.name : "—"}</td>
+                        <td>{words.join(" · ")}</td>
+                        <td>
+                          {item.orderId ? <Link href={`/comandas/${item.orderId}`}>Comanda</Link> : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </>
       ) : null}
       {cancellations.length > 0 ? (

@@ -66,6 +66,31 @@ export function periodsFor(rows: { weekday: number; period: number; startTime: s
   return source.map((row) => ({ start: row.startTime.slice(0, 5), end: row.endTime.slice(0, 5) }));
 }
 
+export function freeGaps(periods: Period[], busy: Period[]): Period[] {
+  const open = periods
+    .map((period) => ({ start: minutes(period.start), end: minutes(period.end) }))
+    .filter((period) => period.end > period.start)
+    .sort((a, b) => a.start - b.start);
+  const taken = busy
+    .map((period) => ({ start: minutes(period.start), end: minutes(period.end) }))
+    .filter((period) => period.end > period.start)
+    .sort((a, b) => a.start - b.start);
+  const gaps: Period[] = [];
+  for (const period of open) {
+    let cursor = period.start;
+    for (const block of taken) {
+      if (block.end <= cursor || block.start >= period.end) continue;
+      if (block.start > cursor) {
+        gaps.push({ start: fromMinutes(cursor), end: fromMinutes(Math.min(block.start, period.end)) });
+      }
+      cursor = Math.max(cursor, block.end);
+      if (cursor >= period.end) break;
+    }
+    if (cursor < period.end) gaps.push({ start: fromMinutes(cursor), end: fromMinutes(period.end) });
+  }
+  return gaps;
+}
+
 export function placementIssue(periods: Period[], start: string, end: string) {
   if (!periods.length) return "fechado" as const;
   const open = minutes(start);
