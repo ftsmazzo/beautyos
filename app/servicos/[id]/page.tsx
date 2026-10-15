@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
 import { WEEKDAYS } from "@/catalog/labels";
 import { centsToInput, formatDay, formatReais } from "@/catalog/format";
-import { getService, listDiscounts, listProducts, listSupplies, serviceGroups } from "@/catalog/queries";
+import { getService, listDiscounts, listProducts, listProfessionals, listServiceLinks, listSupplies, serviceGroups } from "@/catalog/queries";
 import { saveService } from "@/catalog/service-actions";
 import { ErrorNote } from "@/ui/error-note";
+import { RosterShortcut } from "@/ui/roster-shortcut";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -26,12 +27,16 @@ export default async function ServiceFormPage({
   if (!creating && !UUID.test(id)) redirect("/servicos");
   const service = creating ? null : await getService(user.accountId, id);
   if (!creating && !service) redirect("/servicos");
-  const [groups, discounts, supplies, products] = await Promise.all([
+  const [groups, discounts, supplies, products, people, links] = await Promise.all([
     serviceGroups(user.accountId),
     service ? listDiscounts(service.id) : Promise.resolve([]),
     service ? listSupplies(service.id) : Promise.resolve([]),
     listProducts(user.accountId),
+    listProfessionals(user.accountId),
+    service ? listServiceLinks(service.id) : Promise.resolve([]),
   ]);
+  const linked = new Map(links.map((row) => [row.professionalId, row]));
+  const roster = people.filter((person) => person.active || linked.has(person.id));
 
   return (
     <Panel user={user} current="/servicos" title={service ? service.name : "Novo serviço"}>
@@ -93,6 +98,63 @@ export default async function ServiceFormPage({
             <input name="return_days" type="number" min={1} max={3650} defaultValue={service?.returnDays ?? ""} />
           </label>
         </div>
+        <h2>Quem executa</h2>
+        <p>A mesma linha da ficha do profissional. Célula vazia segue o padrão deste serviço. Limpar volta ao padrão. Tirar a pessoa tira dos dois lados.</p>
+        <RosterShortcut checkName="does" />
+        {roster.length === 0 ? <p>Cadastre um profissional para montar esta tabela.</p> : null}
+        {roster.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Faz</th>
+                <th>Pessoa</th>
+                <th>Preço</th>
+                <th>Tempo</th>
+                <th>Comissão</th>
+              </tr>
+            </thead>
+            <tbody>
+              {roster.map((person) => {
+                const link = linked.get(person.id);
+                return (
+                  <tr key={person.id}>
+                    <td>
+                      <input type="hidden" name="shown" value={person.id} />
+                      <input type="checkbox" name="does" value={person.id} defaultChecked={Boolean(link)} />
+                    </td>
+                    <td>
+                      {person.nickname || person.name}
+                      {person.active ? "" : " · inativo"}
+                    </td>
+                    <td>
+                      <input
+                        name={`price_${person.id}`}
+                        placeholder={service ? centsToInput(service.priceCents) : "0,00"}
+                        defaultValue={link?.priceCents != null ? centsToInput(link.priceCents) : ""}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        name={`duration_${person.id}`}
+                        inputMode="numeric"
+                        placeholder={String(service?.durationMin ?? 30)}
+                        defaultValue={link?.durationMin ?? ""}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        name={`commission_${person.id}`}
+                        inputMode="numeric"
+                        placeholder={String(service?.commissionPercent ?? 0)}
+                        defaultValue={link?.commissionPercent ?? ""}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : null}
         <h2>Próxima troca de preço</h2>
         <p>Na data, o avulso troca. Comissão, tempo, pacote e valor próprio de quem não está no padrão ficam.</p>
         {service?.priceChangedOn ? <p>Preço avulso em vigor desde {formatDay(service.priceChangedOn)}.</p> : null}

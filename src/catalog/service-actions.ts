@@ -124,6 +124,40 @@ export async function saveService(formData: FormData) {
           ON CONFLICT (service_id, product_id) DO UPDATE SET qty = ${qty}
         `;
       }
+      const roster = await tx<{ id: string }[]>`
+        SELECT id FROM professionals WHERE account_id = ${user.accountId}
+      `;
+      const allowed = new Set(roster.map((row) => row.id));
+      const shown = formData.getAll("shown").map(String).filter((personId) => allowed.has(personId));
+      if (shown.length) {
+        await tx`
+          DELETE FROM professional_services
+          WHERE service_id = ${serviceId} AND professional_id IN ${tx(shown)}
+        `;
+      }
+      for (const professionalId of formData.getAll("does").map(String)) {
+        if (!allowed.has(professionalId)) throw new FormError("dados");
+        const priceRaw = String(formData.get(`price_${professionalId}`) ?? "").trim();
+        const durationRaw = String(formData.get(`duration_${professionalId}`) ?? "").trim();
+        const commissionRaw = String(formData.get(`commission_${professionalId}`) ?? "").trim();
+        let ownPrice = priceRaw ? parseReais(priceRaw) : null;
+        let ownDuration = durationRaw ? parseIntField(durationRaw) : null;
+        let ownCommission = commissionRaw ? parsePercent(commissionRaw) : null;
+        if (
+          (priceRaw && ownPrice == null) ||
+          (durationRaw && (ownDuration == null || ownDuration < 5 || ownDuration > 480)) ||
+          (commissionRaw && ownCommission == null)
+        ) {
+          throw new FormError("dados");
+        }
+        if (ownPrice === price) ownPrice = null;
+        if (ownDuration === duration) ownDuration = null;
+        if (ownCommission === commission) ownCommission = null;
+        await tx`
+          INSERT INTO professional_services (professional_id, service_id, price_cents, duration_min, commission_percent)
+          VALUES (${professionalId}, ${serviceId}, ${ownPrice}, ${ownDuration}, ${ownCommission})
+        `;
+      }
       return serviceId;
     });
     return `/servicos?ok=salvo`;

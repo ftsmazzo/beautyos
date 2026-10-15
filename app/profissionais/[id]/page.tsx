@@ -6,6 +6,7 @@ import { deleteProfessional, saveProfessional } from "@/catalog/professional-act
 import { db } from "@/db/client";
 import { ErrorNote } from "@/ui/error-note";
 import { HoursGrid } from "@/ui/hours-grid";
+import { RosterShortcut } from "@/ui/roster-shortcut";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -116,7 +117,8 @@ export default async function ProfessionalFormPage({
         </label>
         <p>O acesso de profissional nasce em Acesso. Aqui só se liga a ficha.</p>
         <h2>Serviços</h2>
-        <p>Célula vazia segue o padrão do serviço. Limpar volta ao padrão. No pacote, o preço interno manda e esta comissão continua.</p>
+        <p>Célula vazia segue o padrão do serviço. Limpar volta ao padrão. No pacote, o preço interno manda e esta comissão continua. Puxar o padrão marca os serviços e deixa o número do catálogo.</p>
+        <RosterShortcut checkName="does" />
         {visible.length === 0 ? <p>Cadastre um serviço para montar esta tabela.</p> : null}
         {visible.length > 0 ? (
           <table>

@@ -38,6 +38,7 @@ export default async function ServicesPage({
                 <th>Avulso</th>
                 <th>Comissão</th>
                 <th>Volta</th>
+                <th>Quem faz</th>
                 <th></th>
               </tr>
             </thead>
@@ -54,6 +55,7 @@ export default async function ServicesPage({
                   <td>{formatReais(service.priceCents)}</td>
                   <td>{service.commissionPercent}%</td>
                   <td>{service.returnDays == null ? "sem volta" : `${service.returnDays} dias`}</td>
+                  <td>{service.performers || "—"}</td>
                   <td>
                     <Link href={`/servicos/${service.id}`}>Abrir</Link>
                   </td>

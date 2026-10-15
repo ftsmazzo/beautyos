@@ -115,6 +115,7 @@ export type ServiceRow = {
   nextPriceCents: number | null;
   nextPriceOn: string | null;
   priceChangedOn: string | null;
+  performers: string | null;
 };
 
 const serviceColumns = `
@@ -127,7 +128,13 @@ const serviceColumns = `
   menu_group AS "menuGroup",
   next_price_cents AS "nextPriceCents",
   to_char(next_price_on, 'YYYY-MM-DD') AS "nextPriceOn",
-  to_char(price_changed_on, 'YYYY-MM-DD') AS "priceChangedOn"
+  to_char(price_changed_on, 'YYYY-MM-DD') AS "priceChangedOn",
+  (
+    SELECT string_agg(COALESCE(pr.nickname, pr.name), ', ' ORDER BY pr.name)
+    FROM professional_services ps
+    JOIN professionals pr ON pr.id = ps.professional_id
+    WHERE ps.service_id = services.id
+  ) AS performers
 `;
 
 export async function listServices(accountId: string) {
@@ -232,6 +239,20 @@ export type ProServiceRow = {
   durationMin: number | null;
   commissionPercent: number | null;
 };
+
+export async function listServiceLinks(serviceId: string) {
+  return db()<{
+    professionalId: string;
+    priceCents: number | null;
+    durationMin: number | null;
+    commissionPercent: number | null;
+  }[]>`
+    SELECT professional_id AS "professionalId", price_cents AS "priceCents",
+           duration_min AS "durationMin", commission_percent AS "commissionPercent"
+    FROM professional_services
+    WHERE service_id = ${serviceId}
+  `;
+}
 
 export async function listProServices(professionalId: string) {
   return db()<ProServiceRow[]>`
