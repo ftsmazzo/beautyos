@@ -61,6 +61,7 @@ export const FORM_ERRORS: Record<string, string> = {
   ocupado: "Esse horário já está ocupado. Encaixe pode sobrepor.",
   fechada: "A comanda desse dia está fechada. Reabra para alterar.",
   pagamento: "Os pagamentos ainda não cobrem o total.",
+  vazia: "A comanda ainda não tem serviço nem produto.",
   falta: "Todo serviço precisa de profissional e de horário na agenda para fechar.",
   cliente: "Escolha um cliente desta casa.",
   dia: "Esse cliente já tem comanda neste dia.",

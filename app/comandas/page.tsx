@@ -2,21 +2,28 @@ import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { dayParam, shiftDay } from "@/desk/clock";
-import { dayOrders, linkedProfessional } from "@/desk/queries";
+import { openDayOrder } from "@/desk/actions";
+import { clientOptions, dayOrders, linkedProfessional } from "@/desk/queries";
+import { ErrorNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
+import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dia?: string }>;
+  searchParams: Promise<{ dia?: string; erro?: string }>;
 }) {
   const user = await requireDesk();
   const query = await searchParams;
   const day = dayParam(query.dia);
+  const operator = user.role === "administrador" || user.role === "balcao";
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
-  const orders = await dayOrders(user.accountId, day, own);
+  const [orders, clients] = await Promise.all([
+    dayOrders(user.accountId, day, own),
+    operator ? clientOptions(user.accountId) : Promise.resolve([]),
+  ]);
 
   return (
     <Panel user={user} current="/comandas" title="Comandas">
@@ -34,12 +41,35 @@ export default async function OrdersPage({
         <Link className="btn" href={`/agenda?dia=${day}`}>
           Agenda do dia
         </Link>
-        {user.role === "administrador" || user.role === "balcao" ? (
+        {operator ? (
           <Link className="btn quiet" href="/pacotes/vendidos">
             Prazos dos pacotes
           </Link>
         ) : null}
       </div>
+      <ErrorNote code={query.erro} />
+      {operator ? (
+        <form action={openDayOrder} className="card">
+          <h2>Comanda do dia</h2>
+          <p>Produto entra sem horário. Serviço entra na comanda e precisa de profissional e hora para fechar. Quem já tem comanda neste dia abre a mesma.</p>
+          <input type="hidden" name="day" value={day} />
+          <label>
+            Cliente
+            <select name="client" required defaultValue="">
+              <option value="" disabled>
+                Escolha
+              </option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                  {client.phone ? ` · ${formatPhone(client.phone)}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <SubmitButton label="Abrir comanda" pendingLabel="Abrindo…" />
+        </form>
+      ) : null}
       <div className="card">
         {orders.length === 0 ? <p>Nenhuma comanda neste dia.</p> : null}
         {orders.length > 0 ? (

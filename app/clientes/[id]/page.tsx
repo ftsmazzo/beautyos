@@ -5,6 +5,7 @@ import { daysAbsent, formatDay, formatPhone, formatReais, packageDeadline, today
 import { CHANNELS } from "@/catalog/labels";
 import { getClient, houseRules, listClients, listProfessionals } from "@/catalog/queries";
 import { saveClient } from "@/catalog/client-actions";
+import { openDayOrder } from "@/desk/actions";
 import { clientBrief } from "@/desk/queries";
 import { APPOINTMENT_STATUS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
@@ -109,6 +110,12 @@ export default async function ClientFormPage({
               {visit.note ? ` · ${visit.note}` : ""}
             </p>
           ))}
+          <form action={openDayOrder}>
+            <input type="hidden" name="from" value="cliente" />
+            <input type="hidden" name="client" value={person.id} />
+            <input type="hidden" name="day" value={today} />
+            <SubmitButton label="Abrir comanda de hoje" pendingLabel="Abrindo…" />
+          </form>
         </div>
       ) : null}
       <form action={saveClient}>

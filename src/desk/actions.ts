@@ -1656,6 +1656,7 @@ export async function closeOrder(formData: FormData) {
       SELECT kind, professional_id AS "professionalId", appointment_id AS "appointmentId", price_cents AS "priceCents"
       FROM order_lines WHERE order_id = ${orderId}
     `;
+    if (!lines.length) return "vazia";
     if (lines.some((line) => line.kind === "servico" && (!line.professionalId || !line.appointmentId))) return "falta";
     const total = lines.reduce((sum, line) => sum + line.priceCents, 0);
     const paid = await tx<{ amount: number }[]>`
@@ -2380,6 +2381,36 @@ export async function removeLine(formData: FormData) {
       return `/comandas/${orderId}`;
     });
     return next;
+  });
+}
+
+export async function openDayOrder(formData: FormData) {
+  const user = await requireOperator();
+  const day = dayParam(String(formData.get("day") ?? ""));
+  const clientId = idOrNull(String(formData.get("client") ?? ""));
+  const failBase = formData.get("from") === "cliente" && clientId ? `/clientes/${clientId}` : `/comandas?dia=${day}`;
+  return settle(failBase, async () => {
+    if (!clientId) throw new FormError("cliente");
+    const id = await db().begin(async (tx) => {
+      const owned = await tx`
+        SELECT id FROM clients
+        WHERE id = ${clientId} AND account_id = ${user.accountId} AND active
+      `;
+      if (!owned.length) throw new FormError("cliente");
+      const existing = await tx<{ id: string; status: string }[]>`
+        SELECT id, status FROM orders
+        WHERE account_id = ${user.accountId} AND client_id = ${clientId} AND day = ${day} AND kind = 'cliente'
+      `;
+      if (existing[0]?.status === "fechada") throw new FormError("fechada");
+      if (existing[0]) return existing[0].id;
+      const orderId = randomUUID();
+      await tx`
+        INSERT INTO orders (id, account_id, client_id, day, kind, status)
+        VALUES (${orderId}, ${user.accountId}, ${clientId}, ${day}, 'cliente', 'aberta')
+      `;
+      return orderId;
+    });
+    return `/comandas/${id}`;
   });
 }
 

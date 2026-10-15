@@ -187,7 +187,13 @@ export default async function OrderPage({
       ) : null}
 
       <div className="card">
-        {order.lines.length === 0 ? <p>Nenhuma linha ainda.</p> : null}
+        {order.lines.length === 0 ? (
+          <p>
+            {order.kind === "cliente"
+              ? "Nenhuma linha ainda. Produto entra sem horário. Serviço precisa de profissional e hora para fechar."
+              : "Nenhuma linha ainda."}
+          </p>
+        ) : null}
         {open && order.lines.length === 0 && order.payments.length === 0 ? (
           <form action={deleteEmptyOrder}>
             <input type="hidden" name="order" value={order.id} />
