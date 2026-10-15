@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais } from "@/catalog/format";
 import { birthdaysOn } from "@/catalog/queries";
-import { blockSlot, openConsumption } from "@/desk/actions";
+import { blockSlot, openConsumption, openDuePackageVisits } from "@/desk/actions";
 import { dayParam, freeGaps, fromMinutes, minutes, periodsFor, shiftDay } from "@/desk/clock";
 import {
   clientOptions,
@@ -39,6 +39,7 @@ export default async function AgendaPage({
   const bookProfessional = query.profissional && uuid.test(query.profissional) ? query.profissional : "";
   const bookStart = query.inicio && timeOk.test(query.inicio) ? query.inicio : "";
   const day = dayParam(query.dia);
+  await openDuePackageVisits(user.accountId, user.id, day);
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const roster = own || user.role !== "profissional" ? await dayRoster(user.accountId, own) : [];
   const hours = await dayHours(user.accountId);

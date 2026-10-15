@@ -21,6 +21,7 @@ import {
   attachClient,
   changeClient,
   closeOrder,
+  openDuePackageVisits,
   reopenOrder,
   removePayment,
   sellPackage,
@@ -54,6 +55,7 @@ export default async function OrderPage({
   const query = await searchParams;
   const order = await getOrder(user.accountId, id);
   if (!order) redirect("/comandas");
+  await openDuePackageVisits(user.accountId, user.id, order.day);
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const involved = !own || order.professionalId === own || order.lines.some((line) => line.professionalId === own);
   if (!involved) redirect("/comandas");

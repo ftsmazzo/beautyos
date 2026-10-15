@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { dayParam, shiftDay } from "@/desk/clock";
-import { openDayOrder } from "@/desk/actions";
+import { openDayOrder, openDuePackageVisits } from "@/desk/actions";
 import { clientOptions, dayOrders, linkedProfessional } from "@/desk/queries";
 import { ErrorNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
@@ -18,6 +18,7 @@ export default async function OrdersPage({
   const user = await requireDesk();
   const query = await searchParams;
   const day = dayParam(query.dia);
+  await openDuePackageVisits(user.accountId, user.id, day);
   const operator = user.role === "administrador" || user.role === "balcao";
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const [orders, clients] = await Promise.all([

@@ -623,6 +623,7 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS package_credits_package_idx ON package_credits (client_package_id, status)`;
+  await sql`ALTER TABLE package_credits ADD COLUMN IF NOT EXISTS appointment_id uuid REFERENCES appointments(id) ON DELETE SET NULL`;
   await sql`ALTER TABLE client_packages DROP CONSTRAINT IF EXISTS client_packages_status_check`;
   await sql`
     ALTER TABLE client_packages

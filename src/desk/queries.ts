@@ -152,8 +152,8 @@ export async function dayOrders(accountId: string, day: string, professionalId: 
                    WHEN cp.valid_until < ${day}::date OR EXISTS (
                      SELECT 1
                      FROM package_credits cr
-                     JOIN order_lines ol ON ol.id = cr.order_line_id
-                     JOIN appointments ap ON ap.id = ol.appointment_id AND ap.status <> 'cancelado'
+                     LEFT JOIN order_lines ol ON ol.id = cr.order_line_id
+                     JOIN appointments ap ON ap.id = COALESCE(ol.appointment_id, cr.appointment_id) AND ap.status <> 'cancelado'
                      WHERE cr.client_package_id = cp.id
                        AND (ap.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
                    ) THEN ' · vencido em ' || to_char(cp.valid_until, 'DD/MM/YYYY')
@@ -341,8 +341,8 @@ export async function clientPackages(accountId: string, clientId: string, day: s
            EXISTS (
              SELECT 1
              FROM package_credits c
-             JOIN order_lines l ON l.id = c.order_line_id
-             JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+             LEFT JOIN order_lines l ON l.id = c.order_line_id
+             JOIN appointments a ON a.id = COALESCE(l.appointment_id, c.appointment_id) AND a.status <> 'cancelado'
              WHERE c.client_package_id = cp.id
                AND cp.valid_until IS NOT NULL
                AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
@@ -385,7 +385,7 @@ export async function packageVisits(accountId: string, clientId: string) {
     JOIN client_packages cp ON cp.id = c.client_package_id
     JOIN services s ON s.id = c.service_id
     LEFT JOIN order_lines l ON l.id = c.order_line_id
-    LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+    LEFT JOIN appointments a ON a.id = COALESCE(l.appointment_id, c.appointment_id) AND a.status <> 'cancelado'
     LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
     WHERE cp.account_id = ${accountId} AND cp.client_id = ${clientId} AND cp.status = 'ativo'
     ORDER BY cp.created_at, c.position
@@ -427,8 +427,8 @@ export async function latePackageVisits(accountId: string) {
     FROM client_packages cp
     JOIN clients c ON c.id = cp.client_id
     JOIN package_credits cr ON cr.client_package_id = cp.id
-    JOIN order_lines l ON l.id = cr.order_line_id
-    JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+    LEFT JOIN order_lines l ON l.id = cr.order_line_id
+    JOIN appointments a ON a.id = COALESCE(l.appointment_id, cr.appointment_id) AND a.status <> 'cancelado'
     LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
     WHERE cp.account_id = ${accountId}
       AND cp.status = 'ativo'
@@ -496,8 +496,8 @@ export async function soldPackages(accountId: string, day: string) {
            EXISTS (
              SELECT 1
              FROM package_credits cr
-             JOIN order_lines l ON l.id = cr.order_line_id
-             JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+             LEFT JOIN order_lines l ON l.id = cr.order_line_id
+             JOIN appointments a ON a.id = COALESCE(l.appointment_id, cr.appointment_id) AND a.status <> 'cancelado'
              WHERE cr.client_package_id = cp.id
                AND cp.valid_until IS NOT NULL
                AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
@@ -514,8 +514,8 @@ export async function soldPackages(accountId: string, day: string) {
                SELECT to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI')
                       || ' · ' || COALESCE(pr.name, 'sem profissional')
                FROM package_credits cr
-               JOIN order_lines l ON l.id = cr.order_line_id
-               JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+               LEFT JOIN order_lines l ON l.id = cr.order_line_id
+               JOIN appointments a ON a.id = COALESCE(l.appointment_id, cr.appointment_id) AND a.status <> 'cancelado'
                LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
                WHERE cr.client_package_id = cp.id AND cr.status <> 'usado'
                ORDER BY a.starts_at
@@ -570,7 +570,7 @@ export async function soldPackageVisits(accountId: string, id: string) {
     JOIN client_packages cp ON cp.id = cr.client_package_id
     JOIN services s ON s.id = cr.service_id
     LEFT JOIN order_lines l ON l.id = cr.order_line_id
-    LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+    LEFT JOIN appointments a ON a.id = COALESCE(l.appointment_id, cr.appointment_id) AND a.status <> 'cancelado'
     LEFT JOIN professionals pr ON pr.id = COALESCE(a.professional_id, l.professional_id)
     WHERE cp.account_id = ${accountId} AND cp.id = ${id}
     ORDER BY cr.position

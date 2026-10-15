@@ -510,7 +510,7 @@ async function releasePackageVisits(tx: TransactionSql, accountId: string, appoi
     `;
     await tx`
       UPDATE package_credits
-      SET status = 'falta_agendar', order_line_id = NULL, used_on = NULL
+      SET status = 'falta_agendar', order_line_id = NULL, appointment_id = NULL, used_on = NULL
       WHERE id = ${line.packageCreditId}
     `;
     if (!credit[0]) continue;
@@ -523,6 +523,30 @@ async function releasePackageVisits(tx: TransactionSql, accountId: string, appoi
       `;
     } else {
       await tx`UPDATE client_packages SET status = 'ativo' WHERE id = ${credit[0].clientPackageId}`;
+    }
+  }
+  const parked = await tx<{ clientPackageId: string }[]>`
+    SELECT client_package_id AS "clientPackageId"
+    FROM package_credits
+    WHERE account_id = ${accountId} AND appointment_id = ${appointmentId} AND status <> 'usado'
+  `;
+  if (parked.length) {
+    await tx`
+      UPDATE package_credits
+      SET status = 'falta_agendar', order_line_id = NULL, appointment_id = NULL, used_on = NULL
+      WHERE account_id = ${accountId} AND appointment_id = ${appointmentId} AND status <> 'usado'
+    `;
+  }
+  for (const credit of parked) {
+    const still = await tx`SELECT 1 FROM package_credits WHERE client_package_id = ${credit.clientPackageId} AND status = 'usado'`;
+    if (!still.length) {
+      await tx`
+        UPDATE client_packages
+        SET status = 'ativo', first_used_on = NULL, valid_until = NULL
+        WHERE id = ${credit.clientPackageId}
+      `;
+    } else {
+      await tx`UPDATE client_packages SET status = 'ativo' WHERE id = ${credit.clientPackageId}`;
     }
   }
 }
@@ -677,6 +701,25 @@ async function placePackageCredit(
       AND ends_at > ${startsAt}
   `;
   if (clash.length) return { ok: false as const, code: "ocupado" };
+  const future = !input.consume && input.day > todaySaoPaulo();
+  if (future) {
+    const appointmentId = randomUUID();
+    await tx`
+      INSERT INTO appointments (
+        id, account_id, professional_id, client_id, service_id,
+        starts_at, ends_at, status, encaixe, kind
+      ) VALUES (
+        ${appointmentId}, ${input.accountId}, ${input.professionalId}, ${credit[0].clientId}, ${credit[0].serviceId},
+        ${startsAt}, ${endsAt}, 'agendado', false, 'horario'
+      )
+    `;
+    await tx`
+      UPDATE package_credits
+      SET status = 'agendado', appointment_id = ${appointmentId}, order_line_id = NULL, used_on = NULL
+      WHERE id = ${input.creditId}
+    `;
+    return { ok: true as const, day: input.day, end, serviceName: credit[0].serviceName, orderId: null, appointmentId };
+  }
   const existing = await tx<{ id: string; status: string }[]>`
     SELECT id, status FROM orders
     WHERE account_id = ${input.accountId} AND client_id = ${credit[0].clientId}
@@ -716,7 +759,7 @@ async function placePackageCredit(
   if (input.consume) {
     await tx`
       UPDATE package_credits
-      SET status = 'usado', order_line_id = ${lineId}, used_on = ${input.day}::date
+      SET status = 'usado', order_line_id = ${lineId}, appointment_id = ${appointmentId}, used_on = ${input.day}::date
       WHERE id = ${input.creditId}
     `;
     if (!credit[0].started) {
@@ -737,7 +780,7 @@ async function placePackageCredit(
   } else {
     await tx`
       UPDATE package_credits
-      SET status = 'agendado', order_line_id = ${lineId}, used_on = NULL
+      SET status = 'agendado', order_line_id = ${lineId}, appointment_id = ${appointmentId}, used_on = NULL
       WHERE id = ${input.creditId}
     `;
   }
@@ -758,6 +801,89 @@ async function placePackageCredit(
 }
 
 const SKIP_SLOT = new Set(["ocupado", "fechada", "fechado", "almoco"]);
+
+export async function openDuePackageVisits(accountId: string, actorId: string, day: string) {
+  if (day > todaySaoPaulo()) return;
+  await db().begin(async (tx) => {
+    const due = await tx<{
+      creditId: string;
+      appointmentId: string;
+      clientId: string | null;
+      serviceName: string;
+      professionalId: string;
+      internalPriceCents: number;
+      serviceId: string;
+    }[]>`
+      SELECT c.id AS "creditId", c.appointment_id AS "appointmentId",
+             a.client_id AS "clientId", s.name AS "serviceName",
+             a.professional_id AS "professionalId", c.internal_price_cents AS "internalPriceCents",
+             c.service_id AS "serviceId"
+      FROM package_credits c
+      JOIN appointments a ON a.id = c.appointment_id
+      JOIN services s ON s.id = c.service_id
+      WHERE c.account_id = ${accountId}
+        AND c.status = 'agendado'
+        AND c.order_line_id IS NULL
+        AND a.status <> 'cancelado'
+        AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date = ${day}::date
+      FOR UPDATE OF c
+    `;
+    for (const row of due) {
+      if (!row.clientId) continue;
+      const existing = await tx<{ id: string; status: string }[]>`
+        SELECT id, status FROM orders
+        WHERE account_id = ${accountId} AND client_id = ${row.clientId}
+          AND day = ${day}::date AND kind = 'cliente'
+      `;
+      if (existing[0]?.status === "fechada") continue;
+      const orderId = existing[0]?.id ?? randomUUID();
+      if (!existing[0]) {
+        await tx`
+          INSERT INTO orders (id, account_id, client_id, day, kind, status)
+          VALUES (${orderId}, ${accountId}, ${row.clientId}, ${day}::date, 'cliente', 'aberta')
+        `;
+      }
+      const offer = await tx<{ priceCents: number; commissionPercent: number }[]>`
+        SELECT COALESCE(ps.price_cents, s.price_cents) AS "priceCents",
+               COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent"
+        FROM services s
+        LEFT JOIN professional_services ps
+          ON ps.service_id = s.id AND ps.professional_id = ${row.professionalId}
+        WHERE s.id = ${row.serviceId} AND s.account_id = ${accountId}
+      `;
+      const percent = offer[0]?.commissionPercent ?? 0;
+      const sheet = offer[0]?.priceCents ?? row.internalPriceCents;
+      const commission = Math.round(row.internalPriceCents * percent / 100);
+      const lineId = randomUUID();
+      await tx`
+        INSERT INTO order_lines (
+          id, account_id, order_id, appointment_id, kind, service_id, professional_id,
+          description, qty, price_cents, list_price_cents, commission_percent, commission_cents, package_credit_id
+        ) VALUES (
+          ${lineId}, ${accountId}, ${orderId}, ${row.appointmentId}, 'servico', ${row.serviceId}, ${row.professionalId},
+          ${row.serviceName}, 1, 0, ${sheet}, ${percent}, ${commission}, ${row.creditId}
+        )
+      `;
+      await tx`UPDATE appointments SET order_id = ${orderId} WHERE id = ${row.appointmentId}`;
+      await tx`
+        UPDATE package_credits SET order_line_id = ${lineId}
+        WHERE id = ${row.creditId} AND order_line_id IS NULL
+      `;
+      await stampReferral(tx, accountId, orderId, lineId, row.internalPriceCents);
+      await writeEvent(tx, {
+        accountId,
+        orderId,
+        lineId,
+        appointmentId: row.appointmentId,
+        actorId,
+        kind: "valor",
+        summary: `${row.serviceName} do pacote entrou na comanda do dia. Cobrança zerada. Comissão ${formatReais(commission)} sobre o interno ${formatReais(row.internalPriceCents)}.`,
+        beforeCents: sheet,
+        afterCents: 0,
+      });
+    }
+  });
+}
 
 export async function schedulePackageVisit(formData: FormData) {
   const user = await requireOperator();
@@ -805,6 +931,7 @@ export async function usePackageVisitNow(formData: FormData) {
         consume: true,
       });
       if (!placed.ok) throw new FormError(placed.code);
+      if (!placed.orderId) throw new FormError("dados");
       return placed.orderId;
     });
     return `/comandas/${orderId}`;
@@ -830,7 +957,9 @@ export async function movePackageVisit(formData: FormData) {
         when: string | null;
         serviceName: string;
       }[]>`
-        SELECT l.id AS "lineId", l.appointment_id AS "appointmentId", l.order_id AS "orderId",
+        SELECT l.id AS "lineId",
+               COALESCE(l.appointment_id, c.appointment_id) AS "appointmentId",
+               l.order_id AS "orderId",
                o.status AS "orderStatus", s.name AS "serviceName",
                to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI') AS "when"
         FROM package_credits c
@@ -838,15 +967,15 @@ export async function movePackageVisit(formData: FormData) {
         JOIN services s ON s.id = c.service_id
         LEFT JOIN order_lines l ON l.id = c.order_line_id
         LEFT JOIN orders o ON o.id = l.order_id
-        LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        LEFT JOIN appointments a ON a.id = COALESCE(l.appointment_id, c.appointment_id) AND a.status <> 'cancelado'
         WHERE c.id = ${creditId} AND c.account_id = ${user.accountId}
           AND c.status = 'agendado' AND cp.status = 'ativo'
       `;
-      if (!current[0]?.lineId) throw new FormError("credito");
+      if (!current[0] || (!current[0].lineId && !current[0].appointmentId)) throw new FormError("credito");
       if (current[0].orderStatus === "fechada") throw new FormError("fechada");
       await tx`
         UPDATE package_credits
-        SET status = 'falta_agendar', order_line_id = NULL, used_on = NULL
+        SET status = 'falta_agendar', order_line_id = NULL, appointment_id = NULL, used_on = NULL
         WHERE id = ${creditId}
       `;
       await tx`DELETE FROM order_lines WHERE id = ${current[0].lineId}`;
@@ -910,7 +1039,7 @@ export async function cancelPackageSale(formData: FormData) {
       }[]>`
         SELECT cr.id, cr.internal_price_cents AS "internalPriceCents",
                cr.order_line_id AS "lineId", l.price_cents AS "linePrice",
-               l.appointment_id AS "appointmentId", l.order_id AS "orderId",
+               COALESCE(l.appointment_id, cr.appointment_id) AS "appointmentId", l.order_id AS "orderId",
                s.name AS "serviceName"
         FROM package_credits cr
         JOIN services s ON s.id = cr.service_id
@@ -1101,8 +1230,8 @@ export async function pardonPackage(formData: FormData) {
                s.name AS "serviceName"
         FROM package_credits c
         JOIN services s ON s.id = c.service_id
-        JOIN order_lines l ON l.id = c.order_line_id
-        JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        LEFT JOIN order_lines l ON l.id = c.order_line_id
+        JOIN appointments a ON a.id = COALESCE(l.appointment_id, c.appointment_id) AND a.status <> 'cancelado'
         WHERE c.client_package_id = ${packageId}
           AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > ${held[0].validUntil}::date
         ORDER BY a.starts_at
@@ -1116,8 +1245,8 @@ export async function pardonPackage(formData: FormData) {
       const last = await tx<{ day: string | null }[]>`
         SELECT to_char(max(a.starts_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS day
         FROM package_credits c
-        JOIN order_lines l ON l.id = c.order_line_id
-        JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        LEFT JOIN order_lines l ON l.id = c.order_line_id
+        JOIN appointments a ON a.id = COALESCE(l.appointment_id, c.appointment_id) AND a.status <> 'cancelado'
         WHERE c.client_package_id = ${packageId}
       `;
       let renewed = shiftDay(held[0].validUntil, held[0].validityDays);
@@ -1181,7 +1310,8 @@ export async function chargePackageDifference(formData: FormData) {
       }[]>`
         SELECT c.client_package_id AS "clientPackageId", cp.name AS "packageName", s.name AS "serviceName",
                c.internal_price_cents AS "internalPriceCents", c.order_line_id AS "lineId",
-               l.order_id AS "lineOrderId", o.status AS "lineOrderStatus", l.appointment_id AS "appointmentId",
+               l.order_id AS "lineOrderId", o.status AS "lineOrderStatus",
+               COALESCE(l.appointment_id, c.appointment_id) AS "appointmentId",
                l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
                to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntil",
                to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day
@@ -1190,7 +1320,7 @@ export async function chargePackageDifference(formData: FormData) {
         JOIN services s ON s.id = c.service_id
         LEFT JOIN order_lines l ON l.id = c.order_line_id
         LEFT JOIN orders o ON o.id = l.order_id
-        LEFT JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        LEFT JOIN appointments a ON a.id = COALESCE(l.appointment_id, c.appointment_id) AND a.status <> 'cancelado'
         WHERE c.id = ${creditId} AND c.account_id = ${user.accountId} AND cp.status = 'ativo'
       `;
       if (!credit[0]?.lineId || !credit[0].day || !credit[0].validUntil || credit[0].listPriceCents == null) throw new FormError("diferenca");
@@ -1221,7 +1351,8 @@ export async function chargePackageDifference(formData: FormData) {
         orderStatus: string | null;
         serviceName: string;
       }[]>`
-        SELECT c.id, c.order_line_id AS "lineId", l.appointment_id AS "appointmentId",
+        SELECT c.id, c.order_line_id AS "lineId",
+               COALESCE(l.appointment_id, c.appointment_id) AS "appointmentId",
                l.order_id AS "orderId", o.status AS "orderStatus", s.name AS "serviceName"
         FROM package_credits c
         JOIN services s ON s.id = c.service_id
@@ -1251,6 +1382,11 @@ export async function chargePackageDifference(formData: FormData) {
               WHERE id = ${row.appointmentId} AND account_id = ${user.accountId}
             `;
           }
+        } else if (row.appointmentId) {
+          await tx`
+            UPDATE appointments SET status = 'cancelado'
+            WHERE id = ${row.appointmentId} AND account_id = ${user.accountId}
+          `;
         }
         await tx`DELETE FROM package_credits WHERE id = ${row.id}`;
       }
@@ -2412,7 +2548,7 @@ export async function removeLine(formData: FormData) {
         `;
         await tx`
           UPDATE package_credits
-          SET status = 'falta_agendar', order_line_id = NULL, used_on = NULL
+          SET status = 'falta_agendar', order_line_id = NULL, appointment_id = NULL, used_on = NULL
           WHERE id = ${line[0].packageCreditId}
         `;
         if (credit[0]) {

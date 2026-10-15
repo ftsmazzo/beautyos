@@ -53,7 +53,7 @@ export function PackageVisitForm({
           <input name="start" type="time" required defaultValue="09:00" />
         </label>
       </div>
-      <p>A visita entra na agenda e na comanda daquele dia, sem nova cobrança. A comissão fica no preço interno.</p>
+      <p>Hoje entra na comanda. Outro dia fica só na agenda, ligado ao crédito. A comanda daquele dia nasce quando ele chega.</p>
       <SubmitButton label="Marcar" pendingLabel="Marcando…" />
     </form>
     <RepeatForm orderId={orderId} credits={credits} people={people} />
@@ -114,7 +114,7 @@ function RepeatForm({
           <input name="start" type="time" required defaultValue="09:00" />
         </label>
       </div>
-      <p>Cada visita que falta desse serviço cai na próxima semana, no mesmo dia e horário. Se o horário estiver ocupado, essa visita pula para a semana seguinte.</p>
+      <p>Cada visita que falta desse serviço cai na próxima semana, só na agenda, no mesmo dia e horário. A comanda nasce quando o dia chega. Se o horário estiver ocupado, essa visita pula para a semana seguinte.</p>
       <SubmitButton label="Repetir" pendingLabel="Repetindo…" className="quiet" />
     </form>
   );
