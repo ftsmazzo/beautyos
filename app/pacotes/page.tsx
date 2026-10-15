@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, packageGap } from "@/catalog/format";
+import { togglePackageSale } from "@/catalog/package-actions";
 import { listPackages } from "@/catalog/queries";
 import { SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
+import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +55,14 @@ export default async function PackagesPage({
                   <td>{packageGap(item.avulsoCents, item.internalCents)}</td>
                   <td>
                     <Link href={`/pacotes/${item.id}`}>Abrir</Link>
+                    <form action={togglePackageSale}>
+                      <input type="hidden" name="id" value={item.id} />
+                      <SubmitButton
+                        label={item.forSale ? "Tirar de venda" : "Colocar à venda"}
+                        pendingLabel="Salvando…"
+                        className="quiet"
+                      />
+                    </form>
                   </td>
                 </tr>
               ))}

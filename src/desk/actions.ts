@@ -5,7 +5,7 @@ import type { TransactionSql } from "postgres";
 import { requireDesk, requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
 import { digits, formatDay, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents, todaySaoPaulo } from "@/catalog/format";
-import { FORM_ERRORS } from "@/catalog/labels";
+import { CHANNELS, FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
 import { cardFeeShares } from "@/desk/card-fee";
@@ -14,6 +14,7 @@ import { addMinutes, dayParam, firstWeekdayAfter, minutes, periodsFor, placement
 import { linkedProfessional } from "@/desk/queries";
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const CHANNEL_VALUES = new Set<string>(CHANNELS.map((item) => item.value));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUSES = ["agendado", "confirmado", "chegou", "em_atendimento", "realizado", "ausente", "cancelado"];
 
@@ -1907,6 +1908,55 @@ export async function addStaffService(formData: FormData) {
           ${offer[0].name}, 1, 0, ${offer[0].priceCents}, ${offer[0].commissionPercent}, ${commission}, ${base}
         )
       `;
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function setClientChannel(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const clientId = idOrNull(String(formData.get("client") ?? ""));
+    const channel = String(formData.get("channel") ?? "");
+    if (!clientId || !CHANNEL_VALUES.has(channel) || channel === "nao_informado") throw new FormError("dados");
+    let professionalId = idOrNull(String(formData.get("referrer_professional") ?? ""));
+    let referrerClientId = idOrNull(String(formData.get("referrer_client") ?? ""));
+    const commissionRaw = String(formData.get("referral_commission") ?? "").trim();
+    let commission = commissionRaw ? parsePercent(formData.get("referral_commission")) : null;
+    if (commissionRaw && commission == null) throw new FormError("dados");
+    if (channel !== "indicacao") {
+      professionalId = null;
+      referrerClientId = null;
+      commission = null;
+    } else if (Boolean(professionalId) === Boolean(referrerClientId)) {
+      throw new FormError("quem");
+    }
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string }[]>`
+        SELECT status FROM orders
+        WHERE id = ${orderId} AND account_id = ${user.accountId} AND client_id = ${clientId} AND kind = 'cliente'
+      `;
+      if (!order[0]) throw new FormError("fora");
+      if (order[0].status !== "aberta") throw new FormError("fechada");
+      if (professionalId) {
+        const found = await tx`SELECT id FROM professionals WHERE id = ${professionalId} AND account_id = ${user.accountId}`;
+        if (!found.length) throw new FormError("quem");
+      }
+      if (referrerClientId) {
+        if (referrerClientId === clientId) throw new FormError("quem");
+        const found = await tx`SELECT id FROM clients WHERE id = ${referrerClientId} AND account_id = ${user.accountId}`;
+        if (!found.length) throw new FormError("quem");
+      }
+      await tx`
+        UPDATE clients SET
+          channel = ${channel},
+          referrer_professional_id = ${professionalId},
+          referrer_client_id = ${referrerClientId},
+          referral_commission_percent = ${commission}
+        WHERE id = ${clientId} AND account_id = ${user.accountId}
+      `;
+      await restampOrder(tx, user.accountId, orderId);
     });
     return `/comandas/${orderId}`;
   });

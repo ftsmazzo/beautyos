@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireDesk } from "@/catalog/access";
 import { centsToInput, formatDay, formatPhone, formatReais, packageDeadline } from "@/catalog/format";
-import { birthdaysOn } from "@/catalog/queries";
+import { birthdaysOn, houseRules } from "@/catalog/queries";
 import {
   addConsumption,
   addPayment,
@@ -34,6 +34,7 @@ import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { OrderServiceForm } from "@/ui/order-service-form";
 import { StaffServiceForm } from "@/ui/staff-service-form";
 import { PackageVisitForm } from "@/ui/package-visit-form";
+import { ChannelForm } from "@/ui/channel-form";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -78,6 +79,8 @@ export default async function OrderPage({
   );
   const statuses = Object.entries(APPOINTMENT_STATUS).filter(([value]) => value !== "bloqueado");
   const notes = await visitNotes(user.accountId, order.id);
+  const askChannel = operator && open && order.kind === "cliente" && order.clientId != null && order.channel === "nao_informado";
+  const rules = askChannel ? await houseRules(user.accountId) : null;
   const birthdays = await birthdaysOn(user.accountId, order.day);
   const birthday =
     (order.clientId != null && birthdays.clients.some((person) => person.id === order.clientId)) ||
@@ -151,6 +154,15 @@ export default async function OrderPage({
               <SubmitButton label="Trocar" pendingLabel="Trocando…" />
             </form>
           </Modal>
+        ) : null}
+        {askChannel && rules && order.clientId ? (
+          <ChannelForm
+            orderId={order.id}
+            clientId={order.clientId}
+            housePercent={rules.referral}
+            professionals={roster.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+            clients={people.map((person) => ({ id: person.id, name: person.name }))}
+          />
         ) : null}
       </div>
 

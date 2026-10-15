@@ -130,7 +130,10 @@ export default async function ProductFormPage({
             <input name="min" type="number" min={0} defaultValue={product?.minQty ?? 0} />
           </label>
         </div>
-        <p>Zero no mínimo não avisa. A margem é o preço menos o custo.</p>
+        <p>
+          Zero no mínimo não avisa. A margem é o preço menos o custo
+          {product ? `: ${formatReais(product.salePriceCents - product.costCents)}` : ""}.
+        </p>
         <label>
           Preço para o profissional
           <input

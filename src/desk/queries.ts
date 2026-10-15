@@ -189,6 +189,7 @@ export async function getOrder(accountId: string, id: string) {
     clientName: string | null;
     phone: string | null;
     fromOutside: boolean;
+    channel: string;
     professionalId: string | null;
     professionalName: string | null;
     day: string;
@@ -198,6 +199,7 @@ export async function getOrder(accountId: string, id: string) {
   }[]>`
     SELECT o.id, o.client_id AS "clientId", c.name AS "clientName", c.phone,
            COALESCE(c.from_outside, false) AS "fromOutside",
+           COALESCE(c.channel, 'nao_informado') AS channel,
            o.professional_id AS "professionalId", p.name AS "professionalName",
            to_char(o.day, 'YYYY-MM-DD') AS day, o.kind, o.status, o.incomplete
     FROM orders o
@@ -843,9 +845,10 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
         WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
       ) bills
     `,
-    db()<{ id: string; day: string; status: string; totalCents: number }[]>`
+    db()<{ id: string; day: string; status: string; totalCents: number; paidCents: number }[]>`
       SELECT o.id, to_char(o.day, 'YYYY-MM-DD') AS day, o.status,
-             COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents"
+             COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
+             COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents"
       FROM orders o
       WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
       ORDER BY o.day DESC, o.created_at DESC

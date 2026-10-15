@@ -49,6 +49,7 @@ export default async function ProductsPage({
                 <th>Saldo</th>
                 <th>Venda</th>
                 <th>Custo</th>
+                <th>Margem</th>
                 <th>Uso</th>
                 <th>{counting ? "Contagem" : "Movimento"}</th>
                 <th></th>
@@ -70,6 +71,7 @@ export default async function ProductsPage({
                     <td className={low ? "warn" : undefined}>{product.balance}</td>
                     <td>{formatReais(product.salePriceCents)}</td>
                     <td>{formatReais(product.costCents)}</td>
+                    <td>{formatReais(product.salePriceCents - product.costCents)}</td>
                     <td>{use || "—"}</td>
                     <td>
                       {counting ? (

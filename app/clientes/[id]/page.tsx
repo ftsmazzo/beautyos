@@ -91,6 +91,8 @@ export default async function ClientFormPage({
               <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
               {" · "}
               {formatReais(order.totalCents)}
+              {order.paidCents > order.totalCents ? ` · crédito ${formatReais(order.paidCents - order.totalCents)}` : ""}
+              {order.paidCents < order.totalCents ? ` · em aberto ${formatReais(order.totalCents - order.paidCents)}` : ""}
               {" · "}
               {order.status === "fechada" ? "fechada" : "aberta"}
             </p>

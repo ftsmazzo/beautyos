@@ -91,3 +91,18 @@ export async function savePackage(formData: FormData) {
     return `/pacotes?ok=salvo`;
   });
 }
+
+export async function togglePackageSale(formData: FormData) {
+  const user = await requireOperator();
+  const id = String(formData.get("id") ?? "");
+  return settle("/pacotes", async () => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new FormError("fora");
+    const rows = await db()`
+      UPDATE packages SET for_sale = NOT for_sale
+      WHERE id = ${id} AND account_id = ${user.accountId}
+      RETURNING id
+    `;
+    if (!rows.length) throw new FormError("fora");
+    return "/pacotes";
+  });
+}
