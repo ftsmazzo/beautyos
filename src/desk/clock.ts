@@ -5,6 +5,12 @@ export function dayParam(value: string | undefined) {
   return todaySaoPaulo();
 }
 
+export function daysBetween(from: string, to: string) {
+  const start = Date.parse(`${from}T12:00:00-03:00`);
+  const end = Date.parse(`${to}T12:00:00-03:00`);
+  return Math.round((end - start) / 86_400_000);
+}
+
 export function shiftDay(day: string, delta: number) {
   const date = new Date(`${day}T12:00:00-03:00`);
   date.setUTCDate(date.getUTCDate() + delta);

@@ -1,6 +1,7 @@
 import { todaySaoPaulo } from "@/catalog/format";
 import { db } from "@/db/client";
 import { shiftDay, stamp } from "@/desk/clock";
+import { classifyReturn, RETURN_WORD, type ReturnFacts } from "@/desk/returns";
 
 export async function linkedProfessional(userId: string) {
   const rows = await db()<{ id: string }[]>`
@@ -788,6 +789,162 @@ export async function packageReport(accountId: string, start: string, end: strin
   };
 }
 
+type ReturnVisit = {
+  id: string;
+  name: string;
+  phone: string;
+  fromOutside: boolean;
+  serviceId: string;
+  service: string;
+  returnDays: number | null;
+  day: string;
+  prevDay: string | null;
+  avulso: boolean;
+  future: boolean;
+};
+
+type ReturnPack = {
+  clientId: string;
+  serviceId: string;
+  status: string;
+  createdAt: string;
+  validUntil: string | null;
+  lastUsed: string | null;
+};
+
+async function loadReturnFacts(accountId: string, clientId: string | null) {
+  const [visits, packs] = await Promise.all([
+    db()<ReturnVisit[]>`
+      SELECT c.id, c.name, c.phone, c.from_outside AS "fromOutside",
+             s.id AS "serviceId", s.name AS service, s.return_days AS "returnDays",
+             to_char(ranked.day, 'YYYY-MM-DD') AS day,
+             to_char(ranked.prev_day, 'YYYY-MM-DD') AS "prevDay",
+             ranked.avulso,
+             EXISTS (
+               SELECT 1 FROM appointments next
+               WHERE next.client_id = c.id
+                 AND next.service_id = s.id
+                 AND next.account_id = c.account_id
+                 AND next.kind = 'horario'
+                 AND next.status <> 'cancelado'
+                 AND (next.starts_at AT TIME ZONE 'America/Sao_Paulo')::date >= (timezone('America/Sao_Paulo', now()))::date
+             ) AS future
+      FROM (
+        SELECT a.client_id, a.service_id,
+               (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,
+               COALESCE((
+                 SELECT l.package_credit_id IS NULL
+                 FROM order_lines l
+                 WHERE l.appointment_id = a.id AND l.kind = 'servico'
+                 ORDER BY l.created_at
+                 LIMIT 1
+               ), false) AS avulso,
+               lag((a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date) OVER (
+                 PARTITION BY a.client_id, a.service_id ORDER BY a.starts_at
+               ) AS prev_day,
+               row_number() OVER (
+                 PARTITION BY a.client_id, a.service_id ORDER BY a.starts_at DESC
+               ) AS n
+        FROM appointments a
+        WHERE a.account_id = ${accountId}
+          AND a.kind = 'horario'
+          AND a.status = 'realizado'
+          AND a.service_id IS NOT NULL
+          AND (${clientId}::uuid IS NULL OR a.client_id = ${clientId})
+      ) ranked
+      JOIN clients c ON c.id = ranked.client_id AND c.account_id = ${accountId}
+      JOIN services s ON s.id = ranked.service_id
+      WHERE ranked.n = 1
+        AND (${clientId}::uuid IS NOT NULL OR c.active)
+    `,
+    db()<ReturnPack[]>`
+      SELECT DISTINCT ON (cp.client_id, cr.service_id, cp.id)
+             cp.client_id AS "clientId", cr.service_id AS "serviceId", cp.status,
+             to_char(cp.created_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD HH24:MI:SS') AS "createdAt",
+             to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntil",
+             to_char((
+               SELECT max(u.used_on) FROM package_credits u
+               WHERE u.client_package_id = cp.id AND u.service_id = cr.service_id
+             ), 'YYYY-MM-DD') AS "lastUsed"
+      FROM client_packages cp
+      JOIN package_credits cr ON cr.client_package_id = cp.id
+      WHERE cp.account_id = ${accountId}
+        AND cp.status <> 'cancelado'
+        AND (${clientId}::uuid IS NULL OR cp.client_id = ${clientId})
+      ORDER BY cp.client_id, cr.service_id, cp.id
+    `,
+  ]);
+  return { visits, packs };
+}
+
+function factsFor(visit: ReturnVisit, packs: ReturnPack[], fromOutside: boolean): ReturnFacts {
+  const mine = packs.filter((pack) => pack.clientId === visit.id && pack.serviceId === visit.serviceId);
+  const active = mine.filter((pack) => pack.status === "ativo").sort((left, right) => (left.createdAt < right.createdAt ? 1 : -1));
+  const ended = mine.filter((pack) => pack.status === "concluido" || pack.status === "encerrado").sort((left, right) => (left.createdAt < right.createdAt ? 1 : -1));
+  const latestActive = active[0];
+  const latestEnded = ended[0];
+  return {
+    fromOutside,
+    day: visit.day,
+    prevDay: visit.prevDay,
+    returnDays: visit.returnDays,
+    avulso: visit.avulso,
+    future: visit.future,
+    activePackage: active.length > 0,
+    renewed: Boolean(latestActive && ended.some((pack) => pack.createdAt < latestActive.createdAt)),
+    packageEndedOn: active.length === 0 && latestEnded ? latestEnded.validUntil ?? latestEnded.lastUsed : null,
+  };
+}
+
+function returnOnFor(facts: ReturnFacts, word: string) {
+  if (facts.returnDays == null) return null;
+  if (word === "no prazo" || word === "passou" || word === RETURN_WORD.voltou || word === RETURN_WORD.passou || word === RETURN_WORD.avulso) {
+    return shiftDay(facts.day, facts.returnDays);
+  }
+  return null;
+}
+
+async function listedReturns(accountId: string, clientId: string, fromOutside: boolean, today: string) {
+  const { visits, packs } = await loadReturnFacts(accountId, clientId);
+  return visits.map((visit) => {
+    const facts = factsFor(visit, packs, fromOutside);
+    const outcome = classifyReturn(facts, today);
+    let word = "sem volta";
+    if (outcome) word = RETURN_WORD[outcome];
+    else if (facts.activePackage) word = "pacote";
+    else if (facts.returnDays != null) {
+      const due = shiftDay(facts.day, facts.returnDays);
+      word = today <= due ? "no prazo" : "passou";
+    }
+    return {
+      serviceId: visit.serviceId,
+      service: visit.service,
+      day: visit.day,
+      returnOn: returnOnFor(facts, word),
+      word,
+    };
+  }).sort((left, right) => left.service.localeCompare(right.service, "pt"));
+}
+
+export async function returnRegister(accountId: string, today: string) {
+  const { visits, packs } = await loadReturnFacts(accountId, null);
+  return visits.flatMap((visit) => {
+    const facts = factsFor(visit, packs, visit.fromOutside);
+    const outcome = classifyReturn(facts, today);
+    if (!outcome) return [];
+    return [{
+      id: visit.id,
+      name: visit.name,
+      phone: visit.phone,
+      serviceId: visit.serviceId,
+      service: visit.service,
+      day: visit.day,
+      outcome,
+      word: RETURN_WORD[outcome],
+    }];
+  }).sort((left, right) => left.name.localeCompare(right.name, "pt") || left.service.localeCompare(right.service, "pt"));
+}
+
 export async function clientBrief(accountId: string, clientId: string, fromOutside: boolean) {
   const today = todaySaoPaulo();
   const [lastRows, serviceRows, productRows, moneyRows, orders, agenda, packages] = await Promise.all([
@@ -892,42 +1049,7 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
     clientPackages(accountId, clientId, today),
   ]);
   const last = lastRows[0] ?? null;
-  const [serviceReturns, covered] = await Promise.all([
-    db()<{ serviceId: string; service: string; day: string; returnDays: number | null }[]>`
-      SELECT DISTINCT ON (a.service_id)
-             a.service_id AS "serviceId",
-             s.name AS service,
-             to_char((a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date, 'YYYY-MM-DD') AS day,
-             s.return_days AS "returnDays"
-      FROM appointments a
-      JOIN services s ON s.id = a.service_id
-      WHERE a.account_id = ${accountId}
-        AND a.client_id = ${clientId}
-        AND a.status = 'realizado'
-        AND a.kind = 'horario'
-      ORDER BY a.service_id, a.starts_at DESC
-    `,
-    db()<{ serviceId: string }[]>`
-      SELECT DISTINCT cr.service_id AS "serviceId"
-      FROM client_packages cp
-      JOIN package_credits cr ON cr.client_package_id = cp.id
-      WHERE cp.account_id = ${accountId} AND cp.client_id = ${clientId} AND cp.status = 'ativo'
-    `,
-  ]);
-  const coveredIds = new Set(covered.map((row) => row.serviceId));
-  const returns = serviceReturns.map((row) => {
-    if (fromOutside) return { serviceId: row.serviceId, service: row.service, day: row.day, returnOn: null, word: "de fora" };
-    if (coveredIds.has(row.serviceId)) return { serviceId: row.serviceId, service: row.service, day: row.day, returnOn: null, word: "pacote" };
-    if (row.returnDays == null) return { serviceId: row.serviceId, service: row.service, day: row.day, returnOn: null, word: "sem volta" };
-    const returnOn = shiftDay(row.day, row.returnDays);
-    return {
-      serviceId: row.serviceId,
-      service: row.service,
-      day: row.day,
-      returnOn,
-      word: today <= returnOn ? "no prazo" : "passou",
-    };
-  }).sort((left, right) => left.service.localeCompare(right.service, "pt"));
+  const returns = await listedReturns(accountId, clientId, fromOutside, today);
   return {
     last,
     topService: serviceRows[0] ?? null,

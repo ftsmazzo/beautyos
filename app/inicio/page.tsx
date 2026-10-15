@@ -65,10 +65,14 @@ export default async function StartPage({
               ))}
             </div>
           ) : null}
-          {lateClients.length > 0 ? (
+          {operator ? (
             <div className="card">
               <h2>Passou da volta</h2>
-              <p>Cada serviço conta a própria volta. Quem já deveria ter voltado e ainda não tem horário desse serviço. Cliente de fora e serviço coberto por pacote ativo ficam fora desta lista.</p>
+              <p>
+                Cada serviço conta a própria volta. Quem já deveria ter voltado e ainda não tem horário desse serviço. Cliente de fora e serviço coberto por pacote ativo ficam fora desta lista.{" "}
+                <Link href="/volta">Registro da volta</Link>
+              </p>
+              {lateClients.length === 0 ? <p>Ninguém neste momento.</p> : null}
               {lateClients.map((person) => (
                 <p key={`${person.id}-${person.serviceId}`}>
                   <Link href={`/clientes/${person.id}`}>{person.name}</Link>

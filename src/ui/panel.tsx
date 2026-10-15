@@ -16,6 +16,7 @@ const CATALOG = [
   { href: "/servicos", label: "Serviços" },
   { href: "/profissionais", label: "Profissionais" },
   { href: "/clientes", label: "Clientes" },
+  { href: "/volta", label: "Volta" },
   { href: "/produtos", label: "Produtos" },
   { href: "/fornecedores", label: "Fornecedores" },
   { href: "/pacotes", label: "Pacotes" },
@@ -45,6 +46,9 @@ function NavIcon({ href }: { href: string }) {
   }
   if (href === "/profissionais") {
     return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 19c1.5-3 3.8-4.5 7-4.5S17.5 16 19 19" /></svg>;
+  }
+  if (href === "/volta") {
+    return <svg {...common}><path d="M4 12a8 8 0 1 0 2.2-5.5" /><path d="M4 4v5h5" /></svg>;
   }
   if (href === "/clientes") {
     return <svg {...common}><circle cx="9" cy="8" r="2.5" /><circle cx="16" cy="9" r="2" /><path d="M4.5 18c.8-2.4 2.4-3.5 4.5-3.5s3.7 1.1 4.5 3.5M14 14.5c1.6 0 3 .7 3.8 2.5" /></svg>;
