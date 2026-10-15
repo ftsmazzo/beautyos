@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto";
 import { requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { checked, digits, parseIntField, parsePercent, parseReais, textOrNull } from "@/catalog/format";
+import { checked, digits, parseIntField, parsePercent, parseReais, staffPriceCents, textOrNull } from "@/catalog/format";
 
 const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
 
@@ -32,12 +32,16 @@ export async function saveProduct(formData: FormData) {
     const minRaw = String(formData.get("min") ?? "").trim();
     const min = minRaw ? parseIntField(formData.get("min")) : 0;
     const staffRaw = String(formData.get("staff_price") ?? "").trim();
-    const staff = staffRaw ? parseReais(staffRaw) : null;
+    let staff = staffRaw ? parseReais(staffRaw) : null;
     const barcode = String(formData.get("barcode") ?? "").trim() || null;
     if (name.length < 2 || price == null || cost == null || commission == null || min == null || min < 0) {
       throw new FormError("dados");
     }
     if (staffRaw && staff == null) throw new FormError("dados");
+    const house = await db()<{ consumption: number }[]>`
+      SELECT staff_consumption_percent AS consumption FROM accounts WHERE id = ${user.accountId}
+    `;
+    if (staff != null && staff === staffPriceCents(price, null, house[0]?.consumption ?? 30)) staff = null;
     if (!sells && !supply) throw new FormError("papel");
 
     const id = await db().begin(async (tx) => {

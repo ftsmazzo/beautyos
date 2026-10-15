@@ -7,6 +7,7 @@ import { db } from "@/db/client";
 import { ErrorNote } from "@/ui/error-note";
 import { HoursGrid } from "@/ui/hours-grid";
 import { RosterShortcut } from "@/ui/roster-shortcut";
+import { StandardField } from "@/ui/standard-field";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -117,7 +118,7 @@ export default async function ProfessionalFormPage({
         </label>
         <p>O acesso de profissional nasce em Acesso. Aqui só se liga a ficha.</p>
         <h2>Serviços</h2>
-        <p>Célula vazia segue o padrão do serviço. Limpar volta ao padrão. No pacote, o preço interno manda e esta comissão continua. Puxar o padrão marca os serviços e deixa o número do catálogo.</p>
+        <p>A célula mostra o número que vale. Padrão segue o serviço e acompanha o catálogo. Mudar grava o ajuste. Limpar volta ao padrão. No pacote, o preço interno manda e esta comissão continua.</p>
         <RosterShortcut checkName="does" />
         {visible.length === 0 ? <p>Cadastre um serviço para montar esta tabela.</p> : null}
         {visible.length > 0 ? (
@@ -141,26 +142,30 @@ export default async function ProfessionalFormPage({
                     </td>
                     <td>{service.name}</td>
                     <td>
-                      <input
+                      <StandardField
                         name={`price_${service.id}`}
-                        placeholder={centsToInput(service.priceCents)}
-                        defaultValue={link?.priceCents != null ? centsToInput(link.priceCents) : ""}
+                        mode="reais"
+                        label={`Preço de ${service.name}`}
+                        standard={centsToInput(service.priceCents)}
+                        stored={link?.priceCents != null ? centsToInput(link.priceCents) : ""}
                       />
                     </td>
                     <td>
-                      <input
+                      <StandardField
                         name={`duration_${service.id}`}
-                        inputMode="numeric"
-                        placeholder={String(service.durationMin)}
-                        defaultValue={link?.durationMin ?? ""}
+                        mode="int"
+                        label={`Tempo de ${service.name}`}
+                        standard={String(service.durationMin)}
+                        stored={link?.durationMin != null ? String(link.durationMin) : ""}
                       />
                     </td>
                     <td>
-                      <input
+                      <StandardField
                         name={`commission_${service.id}`}
-                        inputMode="numeric"
-                        placeholder={String(service.commissionPercent)}
-                        defaultValue={link?.commissionPercent ?? ""}
+                        mode="int"
+                        label={`Comissão de ${service.name}`}
+                        standard={String(service.commissionPercent)}
+                        stored={link?.commissionPercent != null ? String(link.commissionPercent) : ""}
                       />
                     </td>
                   </tr>

@@ -19,6 +19,7 @@ import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
+import { StandardField } from "@/ui/standard-field";
 
 export const dynamic = "force-dynamic";
 
@@ -136,13 +137,19 @@ export default async function ProductFormPage({
         </p>
         <label>
           Preço para o profissional
-          <input
-            name="staff_price"
-            placeholder={product ? centsToInput(staffPriceCents(product.salePriceCents, null, rules.consumption)) : "segue a casa"}
-            defaultValue={product?.staffPriceCents != null ? centsToInput(product.staffPriceCents) : ""}
-          />
+          {product ? (
+            <StandardField
+              name="staff_price"
+              mode="reais"
+              label="Preço para o profissional"
+              standard={centsToInput(staffPriceCents(product.salePriceCents, null, rules.consumption))}
+              stored={product.staffPriceCents != null ? centsToInput(product.staffPriceCents) : ""}
+            />
+          ) : (
+            <input name="staff_price" placeholder="segue a casa" />
+          )}
         </label>
-        <p>Em branco, o profissional paga {rules.consumption}% do preço de venda. Um valor diferente fica preso neste produto.</p>
+        <p>O campo mostra o valor que vale. Padrão é {rules.consumption}% do preço de venda e acompanha a casa. Um número diferente fica neste produto. Limpar volta ao padrão.</p>
         <h2>Fornecedor de costume</h2>
         <label>
           Já cadastrado
@@ -175,16 +182,17 @@ export default async function ProductFormPage({
           </label>
         </div>
         <h2>Comissão de quem vende</h2>
-        <p>Célula vazia segue o percentual do produto. Limpar volta ao padrão.</p>
+        <p>A célula mostra o percentual que vale. Padrão é o deste produto e acompanha quando ele muda. Limpar volta ao padrão.</p>
         {sellers.length === 0 ? <p>Nenhum profissional ativo.</p> : null}
         {sellers.map((person) => (
           <label key={person.id}>
             {person.nickname || person.name}
-            <input
+            <StandardField
               name={`pro_${person.id}`}
-              inputMode="numeric"
-              placeholder={String(product?.commissionPercent ?? 0)}
-              defaultValue={commissionOf.get(person.id) ?? ""}
+              mode="int"
+              label={`Comissão de ${person.nickname || person.name}`}
+              standard={String(product?.commissionPercent ?? 0)}
+              stored={commissionOf.get(person.id) != null ? String(commissionOf.get(person.id)) : ""}
             />
           </label>
         ))}

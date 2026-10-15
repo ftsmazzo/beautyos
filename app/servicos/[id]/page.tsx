@@ -6,6 +6,7 @@ import { getService, listDiscounts, listProducts, listProfessionals, listService
 import { saveService } from "@/catalog/service-actions";
 import { ErrorNote } from "@/ui/error-note";
 import { RosterShortcut } from "@/ui/roster-shortcut";
+import { StandardField } from "@/ui/standard-field";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -99,7 +100,7 @@ export default async function ServiceFormPage({
           </label>
         </div>
         <h2>Quem executa</h2>
-        <p>A mesma linha da ficha do profissional. Célula vazia segue o padrão deste serviço. Limpar volta ao padrão. Tirar a pessoa tira dos dois lados.</p>
+        <p>A célula mostra o número que vale. Padrão segue este serviço e acompanha quando o catálogo muda. Mudar grava o ajuste. Limpar volta ao padrão. Tirar a pessoa tira dos dois lados.</p>
         <RosterShortcut checkName="does" />
         {roster.length === 0 ? <p>Cadastre um profissional para montar esta tabela.</p> : null}
         {roster.length > 0 ? (
@@ -127,26 +128,30 @@ export default async function ServiceFormPage({
                       {person.active ? "" : " · inativo"}
                     </td>
                     <td>
-                      <input
+                      <StandardField
                         name={`price_${person.id}`}
-                        placeholder={service ? centsToInput(service.priceCents) : "0,00"}
-                        defaultValue={link?.priceCents != null ? centsToInput(link.priceCents) : ""}
+                        mode="reais"
+                        label={`Preço de ${person.nickname || person.name}`}
+                        standard={service ? centsToInput(service.priceCents) : "0,00"}
+                        stored={link?.priceCents != null ? centsToInput(link.priceCents) : ""}
                       />
                     </td>
                     <td>
-                      <input
+                      <StandardField
                         name={`duration_${person.id}`}
-                        inputMode="numeric"
-                        placeholder={String(service?.durationMin ?? 30)}
-                        defaultValue={link?.durationMin ?? ""}
+                        mode="int"
+                        label={`Tempo de ${person.nickname || person.name}`}
+                        standard={String(service?.durationMin ?? 30)}
+                        stored={link?.durationMin != null ? String(link.durationMin) : ""}
                       />
                     </td>
                     <td>
-                      <input
+                      <StandardField
                         name={`commission_${person.id}`}
-                        inputMode="numeric"
-                        placeholder={String(service?.commissionPercent ?? 0)}
-                        defaultValue={link?.commissionPercent ?? ""}
+                        mode="int"
+                        label={`Comissão de ${person.nickname || person.name}`}
+                        standard={String(service?.commissionPercent ?? 0)}
+                        stored={link?.commissionPercent != null ? String(link.commissionPercent) : ""}
                       />
                     </td>
                   </tr>

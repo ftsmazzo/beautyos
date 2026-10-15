@@ -157,6 +157,9 @@ input, select, textarea {
   color: var(--ink);
 }
 textarea { min-height: 76px; }
+.standard-field { display: flex; align-items: center; gap: 6px; }
+.standard-field input { flex: 1; min-width: 4.5rem; }
+.standard-mark { color: var(--muted); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 input[type="checkbox"], input[type="color"] { width: auto; }
 input[type="color"] { height: 40px; padding: 4px; }
 input:focus, select:focus, textarea:focus {
