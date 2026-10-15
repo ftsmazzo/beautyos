@@ -32,6 +32,9 @@ export default async function CashPage({
         <Link className="btn quiet" href={`/caixa?dia=${todaySaoPaulo()}`}>
           Hoje
         </Link>
+        <Link className="btn quiet" href={`/comissao?de=${day}&ate=${day}`}>
+          Comissão deste dia
+        </Link>
       </div>
       <div className="tiles">
         <div className="stat">

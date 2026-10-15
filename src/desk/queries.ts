@@ -727,6 +727,115 @@ export async function ownCommission(accountId: string, professionalId: string, d
   return { rows, commissionCents, abatementCents };
 }
 
+export type CommissionLine = {
+  day: string;
+  orderId: string;
+  personId: string;
+  personName: string;
+  origin: string;
+  description: string;
+  commissionCents: number;
+  abatementCents: number;
+  feeCents: number;
+  clientName: string;
+};
+
+export async function commissionBook(accountId: string, start: string, end: string, professionalId: string | null) {
+  return db()<CommissionLine[]>`
+    SELECT to_char(o.day, 'YYYY-MM-DD') AS day,
+           o.id AS "orderId",
+           l.professional_id AS "personId",
+           p.name AS "personName",
+           CASE WHEN l.kind = 'pacote' THEN 'venda' ELSE 'execucao' END AS origin,
+           l.description,
+           l.commission_cents AS "commissionCents",
+           GREATEST(0, shown.abatement - shown.fee) AS "abatementCents",
+           shown.fee AS "feeCents",
+           COALESCE(c.name, CASE WHEN o.kind = 'consumo' THEN 'Consumo interno' ELSE 'Sem nome' END) AS "clientName"
+    FROM order_lines l
+    JOIN orders o ON o.id = l.order_id
+    JOIN professionals p ON p.id = l.professional_id
+    LEFT JOIN clients c ON c.id = o.client_id
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(SUM(f.abatement_cents), 0)::int AS fee
+      FROM card_fee_shares f
+      WHERE f.line_id = l.id AND f.account_id = o.account_id
+    ) raw ON true
+    CROSS JOIN LATERAL (
+      SELECT
+        CASE WHEN o.kind = 'consumo' AND l.kind = 'servico' THEN 0 ELSE l.abatement_cents END AS abatement,
+        CASE WHEN o.kind = 'consumo' AND l.kind = 'servico' THEN 0 ELSE LEAST(l.abatement_cents, raw.fee) END AS fee
+    ) shown
+    WHERE o.account_id = ${accountId}
+      AND o.day >= ${start}::date
+      AND o.day <= ${end}::date
+      AND (${professionalId}::uuid IS NULL OR l.professional_id = ${professionalId})
+      AND (l.commission_cents <> 0 OR shown.abatement <> 0)
+    UNION ALL
+    SELECT to_char(o.day, 'YYYY-MM-DD'),
+           o.id,
+           o.professional_id,
+           r.name,
+           'abate',
+           l.description,
+           0,
+           l.abatement_cents,
+           0,
+           'Consumo interno'
+    FROM order_lines l
+    JOIN orders o ON o.id = l.order_id
+    JOIN professionals r ON r.id = o.professional_id
+    WHERE o.account_id = ${accountId}
+      AND o.day >= ${start}::date
+      AND o.day <= ${end}::date
+      AND o.kind = 'consumo'
+      AND l.kind = 'servico'
+      AND l.abatement_cents > 0
+      AND (${professionalId}::uuid IS NULL OR o.professional_id = ${professionalId})
+    UNION ALL
+    SELECT to_char(o.day, 'YYYY-MM-DD'),
+           o.id,
+           l.referrer_professional_id,
+           p.name,
+           'indicacao',
+           l.description,
+           l.referral_cents,
+           0,
+           0,
+           COALESCE(c.name, 'Sem nome')
+    FROM order_lines l
+    JOIN orders o ON o.id = l.order_id
+    JOIN professionals p ON p.id = l.referrer_professional_id
+    LEFT JOIN clients c ON c.id = o.client_id
+    WHERE o.account_id = ${accountId}
+      AND o.day >= ${start}::date
+      AND o.day <= ${end}::date
+      AND l.referral_cents > 0
+      AND (${professionalId}::uuid IS NULL OR l.referrer_professional_id = ${professionalId})
+    UNION ALL
+    SELECT to_char(o.day, 'YYYY-MM-DD'),
+           o.id,
+           l.referrer_client_id,
+           c2.name,
+           'indicacao',
+           l.description,
+           l.referral_cents,
+           0,
+           0,
+           COALESCE(c.name, 'Sem nome')
+    FROM order_lines l
+    JOIN orders o ON o.id = l.order_id
+    JOIN clients c2 ON c2.id = l.referrer_client_id
+    LEFT JOIN clients c ON c.id = o.client_id
+    WHERE o.account_id = ${accountId}
+      AND o.day >= ${start}::date
+      AND o.day <= ${end}::date
+      AND l.referral_cents > 0
+      AND ${professionalId}::uuid IS NULL
+    ORDER BY day, "personName", origin, description
+  `;
+}
+
 export async function packageReport(accountId: string, start: string, end: string) {
   const sales = await db()<{ name: string; sales: number; soldCents: number; avulsoCents: number }[]>`
     SELECT cp.name, count(*)::int AS sales,

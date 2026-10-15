@@ -30,6 +30,18 @@ export function weekdayOf(day: string) {
   return new Date(`${day}T12:00:00-03:00`).getUTCDay();
 }
 
+export function weekBounds(day: string) {
+  const weekday = weekdayOf(day);
+  const start = shiftDay(day, weekday === 0 ? -6 : 1 - weekday);
+  return { start, end: shiftDay(start, 6) };
+}
+
+export function monthBounds(day: string) {
+  const start = `${day.slice(0, 7)}-01`;
+  const end = shiftDay(shiftMonth(start, 1), -1);
+  return { start, end };
+}
+
 export function firstWeekdayAfter(day: string, weekday: number) {
   let next = shiftDay(day, 1);
   for (let step = 0; step < 6 && weekdayOf(next) !== weekday; step++) next = shiftDay(next, 1);

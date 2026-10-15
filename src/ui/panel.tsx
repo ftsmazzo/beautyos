@@ -89,7 +89,7 @@ export function Panel({
   const [open, setOpen] = useState(false);
   const operator = user.role === "administrador" || user.role === "balcao";
   const links = (operator
-    ? [...OPERATION, { href: "/caixa", label: "Caixa" }, { href: "/logs", label: "Logs" }, ...CATALOG]
+    ? [...OPERATION, { href: "/caixa", label: "Caixa" }, { href: "/comissao", label: "Comissão" }, { href: "/logs", label: "Logs" }, ...CATALOG]
     : user.role === "profissional"
       ? [...OPERATION, { href: "/comissao", label: "Comissão" }]
       : OPERATION.filter((link) => link.href === "/inicio")).slice();
