@@ -1,10 +1,14 @@
 import { randomUUID } from "crypto";
+import { formatReais } from "@/catalog/format";
 import { db } from "@/db/client";
+import { chargedServicePrice } from "@/desk/pricing";
+import { restampOrder } from "@/desk/referral";
 
 export async function applyDuePrices(accountId: string) {
   await db().begin(async (tx) => {
-    const due = await tx<{ id: string; name: string; beforeCents: number; afterCents: number }[]>`
-      SELECT id, name, price_cents AS "beforeCents", next_price_cents AS "afterCents"
+    const due = await tx<{ id: string; name: string; beforeCents: number; afterCents: number; changeOn: string }[]>`
+      SELECT id, name, price_cents AS "beforeCents", next_price_cents AS "afterCents",
+             to_char(next_price_on, 'YYYY-MM-DD') AS "changeOn"
       FROM services
       WHERE account_id = ${accountId}
         AND next_price_on IS NOT NULL
@@ -12,6 +16,58 @@ export async function applyDuePrices(accountId: string) {
         AND next_price_cents IS NOT NULL
     `;
     for (const row of due) {
+      const lines = await tx<{
+        id: string;
+        orderId: string;
+        appointmentId: string;
+        description: string;
+        priceCents: number;
+        listPriceCents: number;
+        commissionPercent: number;
+        courtesy: boolean;
+        day: string;
+        start: string;
+      }[]>`
+        SELECT l.id, l.order_id AS "orderId", l.appointment_id AS "appointmentId", l.description,
+               l.price_cents AS "priceCents", l.list_price_cents AS "listPriceCents",
+               l.commission_percent AS "commissionPercent", l.courtesy,
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start
+        FROM order_lines l
+        JOIN orders o ON o.id = l.order_id AND o.status = 'aberta' AND o.kind = 'cliente'
+        JOIN appointments a ON a.id = l.appointment_id AND a.status <> 'cancelado'
+        WHERE l.account_id = ${accountId}
+          AND l.service_id = ${row.id}
+          AND l.kind = 'servico'
+          AND l.package_credit_id IS NULL
+          AND l.list_price_cents = ${row.beforeCents}
+          AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${row.changeOn}::date
+      `;
+      const touched = new Set<string>();
+      for (const line of lines) {
+        const oldCharged = await chargedServicePrice(tx, row.id, line.day, line.start, row.beforeCents);
+        const follows = line.courtesy || line.priceCents === row.beforeCents || line.priceCents === oldCharged;
+        if (!follows) continue;
+        const next = line.courtesy ? 0 : await chargedServicePrice(tx, row.id, line.day, line.start, row.afterCents);
+        const base = line.courtesy ? row.afterCents : next;
+        const commission = Math.round(base * line.commissionPercent / 100);
+        await tx`
+          UPDATE order_lines
+          SET list_price_cents = ${row.afterCents}, price_cents = ${next}, commission_cents = ${commission}
+          WHERE id = ${line.id}
+        `;
+        await tx`
+          INSERT INTO order_events (
+            id, account_id, order_id, line_id, appointment_id, actor_id, kind, summary, before_cents, after_cents
+          ) VALUES (
+            ${randomUUID()}, ${accountId}, ${line.orderId}, ${line.id}, ${line.appointmentId},
+            ${null}, 'valor',
+            ${`${line.description} passou de ${formatReais(line.courtesy ? line.listPriceCents : line.priceCents)} para ${formatReais(base)} na troca de preço. Comissão ${formatReais(commission)}.`},
+            ${line.courtesy ? line.listPriceCents : line.priceCents}, ${base}
+          )
+        `;
+        touched.add(line.orderId);
+      }
       await tx`
         UPDATE services
         SET price_cents = ${row.afterCents},
@@ -27,6 +83,7 @@ export async function applyDuePrices(accountId: string) {
           (timezone('America/Sao_Paulo', now()))::date
         )
       `;
+      for (const orderId of touched) await restampOrder(tx, accountId, orderId);
     }
   });
 }

@@ -14,6 +14,7 @@ export function PriceNotice({
   return (
     <div className="card">
       <h2>Preço trocado</h2>
+      <p>Horário aberto a partir dessa data acompanha. O que foi marcado antes, o valor alterado à mão, o valor próprio e o pacote ficam.</p>
       {notices.map((notice) => (
         <p key={notice.id}>
           {notice.serviceId ? <Link href={`/servicos/${notice.serviceId}`}>{notice.serviceName}</Link> : notice.serviceName}
