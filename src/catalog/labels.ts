@@ -32,6 +32,7 @@ export const FORM_ERRORS: Record<string, string> = {
   preco: "A próxima troca precisa do valor e de uma data de hoje em diante.",
   papel: "Marque se vende ao cliente, se é insumo, ou os dois.",
   codigo: "Esse código de barras já está em outro produto.",
+  barra: "Nenhum produto à venda com esse código.",
   ciclo: "Esse item já contém este produto.",
   igual: "A contagem fechou igual ao saldo.",
   estoque: "Revise a quantidade deste movimento.",

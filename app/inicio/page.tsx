@@ -68,9 +68,9 @@ export default async function StartPage({
           {lateClients.length > 0 ? (
             <div className="card">
               <h2>Passou da volta</h2>
-              <p>Quem já deveria ter voltado e ainda não tem horário. Cliente de fora fica fora desta lista.</p>
+              <p>Cada serviço conta a própria volta. Quem já deveria ter voltado e ainda não tem horário desse serviço. Cliente de fora e serviço coberto por pacote ativo ficam fora desta lista.</p>
               {lateClients.map((person) => (
-                <p key={person.id}>
+                <p key={`${person.id}-${person.serviceId}`}>
                   <Link href={`/clientes/${person.id}`}>{person.name}</Link>
                   {` · ${formatPhone(person.phone)} · ${person.serviceName} · volta ${person.due} · há ${person.lateDays} ${person.lateDays === 1 ? "dia" : "dias"}`}
                 </p>

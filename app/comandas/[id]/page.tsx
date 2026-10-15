@@ -361,11 +361,17 @@ export default async function OrderPage({
             <form action={addProduct}>
               <input type="hidden" name="order" value={order.id} />
               <label>
+                Código de barras
+                <input name="barcode" autoComplete="off" />
+              </label>
+              <label>
                 Produto
-                <select name="product" required defaultValue={products[0]?.id}>
+                <select name="product" defaultValue="">
+                  <option value="">Pelo código</option>
                   {products.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.name} · {formatReais(product.priceCents)}
+                      {product.barcode ? ` · ${product.barcode}` : ""}
                     </option>
                   ))}
                 </select>

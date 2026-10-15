@@ -58,10 +58,14 @@ export default async function ClientFormPage({
           ) : (
             <p>Sem visita realizada.</p>
           )}
-          <p>
-            Volta: {brief.returnWord}
-            {brief.returnOn ? ` · ${formatDay(brief.returnOn)}` : ""}
-          </p>
+          {brief.returns.length === 0 ? <p>Volta: sem visita realizada.</p> : null}
+          {brief.returns.map((row) => (
+            <p key={row.serviceId}>
+              Volta de {row.service}: {row.word}
+              {row.returnOn ? ` · ${formatDay(row.returnOn)}` : ""}
+              {` · última ${formatDay(row.day)}`}
+            </p>
+          ))}
           <p>
             Serviço que mais faz: {brief.topService ? `${brief.topService.name} · ${brief.topService.qty === 1 ? "1 vez" : `${brief.topService.qty} vezes`}` : "—"}
           </p>

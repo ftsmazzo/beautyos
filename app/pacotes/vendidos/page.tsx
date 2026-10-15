@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
-import { soldPackages, type SoldPackage } from "@/desk/queries";
+import { sellPackageOnDay } from "@/desk/actions";
+import { clientOptions, dayRoster, packagesForSale, soldPackages, type SoldPackage } from "@/desk/queries";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
+import { SubmitButton } from "@/ui/submit-button";
+import { ErrorNote } from "@/ui/error-note";
 
 export const dynamic = "force-dynamic";
 
@@ -48,16 +52,64 @@ function situation(row: SoldPackage) {
 export default async function SoldPackagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtro?: string }>;
+  searchParams: Promise<{ filtro?: string; erro?: string }>;
 }) {
   const user = await requireOperator();
   const query = await searchParams;
   const filter: FilterId = isFilter(query.filtro) ? query.filtro : "aberto";
   const today = todaySaoPaulo();
-  const rows = (await soldPackages(user.accountId, today)).filter((row) => matches(row, filter));
+  const [rows, people, catalog, roster] = await Promise.all([
+    soldPackages(user.accountId, today),
+    clientOptions(user.accountId),
+    packagesForSale(user.accountId),
+    dayRoster(user.accountId, null),
+  ]);
+  const visible = rows.filter((row) => matches(row, filter));
 
   return (
     <Panel user={user} current="/pacotes/vendidos" title="Pacotes vendidos">
+      <ErrorNote code={query.erro} />
+      {catalog.length > 0 && people.length > 0 ? (
+        <Modal label="Vender" title="Vender pacote" tone="teal">
+          <form action={sellPackageOnDay}>
+            <label>
+              Cliente
+              <select name="client" required defaultValue="">
+                <option value="">Escolha</option>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Pacote
+              <select name="package" required defaultValue="">
+                <option value="">Escolha</option>
+                {catalog.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} · {formatReais(item.priceCents)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Quem vendeu
+              <select name="seller" defaultValue="">
+                <option value="">Sem incentivo</option>
+                {roster.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.nickname || person.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p>Entra na comanda de hoje desse cliente. O recebimento continua lá.</p>
+            <SubmitButton label="Vender" pendingLabel="Vendendo…" className="teal" />
+          </form>
+        </Modal>
+      ) : null}
       <div className="row">
         <Link className="btn quiet" href="/pacotes/relatorio">
           Relatório
@@ -69,8 +121,8 @@ export default async function SoldPackagesPage({
         ))}
       </div>
       <div className="card">
-        {rows.length === 0 ? <p>Nenhum pacote neste filtro.</p> : null}
-        {rows.length > 0 ? (
+        {visible.length === 0 ? <p>Nenhum pacote neste filtro.</p> : null}
+        {visible.length > 0 ? (
           <table>
             <thead>
               <tr>
@@ -85,7 +137,7 @@ export default async function SoldPackagesPage({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {visible.map((row) => (
                 <tr key={row.id}>
                   <td>{row.clientName}</td>
                   <td>{row.phone ? formatPhone(row.phone) : "—"}</td>

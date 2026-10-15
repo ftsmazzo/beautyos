@@ -240,7 +240,8 @@ export async function addProduct(formData: FormData) {
   const user = await requireDesk();
   const orderId = String(formData.get("order") ?? "");
   return settle(`/comandas/${orderId}`, async () => {
-    const productId = String(formData.get("product") ?? "");
+    let productId = String(formData.get("product") ?? "");
+    const barcode = String(formData.get("barcode") ?? "").trim();
     const qty = parseIntField(formData.get("qty")) ?? 1;
     const professionalId = String(formData.get("professional") ?? "") || null;
     await db().begin(async (tx) => {
@@ -248,6 +249,15 @@ export async function addProduct(formData: FormData) {
         SELECT status, kind FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
+      if (!productId && barcode) {
+        const found = await tx<{ id: string }[]>`
+          SELECT id FROM products
+          WHERE account_id = ${user.accountId} AND barcode = ${barcode} AND active AND sells_to_client
+        `;
+        if (!found[0]) throw new FormError("barra");
+        productId = found[0].id;
+      }
+      if (!productId) throw new FormError("dados");
       const product = await tx<{ name: string; priceCents: number; commissionPercent: number }[]>`
         SELECT p.name, p.sale_price_cents AS "priceCents",
                COALESCE(pp.commission_percent, p.commission_percent) AS "commissionPercent"
@@ -305,6 +315,70 @@ export async function sellPackage(formData: FormData) {
       `;
       if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
       if (!order[0].clientId) throw new FormError("cliente");
+      await recordPackageSale(tx, {
+        accountId: user.accountId,
+        actorId: user.id,
+        orderId,
+        clientId: order[0].clientId,
+        day: order[0].day,
+        packageId,
+        sellerId,
+      });
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function sellPackageOnDay(formData: FormData) {
+  const user = await requireOperator();
+  return settle("/pacotes/vendidos", async () => {
+    const clientId = idOrNull(String(formData.get("client") ?? ""));
+    const packageId = idOrNull(String(formData.get("package") ?? ""));
+    const sellerId = idOrNull(String(formData.get("seller") ?? ""));
+    if (!clientId || !packageId) throw new FormError("dados");
+    const day = todaySaoPaulo();
+    const orderId = await db().begin(async (tx) => {
+      const client = await tx`SELECT id FROM clients WHERE id = ${clientId} AND account_id = ${user.accountId} AND active`;
+      if (!client.length) throw new FormError("cliente");
+      const existing = await tx<{ id: string; status: string }[]>`
+        SELECT id, status FROM orders
+        WHERE account_id = ${user.accountId} AND client_id = ${clientId} AND day = ${day} AND kind = 'cliente'
+      `;
+      if (existing[0]?.status === "fechada") throw new FormError("fechada");
+      const nextId = existing[0]?.id ?? randomUUID();
+      if (!existing[0]) {
+        await tx`
+          INSERT INTO orders (id, account_id, client_id, day, kind, status)
+          VALUES (${nextId}, ${user.accountId}, ${clientId}, ${day}, 'cliente', 'aberta')
+        `;
+      }
+      await recordPackageSale(tx, {
+        accountId: user.accountId,
+        actorId: user.id,
+        orderId: nextId,
+        clientId,
+        day,
+        packageId,
+        sellerId,
+      });
+      return nextId;
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+async function recordPackageSale(
+  tx: TransactionSql,
+  input: {
+    accountId: string;
+    actorId: string;
+    orderId: string;
+    clientId: string;
+    day: string;
+    packageId: string;
+    sellerId: string | null;
+  },
+) {
       const pack = await tx<{
         name: string;
         validityDays: number;
@@ -314,7 +388,7 @@ export async function sellPackage(formData: FormData) {
         SELECT name, validity_days AS "validityDays", sale_commission_percent AS "saleCommissionPercent",
                price_cents AS "priceCents"
         FROM packages
-        WHERE id = ${packageId} AND account_id = ${user.accountId} AND for_sale
+        WHERE id = ${input.packageId} AND account_id = ${input.accountId} AND for_sale
       `;
       if (!pack[0]) throw new FormError("fora");
       const items = await tx<{
@@ -328,7 +402,7 @@ export async function sellPackage(formData: FormData) {
         SELECT kind, service_id AS "serviceId", product_id AS "productId", qty,
                internal_price_cents AS "internalPriceCents", position
         FROM package_items
-        WHERE package_id = ${packageId}
+        WHERE package_id = ${input.packageId}
         ORDER BY position
       `;
       const visits = items.filter((item) => item.kind === "service" && item.serviceId);
@@ -336,12 +410,12 @@ export async function sellPackage(formData: FormData) {
       let salePercent = 0;
       let saleCommission = 0;
       let seller: string | null = null;
-      if (pack[0].saleCommissionPercent != null && sellerId) {
-        const person = await tx`SELECT id FROM professionals WHERE id = ${sellerId} AND account_id = ${user.accountId} AND active`;
+      if (pack[0].saleCommissionPercent != null && input.sellerId) {
+        const person = await tx`SELECT id FROM professionals WHERE id = ${input.sellerId} AND account_id = ${input.accountId} AND active`;
         if (!person.length) throw new FormError("dados");
         salePercent = pack[0].saleCommissionPercent;
         saleCommission = Math.round(pack[0].priceCents * salePercent / 100);
-        seller = sellerId;
+        seller = input.sellerId;
       }
       const heldId = randomUUID();
       const lineId = randomUUID();
@@ -350,8 +424,8 @@ export async function sellPackage(formData: FormData) {
           id, account_id, client_id, package_id, order_id, order_line_id, name,
           validity_days, sale_commission_percent, price_cents, sold_on, status
         ) VALUES (
-          ${heldId}, ${user.accountId}, ${order[0].clientId}, ${packageId}, ${orderId}, ${lineId}, ${pack[0].name},
-          ${pack[0].validityDays}, ${pack[0].saleCommissionPercent}, ${pack[0].priceCents}, ${order[0].day}::date, 'ativo'
+          ${heldId}, ${input.accountId}, ${input.clientId}, ${input.packageId}, ${input.orderId}, ${lineId}, ${pack[0].name},
+          ${pack[0].validityDays}, ${pack[0].saleCommissionPercent}, ${pack[0].priceCents}, ${input.day}::date, 'ativo'
         )
       `;
       for (const visit of visits) {
@@ -359,7 +433,7 @@ export async function sellPackage(formData: FormData) {
           INSERT INTO package_credits (
             id, account_id, client_package_id, service_id, position, internal_price_cents, status
           ) VALUES (
-            ${randomUUID()}, ${user.accountId}, ${heldId}, ${visit.serviceId}, ${visit.position},
+            ${randomUUID()}, ${input.accountId}, ${heldId}, ${visit.serviceId}, ${visit.position},
             ${visit.internalPriceCents}, 'falta_agendar'
           )
         `;
@@ -369,8 +443,8 @@ export async function sellPackage(formData: FormData) {
         await tx`
           INSERT INTO stock_movements (id, account_id, product_id, qty, reason, note, created_by)
           VALUES (
-            ${randomUUID()}, ${user.accountId}, ${item.productId}, ${-item.qty}, 'venda',
-            ${"venda de pacote"}, ${user.id}
+            ${randomUUID()}, ${input.accountId}, ${item.productId}, ${-item.qty}, 'venda',
+            ${"venda de pacote"}, ${input.actorId}
           )
         `;
       }
@@ -379,45 +453,42 @@ export async function sellPackage(formData: FormData) {
           id, account_id, order_id, kind, professional_id, description, qty,
           price_cents, list_price_cents, commission_percent, commission_cents
         ) VALUES (
-          ${lineId}, ${user.accountId}, ${orderId}, 'pacote', ${seller}, ${pack[0].name}, 1,
+          ${lineId}, ${input.accountId}, ${input.orderId}, 'pacote', ${seller}, ${pack[0].name}, 1,
           ${pack[0].priceCents}, ${pack[0].priceCents}, ${salePercent}, ${saleCommission}
         )
       `;
-      await stampReferral(tx, user.accountId, orderId, lineId, pack[0].priceCents);
+      await stampReferral(tx, input.accountId, input.orderId, lineId, pack[0].priceCents);
       const serviceIds = [...new Set(visits.map((visit) => visit.serviceId as string))];
       for (const serviceId of serviceIds) {
         const matches = await tx<{ id: string }[]>`
           SELECT id FROM order_lines
-          WHERE order_id = ${orderId} AND kind = 'servico' AND service_id = ${serviceId}
+          WHERE order_id = ${input.orderId} AND kind = 'servico' AND service_id = ${serviceId}
             AND package_credit_id IS NULL AND courtesy = false
           ORDER BY created_at
         `;
         for (const match of matches) {
           const taken = await takePackageCredit(tx, {
-            accountId: user.accountId,
-            actorId: user.id,
-            orderId,
-            clientId: order[0].clientId,
-            day: order[0].day,
+            accountId: input.accountId,
+            actorId: input.actorId,
+            orderId: input.orderId,
+            clientId: input.clientId,
+            day: input.day,
             lineId: match.id,
           });
           if (!taken) break;
         }
       }
       await writeEvent(tx, {
-        accountId: user.accountId,
-        orderId,
+        accountId: input.accountId,
+        orderId: input.orderId,
         lineId,
         appointmentId: null,
-        actorId: user.id,
+        actorId: input.actorId,
         kind: "valor",
         summary: `Vendeu ${pack[0].name} por ${formatReais(pack[0].priceCents)}. Comissão de venda ${formatReais(saleCommission)}.`,
         beforeCents: null,
         afterCents: pack[0].priceCents,
       });
-    });
-    return `/comandas/${orderId}`;
-  });
 }
 
 export async function applyPackageUse(formData: FormData) {

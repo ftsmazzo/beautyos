@@ -115,8 +115,8 @@ export async function consumptionProducts(accountId: string) {
 }
 
 export async function productOptions(accountId: string) {
-  return db()<{ id: string; name: string; priceCents: number }[]>`
-    SELECT id, name, sale_price_cents AS "priceCents"
+  return db()<{ id: string; name: string; priceCents: number; barcode: string | null }[]>`
+    SELECT id, name, sale_price_cents AS "priceCents", barcode
     FROM products
     WHERE account_id = ${accountId} AND active AND sells_to_client
     ORDER BY name
@@ -436,25 +436,28 @@ export async function latePackageVisits(accountId: string) {
 export async function overdueReturns(accountId: string, day: string) {
   return db()<{
     id: string;
+    serviceId: string;
     name: string;
     phone: string;
     serviceName: string;
     due: string;
     lateDays: number;
   }[]>`
-    SELECT c.id, c.name, c.phone, s.name AS "serviceName",
+    SELECT c.id, s.id AS "serviceId", c.name, c.phone, s.name AS "serviceName",
            to_char(last.day + s.return_days, 'DD/MM/YYYY') AS due,
            (${day}::date - (last.day + s.return_days))::int AS "lateDays"
     FROM clients c
     JOIN LATERAL (
-      SELECT (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date AS day, a.service_id
+      SELECT DISTINCT ON (a.service_id)
+             (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,
+             a.service_id
       FROM appointments a
       WHERE a.client_id = c.id
         AND a.account_id = c.account_id
         AND a.kind = 'horario'
         AND a.status = 'realizado'
-      ORDER BY a.starts_at DESC
-      LIMIT 1
+        AND a.service_id IS NOT NULL
+      ORDER BY a.service_id, a.starts_at DESC
     ) last ON true
     JOIN services s ON s.id = last.service_id AND s.return_days IS NOT NULL
     WHERE c.account_id = ${accountId}
@@ -464,12 +467,18 @@ export async function overdueReturns(accountId: string, day: string) {
       AND NOT EXISTS (
         SELECT 1 FROM appointments n
         WHERE n.client_id = c.id
-          AND n.account_id = c.account_id
+          AND n.service_id = last.service_id
           AND n.kind = 'horario'
           AND n.status <> 'cancelado'
           AND (n.starts_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${day}::date
       )
-    ORDER BY last.day + s.return_days, c.name
+      AND NOT EXISTS (
+        SELECT 1
+        FROM client_packages cp
+        JOIN package_credits cr ON cr.client_package_id = cp.id AND cr.service_id = last.service_id
+        WHERE cp.client_id = c.id AND cp.account_id = c.account_id AND cp.status = 'ativo'
+      )
+    ORDER BY last.day + s.return_days, c.name, s.name
   `;
 }
 
@@ -880,15 +889,42 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
     clientPackages(accountId, clientId, today),
   ]);
   const last = lastRows[0] ?? null;
-  let returnWord = "sem visita";
-  let returnOn: string | null = null;
-  if (fromOutside) returnWord = "de fora";
-  else if (packages.length) returnWord = "pacote";
-  else if (last && last.returnDays == null) returnWord = "sem volta";
-  else if (last && last.returnDays != null) {
-    returnOn = shiftDay(last.day, last.returnDays);
-    returnWord = today <= returnOn ? "no prazo" : "passou";
-  }
+  const [serviceReturns, covered] = await Promise.all([
+    db()<{ serviceId: string; service: string; day: string; returnDays: number | null }[]>`
+      SELECT DISTINCT ON (a.service_id)
+             a.service_id AS "serviceId",
+             s.name AS service,
+             to_char((a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date, 'YYYY-MM-DD') AS day,
+             s.return_days AS "returnDays"
+      FROM appointments a
+      JOIN services s ON s.id = a.service_id
+      WHERE a.account_id = ${accountId}
+        AND a.client_id = ${clientId}
+        AND a.status = 'realizado'
+        AND a.kind = 'horario'
+      ORDER BY a.service_id, a.starts_at DESC
+    `,
+    db()<{ serviceId: string }[]>`
+      SELECT DISTINCT cr.service_id AS "serviceId"
+      FROM client_packages cp
+      JOIN package_credits cr ON cr.client_package_id = cp.id
+      WHERE cp.account_id = ${accountId} AND cp.client_id = ${clientId} AND cp.status = 'ativo'
+    `,
+  ]);
+  const coveredIds = new Set(covered.map((row) => row.serviceId));
+  const returns = serviceReturns.map((row) => {
+    if (fromOutside) return { serviceId: row.serviceId, service: row.service, day: row.day, returnOn: null, word: "de fora" };
+    if (coveredIds.has(row.serviceId)) return { serviceId: row.serviceId, service: row.service, day: row.day, returnOn: null, word: "pacote" };
+    if (row.returnDays == null) return { serviceId: row.serviceId, service: row.service, day: row.day, returnOn: null, word: "sem volta" };
+    const returnOn = shiftDay(row.day, row.returnDays);
+    return {
+      serviceId: row.serviceId,
+      service: row.service,
+      day: row.day,
+      returnOn,
+      word: today <= returnOn ? "no prazo" : "passou",
+    };
+  }).sort((left, right) => left.service.localeCompare(right.service, "pt"));
   return {
     last,
     topService: serviceRows[0] ?? null,
@@ -897,7 +933,6 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
     orders,
     agenda,
     packages,
-    returnWord,
-    returnOn,
+    returns,
   };
 }
