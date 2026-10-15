@@ -1484,8 +1484,63 @@ export async function adjustLinePrice(formData: FormData) {
         actorId: user.id,
         kind: "valor",
         summary: `${line[0].description}: ${formatReais(line[0].priceCents)} → ${formatReais(next)} (${how}). Comissão ${formatReais(commission)}.`,
+      beforeCents: line[0].priceCents,
+      afterCents: next,
+    });
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
+export async function adjustLineCommission(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  const lineId = idOrNull(String(formData.get("line") ?? ""));
+  return settle(`/comandas/${orderId}`, async () => {
+    if (!lineId) throw new FormError("dados");
+    const percent = parsePercent(formData.get("percent"));
+    if (percent == null) throw new FormError("percentual");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; kind: string }[]>`
+        SELECT status, kind FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+      `;
+      if (order[0]?.status !== "aberta" || order[0].kind !== "cliente") throw new FormError("fechada");
+      const line = await tx<{
+        description: string;
+        priceCents: number;
+        commissionPercent: number;
+        appointmentId: string | null;
+        kind: string;
+        packageCreditId: string | null;
+      }[]>`
+        SELECT description, price_cents AS "priceCents", commission_percent AS "commissionPercent",
+               appointment_id AS "appointmentId", kind, package_credit_id AS "packageCreditId"
+        FROM order_lines WHERE id = ${lineId} AND order_id = ${orderId}
+      `;
+      if (!line[0]) throw new FormError("fora");
+      if (line[0].kind !== "servico" || !line[0].packageCreditId) throw new FormError("pacote");
+      if (percent === line[0].commissionPercent) return;
+      const credit = await tx<{ internalPriceCents: number }[]>`
+        SELECT internal_price_cents AS "internalPriceCents"
+        FROM package_credits WHERE id = ${line[0].packageCreditId} AND account_id = ${user.accountId}
+      `;
+      if (!credit[0]) throw new FormError("credito");
+      const commission = Math.round(credit[0].internalPriceCents * percent / 100);
+      await tx`
+        UPDATE order_lines
+        SET commission_percent = ${percent}, commission_cents = ${commission}
+        WHERE id = ${lineId}
+      `;
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId,
+        lineId,
+        appointmentId: line[0].appointmentId,
+        actorId: user.id,
+        kind: "valor",
+        summary: `${line[0].description}: comissão ${line[0].commissionPercent}% → ${percent}% sobre o interno ${formatReais(credit[0].internalPriceCents)}. O valor cobrado permanece ${formatReais(line[0].priceCents)}.`,
         beforeCents: line[0].priceCents,
-        afterCents: next,
+        afterCents: line[0].priceCents,
       });
     });
     return `/comandas/${orderId}`;

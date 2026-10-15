@@ -71,6 +71,7 @@ export const FORM_ERRORS: Record<string, string> = {
   pessoa: "Esse profissional já entrou na agenda ou numa comanda.",
   produto: "Esse produto já entrou numa comanda, compra ou pacote.",
   pacote: "Esse pacote não pode ser alterado por aqui.",
+  percentual: "O percentual fica entre 0 e 100. O valor do uso não muda.",
   outra: "Esse pacote já teve visita usada em outra comanda.",
   credito: "Não há visita disponível desse serviço no pacote.",
   prazo: "Esse pacote não está vencido.",

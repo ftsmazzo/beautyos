@@ -3,10 +3,11 @@ import { requireOperator } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
 import { sellPackageOnDay } from "@/desk/actions";
 import { clientOptions, dayRoster, packagesForSale, soldPackages, type SoldPackage } from "@/desk/queries";
+import { ErrorNote } from "@/ui/error-note";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
+import { SoldColumns } from "@/ui/sold-columns";
 import { SubmitButton } from "@/ui/submit-button";
-import { ErrorNote } from "@/ui/error-note";
 
 export const dynamic = "force-dynamic";
 
@@ -123,36 +124,18 @@ export default async function SoldPackagesPage({
       <div className="card">
         {visible.length === 0 ? <p>Nenhum pacote neste filtro.</p> : null}
         {visible.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Telefone</th>
-                <th>Pacote</th>
-                <th>Idas</th>
-                <th>Próxima</th>
-                <th>Prazo</th>
-                <th>Venda</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.clientName}</td>
-                  <td>{row.phone ? formatPhone(row.phone) : "—"}</td>
-                  <td>{row.name}</td>
-                  <td>{row.used} de {row.total}</td>
-                  <td>{row.nextVisit ?? "—"}</td>
-                  <td>{situation(row)}</td>
-                  <td>{formatReais(row.priceCents)}</td>
-                  <td>
-                    <Link href={`/pacotes/vendidos/${row.id}`}>Ver</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SoldColumns
+            rows={visible.map((row) => ({
+              id: row.id,
+              clientName: row.clientName,
+              phone: row.phone ? formatPhone(row.phone) : "—",
+              name: row.name,
+              visits: `${row.used} de ${row.total}`,
+              nextVisit: row.nextVisit ?? "—",
+              situation: situation(row),
+              price: formatReais(row.priceCents),
+            }))}
+          />
         ) : null}
       </div>
     </Panel>

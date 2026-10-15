@@ -9,6 +9,7 @@ import {
   addProduct,
   addServiceToOrder,
   adjustLinePrice,
+  adjustLineCommission,
   applyPackageUse,
   chargePackageDifference,
   moveLineProfessional,
@@ -201,9 +202,11 @@ export default async function OrderPage({
       <div className="card">
         {order.lines.length === 0 ? (
           <p>
-            {order.kind === "cliente"
-              ? "Nenhuma linha ainda. Produto entra sem horário. Serviço precisa de profissional e hora para fechar."
-              : "Nenhuma linha ainda."}
+            {order.kind !== "cliente" || !open
+              ? "Nenhuma linha ainda."
+              : products.length > 0
+                ? "Nenhuma linha ainda. Produto entra sem horário. Serviço precisa de profissional e hora para fechar."
+                : "Nenhuma linha ainda. Nenhum produto à venda. Serviço precisa de profissional e hora para fechar."}
           </p>
         ) : null}
         {open && order.lines.length === 0 && order.payments.length === 0 ? (
@@ -213,6 +216,7 @@ export default async function OrderPage({
           </form>
         ) : null}
         {order.lines.length > 0 ? (
+          <>
           <table>
             <thead>
               <tr>
@@ -274,6 +278,20 @@ export default async function OrderPage({
                     )}
                   </td>
                   <td>
+                    {operator && open && line.packageCreditId && line.kind === "servico" ? (
+                      <form action={adjustLineCommission} className="price-field">
+                        <input type="hidden" name="order" value={order.id} />
+                        <input type="hidden" name="line" value={line.id} />
+                        <input
+                          name="percent"
+                          inputMode="numeric"
+                          defaultValue={String(line.commissionPercent)}
+                          aria-label={`Percentual de ${line.description}`}
+                          required
+                        />
+                        <SubmitButton label="Salvar" pendingLabel="…" className="quiet" />
+                      </form>
+                    ) : null}
                     {formatReais(line.commissionCents)}
                     {line.abatementCents > 0
                       ? order.kind === "consumo" && line.kind === "servico"
@@ -359,6 +377,10 @@ export default async function OrderPage({
               ))}
             </tbody>
           </table>
+          {operator && open && order.lines.some((line) => line.packageCreditId && line.kind === "servico") ? (
+            <p>No uso do pacote o valor cobrado fica. O percentual desta ida sobe ou desce, sempre sobre o preço interno.</p>
+          ) : null}
+          </>
         ) : null}
         {open && order.kind === "cliente" && catalog.length > 0 ? (
           <Modal label="Serviço" title="Serviço na comanda" tone="blue">
