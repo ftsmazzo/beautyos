@@ -10,6 +10,8 @@ const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
 function labelKey(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
 import { dayParam, shiftMonth } from "@/desk/clock";
@@ -406,5 +408,61 @@ export async function savePurchase(formData: FormData) {
       }
     });
     return "/produtos/compra?ok=compra";
+  });
+}
+
+export async function saveSupplier(formData: FormData) {
+  const user = await requireOperator();
+  const existingId = String(formData.get("id") ?? "");
+  const id = UUID.test(existingId) ? existingId : "";
+  const failBase = id ? `/fornecedores/${id}` : "/fornecedores/novo";
+  return settle(failBase, async () => {
+    const name = String(formData.get("name") ?? "").trim();
+    const phone = digits(String(formData.get("phone") ?? "")) || null;
+    const cnpj = digits(String(formData.get("cnpj") ?? "")) || null;
+    const city = textOrNull(formData.get("city"));
+    if (name.length < 2) throw new FormError("dados");
+    if (cnpj) {
+      const same = await db()<{ id: string }[]>`
+        SELECT id FROM suppliers WHERE account_id = ${user.accountId} AND cnpj = ${cnpj}
+      `;
+      if (same.some((row) => row.id !== id)) throw new FormError("cnpj");
+    }
+    if (id) {
+      const owned = await db()`SELECT id FROM suppliers WHERE id = ${id} AND account_id = ${user.accountId}`;
+      if (!owned.length) throw new FormError("fora");
+      await db()`
+        UPDATE suppliers SET name = ${name}, phone = ${phone}, cnpj = ${cnpj}, city = ${city}
+        WHERE id = ${id}
+      `;
+    } else {
+      await db()`
+        INSERT INTO suppliers (id, account_id, name, phone, cnpj, city)
+        VALUES (${randomUUID()}, ${user.accountId}, ${name}, ${phone}, ${cnpj}, ${city})
+      `;
+    }
+    return "/fornecedores?ok=salvo";
+  });
+}
+
+export async function deleteSupplier(formData: FormData) {
+  const user = await requireOperator();
+  const id = String(formData.get("id") ?? "");
+  return settle("/fornecedores", async () => {
+    if (!UUID.test(id)) throw new FormError("fora");
+    const owned = await db()`SELECT id FROM suppliers WHERE id = ${id} AND account_id = ${user.accountId}`;
+    if (!owned.length) throw new FormError("fora");
+    const used = await db()`
+      SELECT id FROM purchases WHERE supplier_id = ${id}
+      UNION ALL
+      SELECT id FROM products WHERE supplier_id = ${id}
+      UNION ALL
+      SELECT id FROM payables WHERE supplier_id = ${id}
+      LIMIT 1
+    `;
+    if (used.length) throw new FormError("fornecedor");
+    await db()`DELETE FROM supplier_labels WHERE supplier_id = ${id}`;
+    await db()`DELETE FROM suppliers WHERE id = ${id} AND account_id = ${user.accountId}`;
+    return "/fornecedores";
   });
 }

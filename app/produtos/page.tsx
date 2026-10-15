@@ -26,6 +26,9 @@ export default async function ProductsPage({
         <Link className="btn" href="/produtos/novo">
           Novo produto
         </Link>
+        <Link className="btn quiet" href="/fornecedores">
+          Fornecedores
+        </Link>
         <Link className="btn quiet" href="/produtos/compra">
           Compra por nota
         </Link>
@@ -42,6 +45,7 @@ export default async function ProductsPage({
               <tr>
                 <th>Nome</th>
                 <th>Categoria</th>
+                <th>Fornecedor</th>
                 <th>Saldo</th>
                 <th>Venda</th>
                 <th>Custo</th>
@@ -62,6 +66,7 @@ export default async function ProductsPage({
                       {low ? " · no mínimo" : ""}
                     </td>
                     <td>{product.category || "—"}</td>
+                    <td>{product.supplierName || "—"}</td>
                     <td className={low ? "warn" : undefined}>{product.balance}</td>
                     <td>{formatReais(product.salePriceCents)}</td>
                     <td>{formatReais(product.costCents)}</td>

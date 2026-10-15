@@ -8,6 +8,8 @@ export function BookForm({
   day,
   lockedProfessional,
   initialProfessional,
+  initialService = "",
+  initialClient = "",
   initialStart = "09:00",
   initialEncaixe = false,
   professionals,
@@ -17,14 +19,20 @@ export function BookForm({
   day: string;
   lockedProfessional: string | null;
   initialProfessional?: string;
+  initialService?: string;
+  initialClient?: string;
   initialStart?: string;
   initialEncaixe?: boolean;
   professionals: { id: string; name: string }[];
   services: { id: string; name: string; professionalIds: string[] }[];
   clients: { id: string; name: string }[];
 }) {
-  const [professional, setProfessional] = useState(lockedProfessional ?? initialProfessional ?? professionals[0]?.id ?? "");
+  const whoDoes = initialService
+    ? professionals.find((person) => services.some((service) => service.id === initialService && service.professionalIds.includes(person.id)))
+    : undefined;
+  const [professional, setProfessional] = useState(lockedProfessional ?? initialProfessional ?? whoDoes?.id ?? professionals[0]?.id ?? "");
   const offered = services.filter((service) => service.professionalIds.includes(professional));
+  const serviceValue = offered.some((service) => service.id === initialService) ? initialService : "";
 
   return (
     <form action={bookSlot}>
@@ -45,7 +53,7 @@ export function BookForm({
       )}
       <label>
         Serviço
-        <select name="service" required defaultValue="">
+        <select name="service" required defaultValue={serviceValue}>
           <option value="" disabled>
             Escolha
           </option>
@@ -59,7 +67,7 @@ export function BookForm({
       {offered.length === 0 ? <p>Esse profissional ainda não tem serviço na ficha.</p> : null}
       <label>
         Cliente
-        <select name="client" defaultValue="">
+        <select name="client" defaultValue={initialClient}>
           <option value="">Sem nome</option>
           {clients.map((person) => (
             <option key={person.id} value={person.id}>

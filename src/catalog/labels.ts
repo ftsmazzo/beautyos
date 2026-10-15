@@ -33,6 +33,8 @@ export const FORM_ERRORS: Record<string, string> = {
   papel: "Marque se vende ao cliente, se é insumo, ou os dois.",
   codigo: "Esse código de barras já está em outro produto.",
   barra: "Nenhum produto à venda com esse código.",
+  cnpj: "Já existe um fornecedor com esse CNPJ.",
+  fornecedor: "Esse fornecedor já está numa compra ou num produto.",
   ciclo: "Esse item já contém este produto.",
   igual: "A contagem fechou igual ao saldo.",
   estoque: "Revise a quantidade deste movimento.",

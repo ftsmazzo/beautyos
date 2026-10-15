@@ -361,6 +361,7 @@ export type ProductRow = {
   costCents: number;
   minQty: number;
   supplierId: string | null;
+  supplierName: string | null;
   staffPriceCents: number | null;
   balance: number;
 };
@@ -371,9 +372,10 @@ export async function listProducts(accountId: string) {
            p.sells_to_client AS "sellsToClient", p.is_supply AS "isSupply",
            p.sale_price_cents AS "salePriceCents", p.commission_percent AS "commissionPercent",
            p.cost_cents AS "costCents", p.min_qty AS "minQty",
-           p.supplier_id AS "supplierId", p.staff_price_cents AS "staffPriceCents",
+           p.supplier_id AS "supplierId", s.name AS "supplierName", p.staff_price_cents AS "staffPriceCents",
            COALESCE((SELECT SUM(m.qty) FROM stock_movements m WHERE m.product_id = p.id), 0)::int AS balance
     FROM products p
+    LEFT JOIN suppliers s ON s.id = p.supplier_id
     WHERE p.account_id = ${accountId}
     ORDER BY p.category NULLS LAST, p.name
   `;

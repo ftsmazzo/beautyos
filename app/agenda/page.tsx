@@ -28,10 +28,13 @@ const HOUR = 96;
 export default async function AgendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dia?: string; erro?: string }>;
+  searchParams: Promise<{ dia?: string; erro?: string; cliente?: string; servico?: string }>;
 }) {
   const user = await requireDesk();
   const query = await searchParams;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const bookClient = query.cliente && uuid.test(query.cliente) ? query.cliente : "";
+  const bookService = query.servico && uuid.test(query.servico) ? query.servico : "";
   const day = dayParam(query.dia);
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const roster = own || user.role !== "profissional" ? await dayRoster(user.accountId, own) : [];
@@ -86,10 +89,12 @@ export default async function AgendaPage({
           Hoje
         </Link>
         {bookable.length > 0 ? (
-          <Modal label="Novo horário" title="Novo horário" tone="blue">
+          <Modal label="Novo horário" title="Novo horário" tone="blue" startOpen={Boolean(bookClient && bookService)}>
             <BookForm
               day={day}
               lockedProfessional={own}
+              initialClient={bookClient}
+              initialService={bookService}
               professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
               services={services}
               clients={people.map((person) => ({ id: person.id, name: person.name }))}

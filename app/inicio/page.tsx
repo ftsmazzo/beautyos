@@ -72,7 +72,8 @@ export default async function StartPage({
               {lateClients.map((person) => (
                 <p key={`${person.id}-${person.serviceId}`}>
                   <Link href={`/clientes/${person.id}`}>{person.name}</Link>
-                  {` · ${formatPhone(person.phone)} · ${person.serviceName} · volta ${person.due} · há ${person.lateDays} ${person.lateDays === 1 ? "dia" : "dias"}`}
+                  {` · ${formatPhone(person.phone)} · ${person.serviceName} · volta ${person.due} · há ${person.lateDays} ${person.lateDays === 1 ? "dia" : "dias"} · `}
+                  <Link href={`/agenda?cliente=${person.id}&servico=${person.serviceId}`}>Agendar</Link>
                 </p>
               ))}
             </div>

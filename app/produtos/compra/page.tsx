@@ -38,7 +38,7 @@ export default async function PurchasePage({
         <>
           <p>Sem o papel na mão, a nota entra aqui. O mesmo número, no mesmo fornecedor, não entra de novo. A descrição da nota, uma vez confirmada, já escolhe o produto na próxima compra dele.</p>
           <PurchaseForm
-            products={products.map((product) => ({ id: product.id, name: product.name }))}
+            products={products.map((product) => ({ id: product.id, name: product.name, supplierId: product.supplierId }))}
             suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, city: supplier.city }))}
             banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
             cards={cards.map((card) => ({ id: card.id, name: card.name }))}

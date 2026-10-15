@@ -17,6 +17,7 @@ const CATALOG = [
   { href: "/profissionais", label: "Profissionais" },
   { href: "/clientes", label: "Clientes" },
   { href: "/produtos", label: "Produtos" },
+  { href: "/fornecedores", label: "Fornecedores" },
   { href: "/pacotes", label: "Pacotes" },
   { href: "/pacotes/vendidos", label: "Vendidos" },
   { href: "/pacotes/relatorio", label: "Relatório" },
@@ -48,7 +49,7 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/clientes") {
     return <svg {...common}><circle cx="9" cy="8" r="2.5" /><circle cx="16" cy="9" r="2" /><path d="M4.5 18c.8-2.4 2.4-3.5 4.5-3.5s3.7 1.1 4.5 3.5M14 14.5c1.6 0 3 .7 3.8 2.5" /></svg>;
   }
-  if (href === "/produtos") {
+  if (href === "/produtos" || href === "/fornecedores") {
     return <svg {...common}><path d="M3 8l9-4 9 4-9 4-9-4z" /><path d="M3 8v8l9 4 9-4V8" /><path d="M12 12v8" /></svg>;
   }
   if (href === "/pacotes" || href === "/pacotes/vendidos") {

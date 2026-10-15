@@ -13,7 +13,7 @@ export function PurchaseForm({
   aliases,
   today,
 }: {
-  products: { id: string; name: string }[];
+  products: { id: string; name: string; supplierId: string | null }[];
   suppliers: { id: string; name: string; city: string | null }[];
   banks: { id: string; name: string }[];
   cards: { id: string; name: string }[];
@@ -25,22 +25,43 @@ export function PurchaseForm({
   const [bill, setBill] = useState(false);
   const [paid, setPaid] = useState(false);
   const [method, setMethod] = useState("pix");
-  const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? "");
+  const [supplierId, setSupplierId] = useState("");
+  const [supplierTouched, setSupplierTouched] = useState(false);
   const [picked, setPicked] = useState<Record<number, string>>({});
   const known = aliases.filter((item) => item.supplierId === supplierId);
+
+  function fillSupplier(productId: string) {
+    if (supplierTouched || !productId) return;
+    const product = products.find((item) => item.id === productId);
+    if (product?.supplierId) setSupplierId(product.supplierId);
+  }
 
   function remember(row: number, raw: string) {
     const key = raw.trim().replace(/\s+/g, " ").toLowerCase();
     if (key.length < 2 || !supplierId) return;
     const hit = aliases.find((item) => item.supplierId === supplierId && item.label === key);
-    if (hit) setPicked((current) => ({ ...current, [row]: hit.productId }));
+    if (!hit) return;
+    setPicked((current) => ({ ...current, [row]: hit.productId }));
+    fillSupplier(hit.productId);
+  }
+
+  function chooseProduct(row: number, productId: string) {
+    setPicked((current) => ({ ...current, [row]: productId }));
+    fillSupplier(productId);
   }
 
   return (
     <form action={savePurchase}>
       <label>
         Fornecedor
-        <select name="supplier" value={supplierId} onChange={(event) => setSupplierId(event.target.value)}>
+        <select
+          name="supplier"
+          value={supplierId}
+          onChange={(event) => {
+            setSupplierTouched(true);
+            setSupplierId(event.target.value);
+          }}
+        >
           <option value="">Cadastrar agora</option>
           {suppliers.map((supplier) => (
             <option key={supplier.id} value={supplier.id}>
@@ -94,7 +115,7 @@ export function PurchaseForm({
             <select
               name="product"
               value={picked[row] ?? ""}
-              onChange={(event) => setPicked((current) => ({ ...current, [row]: event.target.value }))}
+              onChange={(event) => chooseProduct(row, event.target.value)}
             >
               <option value="">Não incluir</option>
               {products.map((product) => (
