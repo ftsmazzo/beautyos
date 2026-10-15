@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { formatReais } from "@/catalog/format";
 import { db } from "@/db/client";
+import { shiftDay } from "@/desk/clock";
 import { chargedServicePrice } from "@/desk/pricing";
 import { restampOrder } from "@/desk/referral";
 
@@ -114,6 +115,45 @@ export async function birthdaysOn(accountId: string, day: string) {
     `,
   ]);
   return { clients, professionals };
+}
+
+export async function birthdaysAhead(accountId: string, fromDay: string, span = 14) {
+  const [clients, professionals] = await Promise.all([
+    db()<{ id: string; name: string; phone: string; month: number; date: number; year: number }[]>`
+      SELECT id, name, phone,
+             EXTRACT(MONTH FROM birth_date)::int AS month,
+             EXTRACT(DAY FROM birth_date)::int AS date,
+             EXTRACT(YEAR FROM birth_date)::int AS year
+      FROM clients
+      WHERE account_id = ${accountId} AND active AND birth_date IS NOT NULL
+    `,
+    db()<{ id: string; name: string; phone: string | null; month: number; date: number; year: number }[]>`
+      SELECT id, COALESCE(nickname, name) AS name, phone,
+             EXTRACT(MONTH FROM birth_date)::int AS month,
+             EXTRACT(DAY FROM birth_date)::int AS date,
+             EXTRACT(YEAR FROM birth_date)::int AS year
+      FROM professionals
+      WHERE account_id = ${accountId} AND active AND birth_date IS NOT NULL
+    `,
+  ]);
+  const rows: { day: string; kind: "cliente" | "equipe"; id: string; name: string; phone: string | null; turning: number }[] = [];
+  for (let step = 0; step < span; step++) {
+    const day = shiftDay(fromDay, step);
+    const month = Number(day.slice(5, 7));
+    const date = Number(day.slice(8, 10));
+    const year = Number(day.slice(0, 4));
+    for (const person of clients) {
+      if (person.month === month && person.date === date) {
+        rows.push({ day, kind: "cliente", id: person.id, name: person.name, phone: person.phone, turning: year - person.year });
+      }
+    }
+    for (const person of professionals) {
+      if (person.month === month && person.date === date) {
+        rows.push({ day, kind: "equipe", id: person.id, name: person.name, phone: person.phone, turning: year - person.year });
+      }
+    }
+  }
+  return rows;
 }
 
 export async function openPriceNotices(accountId: string) {

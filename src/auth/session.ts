@@ -31,6 +31,7 @@ export async function currentUser(): Promise<SessionUser | null> {
     JOIN accounts a ON a.id = u.account_id
     WHERE s.id = ${cookie}
       AND s.expires_at > now()
+      AND u.active
     LIMIT 1
   `;
   return rows[0] ?? null;

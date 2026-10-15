@@ -3,6 +3,7 @@ import { requireOperator } from "@/catalog/access";
 import { centsToInput } from "@/catalog/format";
 import { getProfessional, listHours, listProServices, listServices, loginOptions } from "@/catalog/queries";
 import { deleteProfessional, saveProfessional } from "@/catalog/professional-actions";
+import { setAccessActive, setAccessPassword } from "@/auth/actions";
 import { db } from "@/db/client";
 import { ErrorNote } from "@/ui/error-note";
 import { HoursGrid } from "@/ui/hours-grid";
@@ -57,6 +58,13 @@ export default async function ProfessionalFormPage({
         LIMIT 1
       `
     : [];
+  const linkedLogin = person?.userId
+    ? (
+        await db()<{ email: string; role: string; active: boolean }[]>`
+          SELECT email, role, active FROM users WHERE id = ${person.userId} AND account_id = ${user.accountId}
+        `
+      )[0] ?? null
+    : null;
 
   return (
     <Panel user={user} current="/profissionais" title={person ? person.name : "Novo profissional"}>
@@ -116,7 +124,23 @@ export default async function ProfessionalFormPage({
             ))}
           </select>
         </label>
-        <p>O acesso de profissional nasce em Acesso. Aqui só se liga a ficha.</p>
+        <p>Sem login a ficha continua. Ligar usa um acesso de profissional que já existe. Desativar o login não apaga a ficha.</p>
+        {user.role === "administrador" && !person?.userId ? (
+          <>
+            <h2>Criar login</h2>
+            <p>Nasce com papel de profissional. Se ficar em branco, a ficha continua sem acesso.</p>
+            <div className="split">
+              <label>
+                E-mail do acesso
+                <input name="login_email" type="email" autoComplete="off" />
+              </label>
+              <label>
+                Senha inicial
+                <input name="login_password" type="password" minLength={8} autoComplete="new-password" />
+              </label>
+            </div>
+          </>
+        ) : null}
         <h2>Serviços</h2>
         <p>A célula mostra o número que vale. Padrão segue o serviço e acompanha o catálogo. Mudar grava o ajuste. Limpar volta ao padrão. No pacote, o preço interno manda e esta comissão continua.</p>
         <RosterShortcut checkName="does" />
@@ -192,6 +216,37 @@ export default async function ProfessionalFormPage({
         <HoursGrid prefix="o" values={hourValues(hours, true)} />
         <SubmitButton label="Salvar profissional" />
       </form>
+      {user.role === "administrador" && person?.userId && linkedLogin ? (
+        <div className="card">
+          <h2>Login desta ficha</h2>
+          <p>
+            {linkedLogin.email} · {linkedLogin.role === "profissional" ? "Profissional" : linkedLogin.role} · {linkedLogin.active ? "ativo" : "desativado"}
+          </p>
+          <form action={setAccessPassword} className="row">
+            <input type="hidden" name="id" value={person.userId} />
+            <input type="hidden" name="back" value="ficha" />
+            <input type="hidden" name="professional" value={person.id} />
+            <label>
+              Nova senha
+              <input name="password" type="password" required minLength={8} autoComplete="new-password" />
+            </label>
+            <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
+          </form>
+          {person.userId === user.id ? <p>O próprio acesso não se desativa por aqui.</p> : (
+            <form action={setAccessActive}>
+              <input type="hidden" name="id" value={person.userId} />
+              <input type="hidden" name="back" value="ficha" />
+              <input type="hidden" name="professional" value={person.id} />
+              <input type="hidden" name="active" value={linkedLogin.active ? "0" : "1"} />
+              <SubmitButton
+                label={linkedLogin.active ? "Desativar login" : "Reativar login"}
+                pendingLabel="Salvando…"
+                className="quiet"
+              />
+            </form>
+          )}
+        </div>
+      ) : null}
       {person && used.length === 0 ? (
         <form action={deleteProfessional}>
           <input type="hidden" name="id" value={person.id} />

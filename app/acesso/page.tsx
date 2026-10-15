@@ -1,18 +1,12 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createAccess } from "@/auth/actions";
+import { createAccess, setAccessActive, setAccessPassword, setAccessRole } from "@/auth/actions";
 import { currentUser } from "@/auth/session";
 import { databaseReady, db } from "@/db/client";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
-
-const ROLE_LABEL: Record<string, string> = {
-  balcao: "Balcão",
-  administrador: "Administrador",
-  profissional: "Profissional",
-  cliente: "Cliente",
-};
 
 export default async function AccessPage({
   searchParams,
@@ -25,40 +19,73 @@ export default async function AccessPage({
 
   await databaseReady();
   const people = await db()<
-    { id: string; name: string; email: string; role: string }[]
+    { id: string; name: string; email: string; role: string; active: boolean; professionalId: string | null; professionalName: string | null }[]
   >`
-    SELECT id, name, email, role
-    FROM users
-    WHERE account_id = ${user.accountId}
-    ORDER BY name
+    SELECT u.id, u.name, u.email, u.role, u.active,
+           p.id AS "professionalId", p.name AS "professionalName"
+    FROM users u
+    LEFT JOIN professionals p ON p.user_id = u.id AND p.account_id = u.account_id
+    WHERE u.account_id = ${user.accountId}
+    ORDER BY u.name
   `;
   const params = await searchParams;
 
   return (
     <Panel user={user} current="/acesso" title="Equipe de acesso">
-      <p>Quem entra nesta casa, e com qual papel.</p>
+      <p>Quem entra nesta casa, e com qual papel. Desativar tira o acesso e as sessões. A ficha do profissional continua.</p>
       {params.erro === "email" ? <p className="error">Esse e-mail já existe nesta casa.</p> : null}
       {params.erro === "dados" ? <p className="error">Revise nome, e-mail, senha e papel.</p> : null}
-      <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>E-mail</th>
-              <th>Papel</th>
-            </tr>
-          </thead>
-          <tbody>
-            {people.map((person) => (
-              <tr key={person.id}>
-                <td>{person.name}</td>
-                <td>{person.email}</td>
-                <td>{ROLE_LABEL[person.role] ?? person.role}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {params.erro === "proprio" ? <p className="error">Você não desativa o próprio acesso.</p> : null}
+      {params.erro === "ultimo" ? <p className="error">A casa precisa de um administrador ativo.</p> : null}
+      {people.map((person) => (
+        <div className="card" key={person.id}>
+          <p>
+            <strong>{person.name}</strong>
+            {` · ${person.email} · ${person.active ? "ativo" : "desativado"}`}
+          </p>
+          <p>
+            {person.professionalId ? (
+              <>
+                Ficha · <Link href={`/profissionais/${person.professionalId}`}>{person.professionalName}</Link>
+              </>
+            ) : (
+              "Sem ficha de profissional."
+            )}
+          </p>
+          <form action={setAccessRole} className="row">
+            <input type="hidden" name="id" value={person.id} />
+            <label>
+              Papel
+              <select name="role" defaultValue={person.role}>
+                <option value="balcao">Balcão</option>
+                <option value="administrador">Administrador</option>
+                <option value="profissional">Profissional</option>
+                <option value="cliente">Cliente</option>
+              </select>
+            </label>
+            <SubmitButton label="Salvar papel" pendingLabel="Salvando…" />
+          </form>
+          <form action={setAccessPassword} className="row">
+            <input type="hidden" name="id" value={person.id} />
+            <label>
+              Nova senha
+              <input name="password" type="password" required minLength={8} autoComplete="new-password" />
+            </label>
+            <SubmitButton label="Trocar senha" pendingLabel="Trocando…" className="quiet" />
+          </form>
+          {person.id === user.id ? <p>Este é o seu acesso.</p> : (
+            <form action={setAccessActive}>
+              <input type="hidden" name="id" value={person.id} />
+              <input type="hidden" name="active" value={person.active ? "0" : "1"} />
+              <SubmitButton
+                label={person.active ? "Desativar login" : "Reativar login"}
+                pendingLabel="Salvando…"
+                className="quiet"
+              />
+            </form>
+          )}
+        </div>
+      ))}
       <form action={createAccess}>
         <label>
           Nome

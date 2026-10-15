@@ -2,8 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
-import { applyDuePrices, birthdaysOn, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
-import { formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
+import { applyDuePrices, birthdaysAhead, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
+import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { latePackageVisits, linkedProfessional, overdueReturns, ownCommission } from "@/desk/queries";
 import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
@@ -25,7 +25,8 @@ export default async function StartPage({
   const notices = operator ? await openPriceNotices(user.accountId) : [];
   const counts = operator ? await catalogCounts(user.accountId) : null;
   const rules = user.role === "administrador" ? await houseRules(user.accountId) : null;
-  const birthdays = user.role === "cliente" ? null : await birthdaysOn(user.accountId, todaySaoPaulo());
+  const today = todaySaoPaulo();
+  const birthdays = user.role === "cliente" ? null : await birthdaysAhead(user.accountId, today);
   const lateVisits = operator ? await latePackageVisits(user.accountId) : [];
   const lateClients = operator ? await overdueReturns(user.accountId, todaySaoPaulo()) : [];
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
@@ -38,15 +39,21 @@ export default async function StartPage({
       {birthdays ? (
         <div className="card">
           <h2>Aniversário</h2>
-          {birthdays.clients.length + birthdays.professionals.length === 0 ? <p>Nenhum hoje.</p> : null}
-          {birthdays.clients.map((person) => (
-            <p key={person.id}>
-              Cliente · <Link href={`/clientes/${person.id}`}>{person.name}</Link>
-            </p>
-          ))}
-          {birthdays.professionals.map((person) => (
-            <p key={person.id}>
-              Equipe · <Link href={`/profissionais/${person.id}`}>{person.name}</Link>
+          <p>Os próximos 14 dias. Quem faz anos hoje também aparece na agenda.</p>
+          {birthdays.length === 0 ? <p>Nenhum nestes dias.</p> : null}
+          {birthdays.map((person) => (
+            <p key={`${person.kind}-${person.id}-${person.day}`}>
+              {person.day === today ? "Hoje" : formatDay(person.day)}
+              {" · "}
+              {person.kind === "cliente" ? "Cliente" : "Equipe"}
+              {" · "}
+              {operator ? (
+                <Link href={person.kind === "cliente" ? `/clientes/${person.id}` : `/profissionais/${person.id}`}>{person.name}</Link>
+              ) : (
+                person.name
+              )}
+              {person.turning > 0 && person.turning < 120 ? ` · faz ${person.turning}` : ""}
+              {person.phone ? ` · ${formatPhone(person.phone)}` : ""}
             </p>
           ))}
         </div>

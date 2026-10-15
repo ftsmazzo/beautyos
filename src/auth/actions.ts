@@ -50,6 +50,7 @@ export async function login(formData: FormData) {
     SELECT id, password_hash AS "passwordHash"
     FROM users
     WHERE lower(email) = ${email}
+      AND active
   `;
   const match = rows.find((row) => verifyPassword(password, row.passwordHash));
   if (!match) {
@@ -86,4 +87,84 @@ export async function createAccess(formData: FormData) {
     redirect("/acesso?erro=email");
   }
   redirect("/acesso");
+}
+
+function accessBack(formData: FormData) {
+  const professional = String(formData.get("professional") ?? "");
+  if (formData.get("back") === "ficha" && /^[0-9a-f-]{36}$/i.test(professional)) {
+    return `/profissionais/${professional}`;
+  }
+  return "/acesso";
+}
+
+async function requireAdminUser() {
+  const user = await currentUser();
+  if (!user || user.role !== "administrador") redirect("/inicio");
+  return user;
+}
+
+async function otherActiveAdmin(accountId: string, userId: string) {
+  const rows = await db()`
+    SELECT id FROM users
+    WHERE account_id = ${accountId} AND role = 'administrador' AND active AND id <> ${userId}
+    LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
+export async function setAccessActive(formData: FormData) {
+  const user = await requireAdminUser();
+  const id = String(formData.get("id") ?? "");
+  const active = formData.get("active") === "1";
+  const back = accessBack(formData);
+  if (!active && id === user.id) redirect(`${back}${back.includes("?") ? "&" : "?"}erro=proprio`);
+  await databaseReady();
+  const rows = await db()<{ role: string }[]>`
+    SELECT role FROM users WHERE id = ${id} AND account_id = ${user.accountId}
+  `;
+  if (!rows[0]) redirect(`${back}?erro=dados`);
+  if (!active && rows[0].role === "administrador" && !(await otherActiveAdmin(user.accountId, id))) {
+    redirect(`${back}?erro=ultimo`);
+  }
+  await db()`UPDATE users SET active = ${active} WHERE id = ${id} AND account_id = ${user.accountId}`;
+  if (!active) await db()`DELETE FROM sessions WHERE user_id = ${id}`;
+  redirect(back);
+}
+
+export async function setAccessRole(formData: FormData) {
+  const user = await requireAdminUser();
+  const id = String(formData.get("id") ?? "");
+  const role = String(formData.get("role") ?? "");
+  const back = accessBack(formData);
+  if (!ROLES.includes(role as (typeof ROLES)[number])) redirect(`${back}?erro=dados`);
+  await databaseReady();
+  const rows = await db()<{ role: string }[]>`
+    SELECT role FROM users WHERE id = ${id} AND account_id = ${user.accountId}
+  `;
+  if (!rows[0]) redirect(`${back}?erro=dados`);
+  if (rows[0].role === "administrador" && role !== "administrador" && !(await otherActiveAdmin(user.accountId, id))) {
+    redirect(`${back}?erro=ultimo`);
+  }
+  await db()`UPDATE users SET role = ${role} WHERE id = ${id} AND account_id = ${user.accountId}`;
+  if (role !== "profissional") {
+    await db()`UPDATE professionals SET user_id = NULL WHERE user_id = ${id} AND account_id = ${user.accountId}`;
+  }
+  redirect(back);
+}
+
+export async function setAccessPassword(formData: FormData) {
+  const user = await requireAdminUser();
+  const id = String(formData.get("id") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const back = accessBack(formData);
+  if (password.length < 8) redirect(`${back}?erro=dados`);
+  await databaseReady();
+  const rows = await db()`SELECT id FROM users WHERE id = ${id} AND account_id = ${user.accountId}`;
+  if (!rows.length) redirect(`${back}?erro=dados`);
+  await db()`
+    UPDATE users SET password_hash = ${hashPassword(password)}
+    WHERE id = ${id} AND account_id = ${user.accountId}
+  `;
+  if (id !== user.id) await db()`DELETE FROM sessions WHERE user_id = ${id}`;
+  redirect(back);
 }

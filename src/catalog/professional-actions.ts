@@ -6,6 +6,7 @@ import { FormError } from "@/catalog/errors";
 import { checked, digits, parseIntField, parsePercent, parseReais, textOrNull } from "@/catalog/format";
 import { readHours } from "@/catalog/hours";
 import { settle } from "@/catalog/settle";
+import { hashPassword } from "@/auth/password";
 import { db } from "@/db/client";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -54,10 +55,29 @@ export async function saveProfessional(formData: FormData) {
       } else {
         professionalId = randomUUID();
       }
-      if (loginId) {
+      const loginEmail = String(formData.get("login_email") ?? "").trim().toLowerCase();
+      const loginPassword = String(formData.get("login_password") ?? "");
+      let createdLogin: string | null = null;
+      if (loginEmail || loginPassword) {
+        if (user.role !== "administrador" || loginId) throw new FormError("login");
+        if (!loginEmail.includes("@") || loginPassword.length < 8) throw new FormError("dados");
+        const takenEmail = await tx`
+          SELECT id FROM users WHERE account_id = ${user.accountId} AND lower(email) = ${loginEmail}
+        `;
+        if (takenEmail.length) throw new FormError("email");
+        createdLogin = randomUUID();
+        await tx`
+          INSERT INTO users (id, account_id, name, email, password_hash, role)
+          VALUES (${createdLogin}, ${user.accountId}, ${name}, ${loginEmail}, ${hashPassword(loginPassword)}, 'profissional')
+        `;
+      } else if (loginId) {
         const allowed = await tx`
           SELECT id FROM users
           WHERE id = ${loginId} AND account_id = ${user.accountId} AND role = 'profissional'
+            AND (
+              active
+              OR EXISTS (SELECT 1 FROM professionals WHERE id = ${professionalId} AND user_id = ${loginId})
+            )
         `;
         const taken = await tx`
           SELECT id FROM professionals WHERE user_id = ${loginId} AND id <> ${professionalId}
@@ -75,7 +95,7 @@ export async function saveProfessional(formData: FormData) {
         bookable: checked(formData, "bookable"),
         color,
         birth: birth || null,
-        login: loginId || null,
+        login: createdLogin || loginId || null,
       };
 
       if (existingId) {

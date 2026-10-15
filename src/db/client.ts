@@ -56,6 +56,7 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS users_email_idx ON users (lower(email))`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true`;
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (
       id text PRIMARY KEY,
