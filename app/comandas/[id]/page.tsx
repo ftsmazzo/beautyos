@@ -18,6 +18,7 @@ import {
   addVisitNote,
   deleteVisitNote,
   attachClient,
+  changeClient,
   closeOrder,
   reopenOrder,
   removePayment,
@@ -58,7 +59,10 @@ export default async function OrderPage({
   const open = order.status === "aberta";
   const total = order.lines.reduce((sum, line) => sum + line.priceCents, 0);
   const paid = order.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
-  const people = order.incomplete ? await clientOptions(user.accountId) : [];
+  const people =
+    order.incomplete || (operator && open && order.kind === "cliente" && order.clientId)
+      ? await clientOptions(user.accountId)
+      : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
   const banks = operator && open && order.kind === "cliente" ? await listBanks(user.accountId) : [];
   const roster = order.kind === "cliente" || order.kind === "consumo" ? await dayRoster(user.accountId, null) : [];
@@ -125,6 +129,28 @@ export default async function OrderPage({
               className="amber"
             />
           </form>
+        ) : null}
+        {operator && open && order.kind === "cliente" && order.clientId && !order.incomplete ? (
+          <Modal label="Trocar cliente" title="Trocar cliente" tone="navy">
+            <form action={changeClient}>
+              <input type="hidden" name="order" value={order.id} />
+              <label>
+                Cliente
+                <select name="client" required defaultValue="">
+                  <option value="">Escolha</option>
+                  {people
+                    .filter((person) => person.id !== order.clientId)
+                    .map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <p>A mesma comanda e os mesmos horários. O log guarda quem era e quem ficou.</p>
+              <SubmitButton label="Trocar" pendingLabel="Trocando…" />
+            </form>
+          </Modal>
         ) : null}
       </div>
 
@@ -207,7 +233,10 @@ export default async function OrderPage({
                       ))}
                   </td>
                   <td>{line.professionalName ?? "—"}</td>
-                  <td>{line.start && line.end ? `${line.start}–${line.end}` : "—"}</td>
+                  <td>
+                    {line.start && line.end ? `${line.start}–${line.end}` : "—"}
+                    {line.waitMin == null ? "" : ` · esperou ${line.waitMin} min`}
+                  </td>
                   <td>
                     {operator && open && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (
                       <form action={adjustLinePrice} className="price-field">

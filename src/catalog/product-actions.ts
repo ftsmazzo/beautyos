@@ -6,6 +6,10 @@ import { FormError } from "@/catalog/errors";
 import { checked, digits, parseIntField, parsePercent, parseReais, textOrNull } from "@/catalog/format";
 
 const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
+
+function labelKey(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
 import { dayParam, shiftMonth } from "@/desk/clock";
@@ -241,7 +245,8 @@ export async function savePurchase(formData: FormData) {
     const productIds = formData.getAll("product").map(String);
     const qtys = formData.getAll("qty").map(String);
     const costs = formData.getAll("cost").map(String);
-    const lines: { productId: string; qty: number; costCents: number }[] = [];
+    const labels = formData.getAll("label").map(String);
+    const lines: { productId: string; qty: number; costCents: number; label: string }[] = [];
     const seen = new Set<string>();
     for (let index = 0; index < productIds.length; index += 1) {
       const productId = productIds[index];
@@ -251,7 +256,7 @@ export async function savePurchase(formData: FormData) {
       const qty = parseIntField(qtys[index] ?? null);
       const costCents = parseReais(costs[index] ?? "");
       if (qty == null || qty < 1 || costCents == null) throw new FormError("estoque");
-      lines.push({ productId, qty, costCents });
+      lines.push({ productId, qty, costCents, label: labelKey(labels[index] ?? "") });
     }
     if (document.length < 1 || lines.length === 0) throw new FormError("dados");
     const bill = checked(formData, "bill");
@@ -351,6 +356,13 @@ export async function savePurchase(formData: FormData) {
           SET cost_cents = ${line.costCents}, supplier_id = ${supplierId}
           WHERE id = ${line.productId} AND account_id = ${user.accountId}
         `;
+        if (line.label.length >= 2) {
+          await tx`
+            INSERT INTO supplier_labels (id, account_id, supplier_id, label, product_id)
+            VALUES (${randomUUID()}, ${user.accountId}, ${supplierId}, ${line.label}, ${line.productId})
+            ON CONFLICT (supplier_id, label) DO UPDATE SET product_id = EXCLUDED.product_id
+          `;
+        }
       }
       if (bill && times != null) {
         if (bankId) {

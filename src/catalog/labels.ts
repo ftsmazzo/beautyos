@@ -60,6 +60,8 @@ export const FORM_ERRORS: Record<string, string> = {
   pagamento: "Os pagamentos ainda não cobrem o total.",
   falta: "Todo serviço precisa de profissional e de horário na agenda para fechar.",
   cliente: "Escolha um cliente desta casa.",
+  dia: "Esse cliente já tem comanda neste dia.",
+  troca: "Com pacote vendido ou usado, a comanda fica com o mesmo cliente.",
   servico: "Esse profissional não faz este serviço.",
   mesmo: "Quem executa o serviço não pode ser quem recebe.",
   pessoa: "Esse profissional já entrou na agenda ou numa comanda.",

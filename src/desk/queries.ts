@@ -63,13 +63,19 @@ export async function dayAppointments(accountId: string, day: string) {
     status: string;
     encaixe: boolean;
     kind: string;
+    waitMin: number | null;
   }[]>`
     SELECT a.id, a.professional_id AS "professionalId", a.client_id AS "clientId",
            c.name AS "clientName", c.phone, COALESCE(c.from_outside, false) AS "fromOutside",
            s.name AS "serviceName", a.order_id AS "orderId",
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
            to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end",
-           a.status, a.encaixe, a.kind
+           a.status, a.encaixe, a.kind,
+           CASE
+             WHEN a.arrived_at IS NOT NULL AND a.started_at IS NOT NULL
+             THEN GREATEST(0, floor(extract(epoch FROM (a.started_at - a.arrived_at)) / 60))::int
+             ELSE NULL
+           END AS "waitMin"
     FROM appointments a
     LEFT JOIN clients c ON c.id = a.client_id
     LEFT JOIN services s ON s.id = a.service_id
@@ -221,6 +227,7 @@ export async function getOrder(accountId: string, id: string) {
     end: string | null;
     appointmentStatus: string | null;
     encaixe: boolean;
+    waitMin: number | null;
   }[]>`
     SELECT l.id, l.kind, l.description, l.qty, l.price_cents AS "priceCents",
            l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
@@ -231,7 +238,12 @@ export async function getOrder(accountId: string, id: string) {
            p.name AS "professionalName",
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
            to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end",
-           a.status AS "appointmentStatus", COALESCE(a.encaixe, false) AS encaixe
+           a.status AS "appointmentStatus", COALESCE(a.encaixe, false) AS encaixe,
+           CASE
+             WHEN a.arrived_at IS NOT NULL AND a.started_at IS NOT NULL
+             THEN GREATEST(0, floor(extract(epoch FROM (a.started_at - a.arrived_at)) / 60))::int
+             ELSE NULL
+           END AS "waitMin"
     FROM order_lines l
     LEFT JOIN professionals p ON p.id = l.professional_id
     LEFT JOIN appointments a ON a.id = l.appointment_id
@@ -418,6 +430,46 @@ export async function latePackageVisits(accountId: string) {
       AND cp.valid_until IS NOT NULL
       AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
     ORDER BY a.starts_at, c.name
+  `;
+}
+
+export async function overdueReturns(accountId: string, day: string) {
+  return db()<{
+    id: string;
+    name: string;
+    phone: string;
+    serviceName: string;
+    due: string;
+    lateDays: number;
+  }[]>`
+    SELECT c.id, c.name, c.phone, s.name AS "serviceName",
+           to_char(last.day + s.return_days, 'DD/MM/YYYY') AS due,
+           (${day}::date - (last.day + s.return_days))::int AS "lateDays"
+    FROM clients c
+    JOIN LATERAL (
+      SELECT (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date AS day, a.service_id
+      FROM appointments a
+      WHERE a.client_id = c.id
+        AND a.account_id = c.account_id
+        AND a.kind = 'horario'
+        AND a.status = 'realizado'
+      ORDER BY a.starts_at DESC
+      LIMIT 1
+    ) last ON true
+    JOIN services s ON s.id = last.service_id AND s.return_days IS NOT NULL
+    WHERE c.account_id = ${accountId}
+      AND c.active
+      AND NOT c.from_outside
+      AND (last.day + s.return_days) < ${day}::date
+      AND NOT EXISTS (
+        SELECT 1 FROM appointments n
+        WHERE n.client_id = c.id
+          AND n.account_id = c.account_id
+          AND n.kind = 'horario'
+          AND n.status <> 'cancelado'
+          AND (n.starts_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${day}::date
+      )
+    ORDER BY last.day + s.return_days, c.name
   `;
 }
 

@@ -223,6 +223,17 @@ async function ensureSchema() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS supplier_labels (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      supplier_id uuid NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+      label text NOT NULL,
+      product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      UNIQUE (supplier_id, label)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS supplier_labels_account_idx ON supplier_labels (account_id, supplier_id)`;
+  await sql`
     CREATE TABLE IF NOT EXISTS payables (
       id uuid PRIMARY KEY,
       account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -482,6 +493,8 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS appointments_pro_start_idx ON appointments (professional_id, starts_at)`;
+  await sql`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS arrived_at timestamptz`;
+  await sql`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS started_at timestamptz`;
   await sql`
     CREATE TABLE IF NOT EXISTS visit_notes (
       id uuid PRIMARY KEY,
@@ -574,6 +587,8 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS order_events_order_idx ON order_events (order_id, created_at)`;
+  await sql`ALTER TABLE order_events DROP CONSTRAINT IF EXISTS order_events_kind_check`;
+  await sql`ALTER TABLE order_events ADD CONSTRAINT order_events_kind_check CHECK (kind IN ('valor', 'cancelamento', 'cliente'))`;
   await sql`
     CREATE TABLE IF NOT EXISTS client_packages (
       id uuid PRIMARY KEY,

@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
 import { applyDuePrices, birthdaysOn, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
-import { formatReais, todaySaoPaulo } from "@/catalog/format";
-import { latePackageVisits, linkedProfessional, ownCommission } from "@/desk/queries";
+import { formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
+import { latePackageVisits, linkedProfessional, overdueReturns, ownCommission } from "@/desk/queries";
 import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
@@ -27,6 +27,7 @@ export default async function StartPage({
   const rules = user.role === "administrador" ? await houseRules(user.accountId) : null;
   const birthdays = user.role === "cliente" ? null : await birthdaysOn(user.accountId, todaySaoPaulo());
   const lateVisits = operator ? await latePackageVisits(user.accountId) : [];
+  const lateClients = operator ? await overdueReturns(user.accountId, todaySaoPaulo()) : [];
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const mine = own ? await ownCommission(user.accountId, own, todaySaoPaulo()) : null;
 
@@ -60,6 +61,18 @@ export default async function StartPage({
                 <p key={visit.creditId}>
                   <Link href={`/pacotes/vendidos/${visit.packageId}`}>{visit.clientName}</Link>
                   {` · ${visit.packageName} · ida ${visit.when} · ${visit.professional}`}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          {lateClients.length > 0 ? (
+            <div className="card">
+              <h2>Passou da volta</h2>
+              <p>Quem já deveria ter voltado e ainda não tem horário. Cliente de fora fica fora desta lista.</p>
+              {lateClients.map((person) => (
+                <p key={person.id}>
+                  <Link href={`/clientes/${person.id}`}>{person.name}</Link>
+                  {` · ${formatPhone(person.phone)} · ${person.serviceName} · volta ${person.due} · há ${person.lateDays} ${person.lateDays === 1 ? "dia" : "dias"}`}
                 </p>
               ))}
             </div>

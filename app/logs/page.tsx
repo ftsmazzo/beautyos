@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const KIND_WORD: Record<string, string> = {
   valor: "Valor",
   cancelamento: "Cancelamento",
+  cliente: "Cliente",
 };
 
 export default async function LogsPage({
@@ -38,7 +39,7 @@ export default async function LogsPage({
       </div>
       <div className="card">
         <h2>Registro do dia</h2>
-        <p>Preço alterado, cortesia e cancelamento. Cada linha guarda quem fez e o que mudou.</p>
+        <p>Preço alterado, troca de cliente, cortesia e cancelamento. Cada linha guarda quem fez e o que mudou.</p>
         {logs.length === 0 ? <p>Nenhum registro neste dia.</p> : null}
         {logs.length > 0 ? (
           <table>

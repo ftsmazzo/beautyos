@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
-import { listProducts, listPurchases, listSuppliers } from "@/catalog/queries";
+import { listProducts, listPurchases, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
@@ -22,6 +22,7 @@ export default async function PurchasePage({
   const cards = await listCards(user.accountId);
   const charts = await listChart(user.accountId);
   const purchases = await listPurchases(user.accountId);
+  const aliases = await listSupplierLabels(user.accountId);
 
   return (
     <Panel user={user} current="/produtos" title="Compra por nota">
@@ -35,13 +36,14 @@ export default async function PurchasePage({
       {products.length === 0 ? <p>Cadastre um produto antes de lançar a nota.</p> : null}
       {products.length > 0 ? (
         <>
-          <p>Sem o papel na mão, a nota entra aqui. O mesmo número, no mesmo fornecedor, não entra de novo.</p>
+          <p>Sem o papel na mão, a nota entra aqui. O mesmo número, no mesmo fornecedor, não entra de novo. A descrição da nota, uma vez confirmada, já escolhe o produto na próxima compra dele.</p>
           <PurchaseForm
             products={products.map((product) => ({ id: product.id, name: product.name }))}
             suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, city: supplier.city }))}
             banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
             cards={cards.map((card) => ({ id: card.id, name: card.name }))}
             charts={charts.map((chart) => ({ id: chart.id, code: chart.code, name: chart.name }))}
+            aliases={aliases}
             today={todaySaoPaulo()}
           />
         </>

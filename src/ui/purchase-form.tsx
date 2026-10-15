@@ -10,6 +10,7 @@ export function PurchaseForm({
   banks,
   cards,
   charts,
+  aliases,
   today,
 }: {
   products: { id: string; name: string }[];
@@ -17,18 +18,29 @@ export function PurchaseForm({
   banks: { id: string; name: string }[];
   cards: { id: string; name: string }[];
   charts: { id: string; code: string; name: string }[];
+  aliases: { supplierId: string; label: string; productId: string; productName: string }[];
   today: string;
 }) {
   const [rows, setRows] = useState([0]);
   const [bill, setBill] = useState(false);
   const [paid, setPaid] = useState(false);
   const [method, setMethod] = useState("pix");
+  const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? "");
+  const [picked, setPicked] = useState<Record<number, string>>({});
+  const known = aliases.filter((item) => item.supplierId === supplierId);
+
+  function remember(row: number, raw: string) {
+    const key = raw.trim().replace(/\s+/g, " ").toLowerCase();
+    if (key.length < 2 || !supplierId) return;
+    const hit = aliases.find((item) => item.supplierId === supplierId && item.label === key);
+    if (hit) setPicked((current) => ({ ...current, [row]: hit.productId }));
+  }
 
   return (
     <form action={savePurchase}>
       <label>
         Fornecedor
-        <select name="supplier" defaultValue={suppliers[0]?.id ?? ""}>
+        <select name="supplier" value={supplierId} onChange={(event) => setSupplierId(event.target.value)}>
           <option value="">Cadastrar agora</option>
           {suppliers.map((supplier) => (
             <option key={supplier.id} value={supplier.id}>
@@ -66,11 +78,24 @@ export function PurchaseForm({
           <input type="date" name="day" required defaultValue={today} />
         </label>
       </div>
+      {known.length > 0 ? (
+        <p>
+          Este fornecedor já usou: {known.map((item) => `${item.label} → ${item.productName}`).join(" · ")}
+        </p>
+      ) : null}
       {rows.map((row) => (
         <div className="split" key={row}>
           <label>
+            Como veio na nota
+            <input name="label" onChange={(event) => remember(row, event.target.value)} />
+          </label>
+          <label>
             Produto
-            <select name="product" defaultValue="">
+            <select
+              name="product"
+              value={picked[row] ?? ""}
+              onChange={(event) => setPicked((current) => ({ ...current, [row]: event.target.value }))}
+            >
               <option value="">Não incluir</option>
               {products.map((product) => (
                 <option key={product.id} value={product.id}>

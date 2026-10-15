@@ -263,7 +263,9 @@ export default async function AgendaPage({
                           style={style}
                         >
                           <strong>{title}</strong>
-                          <span className="slot-meta">{[phone, when].filter(Boolean).join(" · ")}</span>
+                          <span className="slot-meta">
+                            {[phone, when, item.waitMin == null ? "" : `esperou ${item.waitMin} min`].filter(Boolean).join(" · ")}
+                          </span>
                           {item.serviceName ? <span className="slot-service">{item.serviceName}</span> : null}
                           {item.status === "cancelado" ? null : <span className="resize" data-resize="1" />}
                         </div>

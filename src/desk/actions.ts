@@ -227,10 +227,7 @@ export async function setStatus(formData: FormData) {
     });
   } else {
     await db().begin(async (tx) => {
-      await tx`
-        UPDATE appointments SET status = ${status}
-        WHERE id = ${appointmentId} AND account_id = ${user.accountId} AND kind = 'horario'
-      `;
+      await markAttendance(tx, user.accountId, appointmentId, status);
       if (status === "realizado") await finishPackageVisit(tx, user.accountId, appointmentId);
       await applyServiceUse(tx, user.accountId, appointmentId, user.id);
     });
@@ -1678,6 +1675,62 @@ export async function attachClient(formData: FormData) {
   });
 }
 
+export async function changeClient(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const clientId = idOrNull(String(formData.get("client") ?? ""));
+    if (!clientId) throw new FormError("cliente");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; kind: string; clientId: string | null; clientName: string | null; day: string }[]>`
+        SELECT o.status, o.kind, o.client_id AS "clientId", c.name AS "clientName",
+               to_char(o.day, 'YYYY-MM-DD') AS day
+        FROM orders o
+        LEFT JOIN clients c ON c.id = o.client_id
+        WHERE o.id = ${orderId} AND o.account_id = ${user.accountId}
+      `;
+      if (!order[0] || order[0].status !== "aberta" || order[0].kind !== "cliente" || !order[0].clientId) {
+        throw new FormError("fechada");
+      }
+      if (order[0].clientId === clientId) return;
+      const next = await tx<{ name: string }[]>`
+        SELECT name FROM clients
+        WHERE id = ${clientId} AND account_id = ${user.accountId} AND active
+      `;
+      if (!next[0]) throw new FormError("cliente");
+      const packed = await tx`
+        SELECT id FROM client_packages WHERE account_id = ${user.accountId} AND order_id = ${orderId}
+        UNION ALL
+        SELECT id FROM order_lines
+        WHERE order_id = ${orderId} AND (package_credit_id IS NOT NULL OR kind = 'pacote')
+        LIMIT 1
+      `;
+      if (packed.length) throw new FormError("troca");
+      const other = await tx`
+        SELECT id FROM orders
+        WHERE account_id = ${user.accountId} AND client_id = ${clientId}
+          AND day = ${order[0].day} AND kind = 'cliente' AND id <> ${orderId}
+      `;
+      if (other.length) throw new FormError("dia");
+      await tx`UPDATE orders SET client_id = ${clientId}, incomplete = false WHERE id = ${orderId}`;
+      await tx`UPDATE appointments SET client_id = ${clientId} WHERE order_id = ${orderId} AND account_id = ${user.accountId}`;
+      await restampOrder(tx, user.accountId, orderId);
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId,
+        lineId: null,
+        appointmentId: null,
+        actorId: user.id,
+        kind: "cliente",
+        summary: `Cliente: ${order[0].clientName ?? "Sem nome"} → ${next[0].name}.`,
+        beforeCents: null,
+        afterCents: null,
+      });
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
 export async function openConsumption(formData: FormData) {
   const user = await requireDesk();
   const day = dayParam(String(formData.get("day") ?? ""));
@@ -1805,6 +1858,22 @@ function fail(code: string) {
   return { ok: false as const, error: FORM_ERRORS[code] ?? "Não deu para concluir." };
 }
 
+async function markAttendance(tx: TransactionSql, accountId: string, appointmentId: string, status: string) {
+  await tx`
+    UPDATE appointments
+    SET status = ${status},
+        arrived_at = CASE
+          WHEN ${status} = 'chegou' AND arrived_at IS NULL AND started_at IS NULL THEN now()
+          ELSE arrived_at
+        END,
+        started_at = CASE
+          WHEN ${status} = 'em_atendimento' AND started_at IS NULL THEN now()
+          ELSE started_at
+        END
+    WHERE id = ${appointmentId} AND account_id = ${accountId} AND kind = 'horario'
+  `;
+}
+
 async function writeEvent(
   tx: TransactionSql,
   input: {
@@ -1813,7 +1882,7 @@ async function writeEvent(
     lineId: string | null;
     appointmentId: string | null;
     actorId: string;
-    kind: "valor" | "cancelamento";
+    kind: "valor" | "cancelamento" | "cliente";
     summary: string;
     beforeCents: number | null;
     afterCents: number | null;
@@ -1963,7 +2032,7 @@ export async function paintSlot(input: { id: string; status: string }) {
         await applyServiceUse(tx, user.accountId, id, user.id);
         await tx`DELETE FROM order_lines WHERE appointment_id = ${id} AND account_id = ${user.accountId}`;
       } else {
-        await tx`UPDATE appointments SET status = ${input.status} WHERE id = ${id}`;
+        await markAttendance(tx, user.accountId, id, input.status);
         if (input.status === "realizado") await finishPackageVisit(tx, user.accountId, id);
         await applyServiceUse(tx, user.accountId, id, user.id);
       }
