@@ -185,6 +185,110 @@ export async function dayOrders(accountId: string, day: string, professionalId: 
   `;
 }
 
+export async function listedOrders(
+  accountId: string,
+  status: "aberta" | "fechada",
+  professionalId: string | null,
+  today: string,
+  start: string | null,
+  end: string | null,
+  q: string | null,
+) {
+  const pattern = q ? `%${q.replace(/[%_\\]/g, "")}%` : null;
+  const digits = q?.replace(/\D/g, "") ?? "";
+  const digitPattern = digits.length >= 3 ? `%${digits}%` : null;
+  const rows = await db()<{
+    id: string;
+    day: string;
+    clientName: string | null;
+    phone: string | null;
+    kind: string;
+    status: string;
+    incomplete: boolean;
+    professionalName: string | null;
+    totalCents: number;
+    paidCents: number;
+    packageNote: string | null;
+  }[]>`
+    SELECT o.id, to_char(o.day, 'YYYY-MM-DD') AS day, c.name AS "clientName", c.phone, o.kind, o.status, o.incomplete,
+           p.name AS "professionalName",
+           COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
+           COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents",
+           (
+             SELECT string_agg(note, ' · ' ORDER BY sort NULLS LAST)
+             FROM (
+               SELECT
+                 cp.name || CASE
+                   WHEN cp.valid_until IS NULL THEN ' · prazo ainda não começou'
+                   WHEN cp.valid_until < ${today}::date OR EXISTS (
+                     SELECT 1
+                     FROM package_credits cr
+                     LEFT JOIN order_lines ol ON ol.id = cr.order_line_id
+                     JOIN appointments ap ON ap.id = COALESCE(ol.appointment_id, cr.appointment_id) AND ap.status <> 'cancelado'
+                     WHERE cr.client_package_id = cp.id
+                       AND (ap.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
+                   ) THEN ' · vencido em ' || to_char(cp.valid_until, 'DD/MM/YYYY')
+                   ELSE ' · válido até ' || to_char(cp.valid_until, 'DD/MM/YYYY')
+                 END || CASE
+                   WHEN EXISTS (SELECT 1 FROM package_pardons pp WHERE pp.client_package_id = cp.id)
+                     THEN ' · já houve perdão'
+                   ELSE ''
+                 END AS note,
+                 cp.valid_until AS sort
+               FROM client_packages cp
+               WHERE cp.account_id = o.account_id AND cp.client_id = o.client_id AND cp.status = 'ativo'
+             ) notes
+           ) AS "packageNote"
+    FROM orders o
+    LEFT JOIN clients c ON c.id = o.client_id
+    LEFT JOIN professionals p ON p.id = o.professional_id
+    WHERE o.account_id = ${accountId}
+      AND o.status = ${status}
+      AND (${start}::date IS NULL OR o.day >= ${start}::date)
+      AND (${end}::date IS NULL OR o.day <= ${end}::date)
+      AND (
+        ${professionalId}::uuid IS NULL
+        OR o.professional_id = ${professionalId}
+        OR EXISTS (
+          SELECT 1 FROM order_lines l
+          WHERE l.order_id = o.id AND l.professional_id = ${professionalId}
+        )
+      )
+      AND (
+        ${pattern}::text IS NULL
+        OR c.name ILIKE ${pattern}
+        OR p.name ILIKE ${pattern}
+        OR (${digitPattern}::text IS NOT NULL AND regexp_replace(COALESCE(c.phone, ''), '\\D', '', 'g') LIKE ${digitPattern})
+      )
+    ORDER BY o.day, COALESCE(c.name, p.name, '')
+    LIMIT 400
+  `;
+  return status === "fechada" ? rows.reverse() : rows;
+}
+
+export async function cashBook(accountId: string, start: string, end: string) {
+  const methods = await db()<{ day: string; method: string; amountCents: number }[]>`
+    SELECT to_char(o.day, 'YYYY-MM-DD') AS day, pay.method, SUM(pay.amount_cents)::int AS "amountCents"
+    FROM payments pay
+    JOIN orders o ON o.id = pay.order_id
+    WHERE pay.account_id = ${accountId}
+      AND o.day >= ${start}::date
+      AND o.day <= ${end}::date
+      AND pay.bank_account_id IS NULL
+    GROUP BY o.day, pay.method
+  `;
+  const movements = await db()<{ day: string; origin: string; amountCents: number; qty: number }[]>`
+    SELECT to_char(day, 'YYYY-MM-DD') AS day, origin, SUM(amount_cents)::int AS "amountCents", count(*)::int AS qty
+    FROM cash_movements
+    WHERE account_id = ${accountId}
+      AND day >= ${start}::date
+      AND day <= ${end}::date
+      AND origin <> 'pagamento'
+    GROUP BY day, origin
+  `;
+  return { methods, movements };
+}
+
 export async function getOrder(accountId: string, id: string) {
   const rows = await db()<{
     id: string;

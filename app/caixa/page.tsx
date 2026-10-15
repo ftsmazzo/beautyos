@@ -1,20 +1,122 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatDay, formatReais, todaySaoPaulo } from "@/catalog/format";
-import { dayParam, shiftDay } from "@/desk/clock";
-import { dayCash } from "@/desk/queries";
+import { dayParam, daysBetween, monthBounds, shiftDay, weekBounds } from "@/desk/clock";
+import { cashBook, dayCash } from "@/desk/queries";
 import { PAYMENT_METHODS } from "@/desk/statuses";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
 
+const SPAN = 92;
+const METHODS = ["dinheiro", "pix", "debito", "credito", "outros"] as const;
+
+function methodLabel(method: string) {
+  return PAYMENT_METHODS.find((item) => item.value === method)?.label ?? method;
+}
+
 export default async function CashPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dia?: string }>;
+  searchParams: Promise<{ dia?: string; de?: string; ate?: string }>;
 }) {
   const user = await requireOperator();
   const query = await searchParams;
+  const today = todaySaoPaulo();
+  if (query.de || query.ate) {
+    let start = dayParam(query.de);
+    let end = dayParam(query.ate);
+    if (start > end) [start, end] = [end, start];
+    const tooLong = daysBetween(start, end) > SPAN;
+    const book = tooLong ? { methods: [], movements: [] } : await cashBook(user.accountId, start, end);
+    const days = [...new Set([...book.methods.map((row) => row.day), ...book.movements.map((row) => row.day)])].sort();
+    const of = (day: string, method: string) =>
+      book.methods.find((row) => row.day === day && row.method === method)?.amountCents ?? 0;
+    const move = (day: string, origin: string) => book.movements.find((row) => row.day === day && row.origin === origin);
+    const drawer = (day: string) => METHODS.reduce((sum, method) => sum + of(day, method), 0);
+    const month = monthBounds(today);
+    const week = weekBounds(today);
+    return (
+      <Panel user={user} current="/caixa" title="Histórico do caixa">
+        <p>Só a gaveta. Recebimento no banco fica no extrato. A taxa de cartão e o estorno aparecem à parte. Consumo interno entra com valor zero.</p>
+        <form className="row" action="/caixa">
+          <label>
+            De
+            <input name="de" type="date" defaultValue={start} required />
+          </label>
+          <label>
+            Até
+            <input name="ate" type="date" defaultValue={end} required />
+          </label>
+          <button className="btn" type="submit">
+            Ver período
+          </button>
+        </form>
+        <div className="row">
+          <Link className="btn quiet" href={`/caixa?de=${week.start}&ate=${week.end}`}>
+            Esta semana
+          </Link>
+          <Link className="btn quiet" href={`/caixa?de=${month.start}&ate=${month.end}`}>
+            Este mês
+          </Link>
+          <Link className="btn quiet" href={`/caixa?dia=${end}`}>
+            Voltar ao dia
+          </Link>
+        </div>
+        {tooLong ? <p className="error">O período fica em até {SPAN} dias.</p> : null}
+        {!tooLong && days.length === 0 ? <p>Nada na gaveta neste período.</p> : null}
+        {!tooLong && days.length > 0 ? (
+          <div className="card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Dia</th>
+                  {METHODS.map((method) => (
+                    <th key={method}>{methodLabel(method)}</th>
+                  ))}
+                  <th>Gaveta</th>
+                  <th>Taxa</th>
+                  <th>Estorno</th>
+                  <th>Consumo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((day) => (
+                  <tr key={day}>
+                    <td>{formatDay(day)}</td>
+                    {METHODS.map((method) => (
+                      <td key={method}>{formatReais(of(day, method))}</td>
+                    ))}
+                    <td>{formatReais(drawer(day))}</td>
+                    <td>{formatReais(move(day, "taxa_cartao")?.amountCents ?? 0)}</td>
+                    <td>{formatReais(move(day, "estorno")?.amountCents ?? 0)}</td>
+                    <td>{move(day, "consumo_interno")?.qty ?? 0}</td>
+                    <td>
+                      <Link href={`/caixa?dia=${day}`}>Abrir</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total</td>
+                  {METHODS.map((method) => (
+                    <td key={method}>{formatReais(days.reduce((sum, day) => sum + of(day, method), 0))}</td>
+                  ))}
+                  <td>{formatReais(days.reduce((sum, day) => sum + drawer(day), 0))}</td>
+                  <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "taxa_cartao")?.amountCents ?? 0), 0))}</td>
+                  <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "estorno")?.amountCents ?? 0), 0))}</td>
+                  <td>{days.reduce((sum, day) => sum + (move(day, "consumo_interno")?.qty ?? 0), 0)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : null}
+      </Panel>
+    );
+  }
   const day = dayParam(query.dia);
   const cash = await dayCash(user.accountId, day);
   const received = cash.byMethod.reduce((sum, row) => sum + row.amountCents, 0);
@@ -34,6 +136,9 @@ export default async function CashPage({
         </Link>
         <Link className="btn quiet" href={`/comissao?de=${day}&ate=${day}`}>
           Comissão deste dia
+        </Link>
+        <Link className="btn quiet" href={`/caixa?de=${monthBounds(day).start}&ate=${day}`}>
+          Histórico do mês
         </Link>
       </div>
       <div className="tiles">
