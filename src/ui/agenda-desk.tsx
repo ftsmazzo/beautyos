@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { blockSlot, dropBlock, flipEncaixe, paintSlot, placeAppointment } from "@/desk/actions";
+import { blockSlot, closeOrder, dropBlock, flipEncaixe, paintSlot, placeAppointment, reopenOrder } from "@/desk/actions";
 import { fromMinutes, minutes } from "@/desk/clock";
 import { BookForm } from "@/ui/book-form";
 import { SubmitButton } from "@/ui/submit-button";
@@ -14,6 +14,7 @@ type SlotMenu = {
   y: number;
   id: string;
   orderId: string;
+  orderStatus: string;
   status: string;
   encaixe: boolean;
   block: boolean;
@@ -43,6 +44,7 @@ export function AgendaDesk({
   startMin,
   hourPx,
   lockedProfessional,
+  operator,
   professionals,
   services,
   clients,
@@ -52,6 +54,7 @@ export function AgendaDesk({
   startMin: number;
   hourPx: number;
   lockedProfessional: string | null;
+  operator: boolean;
   professionals: { id: string; name: string }[];
   services: { id: string; name: string; professionalIds: string[] }[];
   clients: { id: string; name: string }[];
@@ -134,6 +137,7 @@ export function AgendaDesk({
       y: event.clientY,
       id: slot.dataset.slot ?? "",
       orderId: slot.dataset.order ?? "",
+      orderStatus: slot.dataset.orderStatus ?? "",
       status: slot.dataset.status ?? "",
       encaixe: slot.dataset.encaixe === "1",
       block: slot.dataset.kind === "bloqueio",
@@ -149,6 +153,11 @@ export function AgendaDesk({
     if (target.closest("a, button, form, input, select, .agenda-menu")) return;
     const slot = target.closest<HTMLElement>("[data-slot]");
     if (slot) {
+      const orderId = slot.dataset.order ?? "";
+      if (orderId && slot.dataset.kind !== "bloqueio") {
+        router.push(`/comandas/${orderId}`);
+        return;
+      }
       openSlot(event, slot);
       return;
     }
@@ -350,13 +359,43 @@ export function AgendaDesk({
           ) : menu.block ? (
             <button type="button" onClick={() => run(() => dropBlock({ id: menu.id }))}>Remover bloqueio</button>
           ) : menu.status === "cancelado" ? (
-            menu.orderId ? (
-              <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
-            ) : null
+            <>
+              {menu.orderId ? (
+                <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
+              ) : null}
+              {operator && menu.orderId && menu.orderStatus === "aberta" ? (
+                <form action={closeOrder}>
+                  <input type="hidden" name="order" value={menu.orderId} />
+                  <input type="hidden" name="voltar" value="agenda" />
+                  <SubmitButton label="Fechar comanda" pendingLabel="Fechando…" className="quiet" />
+                </form>
+              ) : null}
+              {operator && menu.orderId && menu.orderStatus === "fechada" ? (
+                <form action={reopenOrder}>
+                  <input type="hidden" name="order" value={menu.orderId} />
+                  <input type="hidden" name="voltar" value="agenda" />
+                  <SubmitButton label="Reabrir comanda" pendingLabel="Reabrindo…" className="quiet" />
+                </form>
+              ) : null}
+            </>
           ) : (
             <>
               {menu.orderId ? (
                 <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
+              ) : null}
+              {operator && menu.orderId && menu.orderStatus === "aberta" ? (
+                <form action={closeOrder}>
+                  <input type="hidden" name="order" value={menu.orderId} />
+                  <input type="hidden" name="voltar" value="agenda" />
+                  <SubmitButton label="Fechar comanda" pendingLabel="Fechando…" className="quiet" />
+                </form>
+              ) : null}
+              {operator && menu.orderId && menu.orderStatus === "fechada" ? (
+                <form action={reopenOrder}>
+                  <input type="hidden" name="order" value={menu.orderId} />
+                  <input type="hidden" name="voltar" value="agenda" />
+                  <SubmitButton label="Reabrir comanda" pendingLabel="Reabrindo…" className="quiet" />
+                </form>
               ) : null}
               {(["confirmado", "chegou", "em_atendimento", "realizado", "ausente", "cancelado"] as const)
                 .filter((status) => status !== menu.status)

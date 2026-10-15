@@ -59,6 +59,7 @@ export async function dayAppointments(accountId: string, day: string) {
     fromOutside: boolean;
     serviceName: string | null;
     orderId: string | null;
+    orderStatus: string | null;
     start: string;
     end: string;
     status: string;
@@ -68,7 +69,7 @@ export async function dayAppointments(accountId: string, day: string) {
   }[]>`
     SELECT a.id, a.professional_id AS "professionalId", a.client_id AS "clientId",
            c.name AS "clientName", c.phone, COALESCE(c.from_outside, false) AS "fromOutside",
-           s.name AS "serviceName", a.order_id AS "orderId",
+           s.name AS "serviceName", a.order_id AS "orderId", o.status AS "orderStatus",
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
            to_char(a.ends_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS "end",
            a.status, a.encaixe, a.kind,
@@ -80,6 +81,7 @@ export async function dayAppointments(accountId: string, day: string) {
     FROM appointments a
     LEFT JOIN clients c ON c.id = a.client_id
     LEFT JOIN services s ON s.id = a.service_id
+    LEFT JOIN orders o ON o.id = a.order_id
     WHERE a.account_id = ${accountId}
       AND a.starts_at < ${end}
       AND a.ends_at > ${start}

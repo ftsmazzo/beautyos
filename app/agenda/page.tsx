@@ -212,12 +212,13 @@ export default async function AgendaPage({
               </li>
             ))}
           </ul>
-          <p>Passe o mouse no horário para ver nome, telefone, serviço e status. Clique esquerdo ou direito abre o menu. Arraste o horário de minuto em minuto para mudar a hora ou a coluna. Arraste a borda de baixo para estender. Um horário normal para na borda do que já está ocupado. Encaixe pode cobrir.</p>
+          <p>Passe o mouse para ver nome, telefone, serviço e status. Clique no horário abre a comanda. Clique direito abre o menu: dali sai fechar e reabrir, além do estado. Arraste o horário de minuto em minuto para mudar a hora ou a coluna. Arraste a borda de baixo para estender. Um horário normal para na borda do que já está ocupado. Encaixe pode cobrir.</p>
           <AgendaDesk
             day={day}
             startMin={startMin}
             hourPx={HOUR}
             lockedProfessional={own}
+            operator={user.role === "administrador" || user.role === "balcao"}
             professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
             services={services}
             clients={people.map((person) => ({ id: person.id, name: person.name }))}
@@ -298,6 +299,7 @@ export default async function AgendaPage({
                           data-status={item.status}
                           data-encaixe={item.encaixe ? "1" : "0"}
                           data-order={item.orderId ?? ""}
+                          data-order-status={item.orderStatus ?? ""}
                           data-name={title}
                           data-phone={phone}
                           data-service={item.serviceName ?? ""}

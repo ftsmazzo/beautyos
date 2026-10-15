@@ -1668,6 +1668,7 @@ export async function removePayment(formData: FormData) {
 export async function closeOrder(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");
+  const stay = formData.get("voltar") === "agenda";
   const fail = await db().begin(async (tx) => {
     const order = await tx<{ status: string; kind: string; day: string; professionalName: string | null }[]>`
       SELECT o.status, o.kind, to_char(o.day, 'YYYY-MM-DD') AS day, p.name AS "professionalName"
@@ -1710,13 +1711,21 @@ export async function closeOrder(formData: FormData) {
     for (const visit of visits) await applyServiceUse(tx, user.accountId, visit.id, user.id);
     return null;
   });
+  const day = await db()<{ day: string }[]>`
+    SELECT to_char(day, 'YYYY-MM-DD') AS day FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+  `;
   const { redirect } = await import("next/navigation");
+  if (stay && day[0]) redirect(fail ? `/agenda?dia=${day[0].day}&erro=${fail}` : `/agenda?dia=${day[0].day}`);
   redirect(fail ? `/comandas/${orderId}?erro=${fail}` : `/comandas/${orderId}`);
 }
 
 export async function reopenOrder(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");
+  const stay = formData.get("voltar") === "agenda";
+  const rows = await db()<{ day: string }[]>`
+    SELECT to_char(day, 'YYYY-MM-DD') AS day FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+  `;
   await db().begin(async (tx) => {
     await tx`
       UPDATE orders SET status = 'aberta'
@@ -1728,6 +1737,7 @@ export async function reopenOrder(formData: FormData) {
     `;
   });
   const { redirect } = await import("next/navigation");
+  if (stay && rows[0]) redirect(`/agenda?dia=${rows[0].day}`);
   redirect(`/comandas/${orderId}`);
 }
 
