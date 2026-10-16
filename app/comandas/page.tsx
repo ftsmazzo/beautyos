@@ -33,7 +33,7 @@ function who(order: OrderRow) {
 function OrdersTable({ orders, showDay }: { orders: OrderRow[]; showDay: boolean }) {
   if (orders.length === 0) return null;
   return (
-    <table>
+    <table className="sheet">
       <thead>
         <tr>
           {showDay ? <th>Dia</th> : null}
@@ -51,18 +51,18 @@ function OrdersTable({ orders, showDay }: { orders: OrderRow[]; showDay: boolean
           const gap = order.totalCents - order.paidCents;
           return (
             <tr key={order.id}>
-              {showDay && order.day ? <td>{formatDay(order.day)}</td> : null}
-              <td>
+              {showDay && order.day ? <td data-label="Dia">{formatDay(order.day)}</td> : null}
+              <td data-label="Quem">
                 <strong>{who(order)}</strong>
                 {order.phone ? <div>{formatPhone(order.phone)}</div> : null}
                 {order.packageNote ? <div>{order.packageNote}</div> : null}
                 {order.incomplete ? <div>Cadastro pendente</div> : null}
               </td>
-              <td>{order.kind === "consumo" ? "Consumo" : "Cliente"}</td>
-              <td>{order.status === "fechada" ? "Fechada" : "Aberta"}</td>
-              <td>{formatReais(order.totalCents)}</td>
-              <td>{formatReais(order.paidCents)}</td>
-              <td>{gap > 0 ? formatReais(gap) : gap < 0 ? `crédito ${formatReais(-gap)}` : "—"}</td>
+              <td data-label="Tipo">{order.kind === "consumo" ? "Consumo" : "Cliente"}</td>
+              <td data-label="Estado">{order.status === "fechada" ? "Fechada" : "Aberta"}</td>
+              <td data-label="Total">{formatReais(order.totalCents)}</td>
+              <td data-label="Pago">{formatReais(order.paidCents)}</td>
+              <td data-label="Falta">{gap > 0 ? formatReais(gap) : gap < 0 ? `crédito ${formatReais(-gap)}` : "—"}</td>
               <td>
                 <Link href={`/comandas/${order.id}`}>Abrir</Link>
               </td>

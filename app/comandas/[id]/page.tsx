@@ -219,7 +219,7 @@ export default async function OrderPage({
         ) : null}
         {order.lines.length > 0 ? (
           <>
-          <table>
+          <table className="sheet">
             <thead>
               <tr>
                 <th>Item</th>
@@ -233,7 +233,7 @@ export default async function OrderPage({
             <tbody>
               {order.lines.map((line) => (
                 <tr key={line.id}>
-                  <td>
+                  <td data-label="Item">
                     {line.description}
                     {line.qty > 1 ? ` × ${line.qty}` : ""}
                     {line.courtesy ? " · cortesia" : ""}
@@ -256,12 +256,12 @@ export default async function OrderPage({
                         </div>
                       ))}
                   </td>
-                  <td>{line.professionalName ?? "—"}</td>
-                  <td>
+                  <td data-label="Profissional">{line.professionalName ?? "—"}</td>
+                  <td data-label="Horário">
                     {line.start && line.end ? `${line.start}–${line.end}` : "—"}
                     {line.waitMin == null ? "" : ` · esperou ${line.waitMin} min`}
                   </td>
-                  <td>
+                  <td data-label="Valor">
                     {operator && open && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (
                       <form action={adjustLinePrice} className="price-field">
                         <input type="hidden" name="order" value={order.id} />
@@ -279,7 +279,7 @@ export default async function OrderPage({
                       formatReais(line.priceCents)
                     )}
                   </td>
-                  <td>
+                  <td data-label="Comissão">
                     {operator && open && line.packageCreditId && line.kind === "servico" ? (
                       <form action={adjustLineCommission} className="price-field">
                         <input type="hidden" name="order" value={order.id} />
@@ -302,7 +302,7 @@ export default async function OrderPage({
                       : ""}
                     {line.referralCents > 0 ? ` · indicação ${formatReais(line.referralCents)}` : ""}
                   </td>
-                  <td>
+                  <td data-label="Ações">
                     <div className="line-actions">
                     {open && line.appointmentId && line.appointmentStatus ? (
                       <form action={setStatus}>
@@ -591,7 +591,7 @@ export default async function OrderPage({
           <h2>Pagamentos</h2>
           {order.payments.length === 0 ? <p>Nenhum pagamento ainda. Pagamento parcial deixa a comanda aberta.</p> : null}
           {order.payments.length > 0 ? (
-            <table>
+            <table className="sheet">
               <thead>
                 <tr>
                   <th>Forma</th>
@@ -602,15 +602,15 @@ export default async function OrderPage({
               <tbody>
                 {order.payments.map((payment) => (
                   <tr key={payment.id}>
-                    <td>
+                    <td data-label="Forma">
                       {PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}
                       {payment.bankName ? ` · ${payment.bankName}` : ""}
                     </td>
-                    <td>
+                    <td data-label="Valor">
                       {formatReais(payment.amountCents)}
                       {payment.feeCents > 0 ? ` · taxa ${formatReais(payment.feeCents)}` : ""}
                     </td>
-                    <td>
+                    <td data-label="Ações">
                       {operator && open ? (
                         <form action={removePayment}>
                           <input type="hidden" name="order" value={order.id} />
@@ -668,7 +668,7 @@ export default async function OrderPage({
       )}
 
       {operator ? (
-        <form action={open ? closeOrder : reopenOrder}>
+        <form className="desk-close" action={open ? closeOrder : reopenOrder}>
           <input type="hidden" name="order" value={order.id} />
           <SubmitButton
             label={open ? "Fechar" : "Reabrir"}
@@ -677,6 +677,22 @@ export default async function OrderPage({
           />
         </form>
       ) : null}
+      <div className="sale-bar">
+        <div>
+          <strong>{formatReais(total)}</strong>
+          <span>{paid >= total ? "Coberta" : `Falta ${formatReais(total - paid)}`}</span>
+        </div>
+        {operator ? (
+          <form action={open ? closeOrder : reopenOrder}>
+            <input type="hidden" name="order" value={order.id} />
+            <SubmitButton
+              label={open ? "Fechar" : "Reabrir"}
+              pendingLabel={open ? "Fechando…" : "Reabrindo…"}
+              className={open ? undefined : "quiet"}
+            />
+          </form>
+        ) : null}
+      </div>
     </Panel>
   );
 }
