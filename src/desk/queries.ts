@@ -940,6 +940,43 @@ export async function commissionBook(accountId: string, start: string, end: stri
   `;
 }
 
+export type RankedPerson = {
+  id: string;
+  name: string;
+  visits: number;
+  commissionCents: number;
+  referralCents: number;
+  abatementCents: number;
+  feeCents: number;
+};
+
+export function rankNet(person: RankedPerson) {
+  return person.commissionCents + person.referralCents - person.abatementCents - person.feeCents;
+}
+
+export function rankStaff(rows: CommissionLine[], staffIds: Set<string> | null) {
+  const map = new Map<string, RankedPerson>();
+  for (const row of rows) {
+    if (staffIds && !staffIds.has(row.personId)) continue;
+    const current = map.get(row.personId) ?? {
+      id: row.personId,
+      name: row.personName,
+      visits: 0,
+      commissionCents: 0,
+      referralCents: 0,
+      abatementCents: 0,
+      feeCents: 0,
+    };
+    if (row.origin === "indicacao") current.referralCents += row.commissionCents;
+    else current.commissionCents += row.commissionCents;
+    if (row.origin === "execucao") current.visits += 1;
+    current.abatementCents += row.abatementCents;
+    current.feeCents += row.feeCents;
+    map.set(row.personId, current);
+  }
+  return [...map.values()].sort((a, b) => rankNet(b) - rankNet(a) || a.name.localeCompare(b.name, "pt-BR"));
+}
+
 export async function packageReport(accountId: string, start: string, end: string) {
   const sales = await db()<{ name: string; sales: number; soldCents: number; avulsoCents: number }[]>`
     SELECT cp.name, count(*)::int AS sales,

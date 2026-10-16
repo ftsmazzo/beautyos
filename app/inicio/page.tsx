@@ -2,9 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
-import { applyDuePrices, birthdaysAhead, catalogCounts, houseRules, openPriceNotices } from "@/catalog/queries";
+import { applyDuePrices, birthdaysAhead, catalogCounts, houseRules, listProfessionals, openPriceNotices } from "@/catalog/queries";
 import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
-import { latePackageVisits, linkedProfessional, overdueReturns, ownCommission } from "@/desk/queries";
+import { latePackageVisits, linkedProfessional, overdueReturns, ownCommission, commissionBook, rankNet, rankStaff } from "@/desk/queries";
+import { weekBounds } from "@/desk/clock";
 import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
@@ -30,7 +31,14 @@ export default async function StartPage({
   const lateVisits = operator ? await latePackageVisits(user.accountId) : [];
   const lateClients = operator ? await overdueReturns(user.accountId, todaySaoPaulo()) : [];
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
-  const mine = own ? await ownCommission(user.accountId, own, todaySaoPaulo()) : null;
+  const mine = own ? await ownCommission(user.accountId, own, today) : null;
+  const week = weekBounds(today);
+  const ranking = operator
+    ? rankStaff(
+        await commissionBook(user.accountId, week.start, today, null),
+        new Set((await listProfessionals(user.accountId)).map((person) => person.id)),
+      )
+    : [];
 
   return (
     <Panel user={user} current="/inicio" title="Início">
@@ -89,6 +97,36 @@ export default async function StartPage({
               ))}
             </div>
           ) : null}
+          <div className="card">
+            <h2>Ranking da semana</h2>
+            <p>
+              {formatDay(week.start)} até hoje. A ordem é o líquido.{" "}
+              <Link href={`/comissao?de=${week.start}&ate=${today}`}>Abrir o período</Link>
+            </p>
+            {ranking.length === 0 ? <p>Nenhuma linha nesta semana.</p> : null}
+            {ranking.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Pessoa</th>
+                    <th>Atendimentos</th>
+                    <th>Líquido</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ranking.map((person, index) => (
+                    <tr key={person.id}>
+                      <td>{index + 1}</td>
+                      <td>{person.name}</td>
+                      <td>{person.visits}</td>
+                      <td>{formatReais(rankNet(person))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
           <p>O dia abre na agenda. A comanda e o caixa acompanham o atendimento.</p>
           <div className="tiles">
             <Link className="tile tile-blue" href="/agenda">
