@@ -448,6 +448,30 @@ export async function listClients(accountId: string, removed: boolean, q: string
   `;
 }
 
+export async function channelBook(accountId: string) {
+  return db()<
+    {
+      id: string;
+      name: string;
+      phone: string;
+      channel: string;
+      fromOutside: boolean;
+      incomplete: boolean;
+      broughtBy: string | null;
+    }[]
+  >`
+    SELECT c.id, c.name, c.phone, c.channel,
+           c.from_outside AS "fromOutside", c.incomplete,
+           COALESCE(p.nickname, p.name, r.name) AS "broughtBy"
+    FROM clients c
+    LEFT JOIN professionals p ON p.id = c.referrer_professional_id
+    LEFT JOIN clients r ON r.id = c.referrer_client_id
+    WHERE c.account_id = ${accountId}
+      AND c.active
+    ORDER BY c.name
+  `;
+}
+
 export async function getClient(accountId: string, id: string) {
   const rows = await db()<ClientRow[]>`
     SELECT id, name, phone, email,

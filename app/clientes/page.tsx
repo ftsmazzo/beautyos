@@ -25,6 +25,9 @@ export default async function ClientsPage({
         <Link className="btn" href="/clientes/novo">
           Novo cliente
         </Link>
+        <Link className="btn quiet" href="/clientes/origem">
+          Origem
+        </Link>
         <Link href={removed ? "/clientes" : "/clientes?estado=removidos"}>{removed ? "Ver ativos" : "Ver removidos"}</Link>
       </div>
       <form className="filters" method="get">
