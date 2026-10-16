@@ -25,6 +25,9 @@ export default async function ServicesPage({
         <Link className="btn" href="/servicos/novo">
           Novo serviço
         </Link>
+        <Link className="btn quiet" href="/servicos/periodo">
+          Venda, uso e avulso
+        </Link>
       </div>
       <div className="card">
         {services.length === 0 ? <p>Nenhum serviço ainda.</p> : null}

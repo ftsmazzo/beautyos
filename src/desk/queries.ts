@@ -1041,6 +1041,98 @@ export async function packageReport(accountId: string, start: string, end: strin
   };
 }
 
+export type ServiceSplit = {
+  id: string;
+  name: string;
+  vendaQty: number;
+  vendaCents: number;
+  usoQty: number;
+  usoCents: number;
+  avulsoQty: number;
+  avulsoCents: number;
+  courtesyQty: number;
+};
+
+export async function serviceSplit(accountId: string, start: string, end: string) {
+  const [done, sold] = await Promise.all([
+    db()<
+      {
+        id: string;
+        name: string;
+        usoQty: number;
+        usoCents: number;
+        avulsoQty: number;
+        avulsoCents: number;
+        courtesyQty: number;
+      }[]
+    >`
+      SELECT s.id, s.name,
+             count(*) FILTER (WHERE l.package_credit_id IS NOT NULL)::int AS "usoQty",
+             COALESCE(SUM(cr.internal_price_cents) FILTER (WHERE l.package_credit_id IS NOT NULL), 0)::int AS "usoCents",
+             count(*) FILTER (WHERE l.package_credit_id IS NULL)::int AS "avulsoQty",
+             COALESCE(SUM(l.price_cents) FILTER (WHERE l.package_credit_id IS NULL), 0)::int AS "avulsoCents",
+             count(*) FILTER (WHERE l.package_credit_id IS NULL AND l.courtesy)::int AS "courtesyQty"
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN services s ON s.id = l.service_id
+      LEFT JOIN package_credits cr ON cr.id = l.package_credit_id
+      WHERE l.account_id = ${accountId}
+        AND l.kind = 'servico'
+        AND o.kind = 'cliente'
+        AND o.day >= ${start}::date
+        AND o.day <= ${end}::date
+        AND NOT EXISTS (
+          SELECT 1 FROM appointments a
+          WHERE a.id = l.appointment_id AND a.status = 'cancelado'
+        )
+      GROUP BY s.id, s.name
+    `,
+    db()<{ id: string; name: string; vendaQty: number; vendaCents: number }[]>`
+      SELECT s.id, s.name,
+             count(*)::int AS "vendaQty",
+             COALESCE(SUM(cr.internal_price_cents), 0)::int AS "vendaCents"
+      FROM package_credits cr
+      JOIN client_packages cp ON cp.id = cr.client_package_id
+      JOIN services s ON s.id = cr.service_id
+      WHERE cp.account_id = ${accountId}
+        AND cp.status <> 'cancelado'
+        AND cp.sold_on >= ${start}::date
+        AND cp.sold_on <= ${end}::date
+      GROUP BY s.id, s.name
+    `,
+  ]);
+  const map = new Map<string, ServiceSplit>();
+  const slot = (id: string, name: string): ServiceSplit => {
+    const current = map.get(id) ?? {
+      id,
+      name,
+      vendaQty: 0,
+      vendaCents: 0,
+      usoQty: 0,
+      usoCents: 0,
+      avulsoQty: 0,
+      avulsoCents: 0,
+      courtesyQty: 0,
+    };
+    map.set(id, current);
+    return current;
+  };
+  for (const row of done) {
+    const current = slot(row.id, row.name);
+    current.usoQty = row.usoQty;
+    current.usoCents = row.usoCents;
+    current.avulsoQty = row.avulsoQty;
+    current.avulsoCents = row.avulsoCents;
+    current.courtesyQty = row.courtesyQty;
+  }
+  for (const row of sold) {
+    const current = slot(row.id, row.name);
+    current.vendaQty = row.vendaQty;
+    current.vendaCents = row.vendaCents;
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}
+
 type ReturnVisit = {
   id: string;
   name: string;
