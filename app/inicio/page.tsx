@@ -2,10 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
-import { applyDuePrices, birthdaysAhead, catalogCounts, houseRules, listProfessionals, openPriceNotices } from "@/catalog/queries";
+import { applyDuePrices, birthdaysAhead, catalogCounts, houseRules, listProfessionals, openPriceNotices, productsAtMinimum } from "@/catalog/queries";
 import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import {
   deskPulse,
+  deskReceivables,
   latePackageVisits,
   linkedProfessional,
   overdueReturns,
@@ -48,6 +49,11 @@ export default async function StartPage({
     operator || own
       ? await deskPulse(user.accountId, today, operator ? null : own)
       : null;
+  const receivables =
+    operator || own
+      ? await deskReceivables(user.accountId, operator ? null : own)
+      : [];
+  const lowStock = operator ? await productsAtMinimum(user.accountId) : [];
   const week = weekBounds(today);
   const ranking = operator
     ? rankStaff(
@@ -55,7 +61,8 @@ export default async function StartPage({
         new Set((await listProfessionals(user.accountId)).map((person) => person.id)),
       )
     : [];
-  const dueOpen = pulse?.openOrders.filter((row) => row.gapCents > 0) ?? [];
+  const dueOpen = pulse?.openOrders ?? [];
+  const dueTotal = receivables.reduce((sum, row) => sum + row.gapCents, 0);
 
   return (
     <Panel user={user} current="/inicio" title="Início">
@@ -89,7 +96,8 @@ export default async function StartPage({
           <p>
             Hoje {formatDay(today)}. {pulse.todaySlots.length} {pulse.todaySlots.length === 1 ? "horário" : "horários"} na grade
             {pulse.tomorrowQty > 0 ? ` · amanhã ${pulse.tomorrowQty}` : ""}
-            {dueOpen.length > 0 ? ` · ${dueOpen.length} comanda${dueOpen.length === 1 ? "" : "s"} com falta` : ""}
+            {dueOpen.length > 0 ? ` · ${dueOpen.length} com falta hoje` : ""}
+            {receivables.length > 0 ? ` · a receber ${formatReais(dueTotal)}` : ""}
             {" · "}
             <Link href={`/agenda?dia=${today}`}>Agenda</Link>
             {" · "}
@@ -115,7 +123,7 @@ export default async function StartPage({
               ) : null}
             </p>
           ))}
-          {dueOpen.length > 0 ? <h2>Em aberto com falta</h2> : null}
+          {dueOpen.length > 0 ? <h2>Falta de hoje</h2> : null}
           {dueOpen.map((row) => (
             <p key={row.id}>
               <Link href={`/comandas/${row.id}`}>{row.who}</Link>
@@ -124,9 +132,52 @@ export default async function StartPage({
           ))}
         </div>
       ) : null}
+      {(operator || own) && receivables.length > 0 ? (
+        <div className="card">
+          <h2>A receber</h2>
+          <p>
+            {receivables.length} {receivables.length === 1 ? "comanda" : "comandas"} em aberto · {formatReais(dueTotal)}. A mais antiga vem primeiro. Receber continua na própria comanda.{" "}
+            <Link href="/comandas?lista=abertas&filtro=falta">Abrir a fila</Link>
+          </p>
+          {receivables.slice(0, 12).map((row) => (
+            <p key={row.id}>
+              <Link href={`/comandas/${row.id}`}>{row.who}</Link>
+              {row.phone ? ` · ${formatPhone(row.phone)}` : ""}
+              {` · ${formatDay(row.day)} · falta ${formatReais(row.gapCents)}`}
+              {row.day < today ? " · atrasada" : row.day === today ? " · hoje" : " · a vencer"}
+            </p>
+          ))}
+          {receivables.length > 12 ? (
+            <p>
+              <Link href="/comandas?lista=abertas&filtro=falta">Ver as {receivables.length}</Link>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {operator && counts ? (
         <>
           <PriceNotice notices={notices} back="inicio" />
+          {lowStock.length > 0 ? (
+            <div className="card">
+              <h2>Estoque no mínimo</h2>
+              <p>
+                Quem chegou no mínimo da ficha.{" "}
+                <Link href="/produtos?filtro=minimo">Lista marcada</Link>
+              </p>
+              {lowStock.slice(0, 10).map((product) => (
+                <p key={product.id}>
+                  <Link href={`/produtos/${product.id}`}>{product.name}</Link>
+                  {` · saldo ${product.balance} · mínimo ${product.minQty}`}
+                  {product.supplierName ? ` · ${product.supplierName}` : ""}
+                </p>
+              ))}
+              {lowStock.length > 10 ? (
+                <p>
+                  <Link href="/produtos?filtro=minimo">Ver os {lowStock.length}</Link>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {lateVisits.length > 0 ? (
             <div className="card">
               <h2>Pacote fora do prazo</h2>

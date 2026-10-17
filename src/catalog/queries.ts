@@ -528,6 +528,11 @@ export async function getProduct(accountId: string, id: string) {
   return rows.find((row) => row.id === id) ?? null;
 }
 
+export async function productsAtMinimum(accountId: string) {
+  const rows = await listProducts(accountId);
+  return rows.filter((product) => product.active && product.minQty > 0 && product.balance <= product.minQty);
+}
+
 export async function productCategories(accountId: string) {
   const rows = await db()<{ name: string }[]>`
     SELECT DISTINCT category AS name

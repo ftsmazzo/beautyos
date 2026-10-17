@@ -118,6 +118,10 @@ export async function deskPulse(accountId: string, day: string, professionalId: 
       LEFT JOIN professionals p ON p.id = o.professional_id
       WHERE o.account_id = ${accountId}
         AND o.status = 'aberta'
+        AND (
+          COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
+          - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
+        ) > 0
         AND (${professionalId}::uuid IS NULL OR o.professional_id = ${professionalId}
           OR EXISTS (
             SELECT 1 FROM order_lines l
@@ -143,6 +147,48 @@ export async function deskPulse(accountId: string, day: string, professionalId: 
     openOrders: openRows,
     consumption: consumption[0] ?? null,
   };
+}
+
+export async function deskReceivables(accountId: string, professionalId: string | null) {
+  return db()<{
+    id: string;
+    who: string;
+    phone: string | null;
+    day: string;
+    totalCents: number;
+    paidCents: number;
+    gapCents: number;
+  }[]>`
+    SELECT o.id,
+           COALESCE(c.name, 'Sem nome') AS who,
+           c.phone,
+           to_char(o.day, 'YYYY-MM-DD') AS day,
+           COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
+           COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents",
+           (
+             COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
+             - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
+           )::int AS "gapCents"
+    FROM orders o
+    LEFT JOIN clients c ON c.id = o.client_id
+    WHERE o.account_id = ${accountId}
+      AND o.status = 'aberta'
+      AND o.kind = 'cliente'
+      AND (
+        COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
+        - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
+      ) > 0
+      AND (
+        ${professionalId}::uuid IS NULL
+        OR o.professional_id = ${professionalId}
+        OR EXISTS (
+          SELECT 1 FROM order_lines l
+          WHERE l.order_id = o.id AND l.professional_id = ${professionalId}
+        )
+      )
+    ORDER BY o.day, COALESCE(c.name, ''), o.created_at
+    LIMIT 100
+  `;
 }
 
 export async function dayAppointments(accountId: string, day: string) {

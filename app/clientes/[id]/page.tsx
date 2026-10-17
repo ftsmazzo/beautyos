@@ -73,12 +73,30 @@ export default async function ClientFormPage({
           <p>
             Produto que mais leva: {brief.topProduct ? `${brief.topProduct.name} · ${brief.topProduct.qty}` : "—"}
           </p>
+          <h2>Conta</h2>
           <p>
             Já pagou {formatReais(brief.money.paidCents)}.
             {brief.money.dueCents > 0 ? ` A receber ${formatReais(brief.money.dueCents)}.` : ""}
             {brief.money.creditCents > 0 ? ` Crédito ${formatReais(brief.money.creditCents)}.` : ""}
             {brief.money.dueCents === 0 && brief.money.creditCents === 0 ? " Conta em dia." : ""}
+            {" "}
+            O recebimento continua na comanda.{" "}
+            {brief.money.dueCents > 0 ? <Link href="/comandas?lista=abertas&filtro=falta">Fila a receber</Link> : null}
           </p>
+          {brief.orders
+            .filter((order) => order.paidCents !== order.totalCents)
+            .map((order) => (
+              <p key={`conta-${order.id}`}>
+                <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
+                {" · "}
+                {formatReais(order.totalCents)}
+                {order.paidCents > order.totalCents
+                  ? ` · crédito ${formatReais(order.paidCents - order.totalCents)}`
+                  : ` · em aberto ${formatReais(order.totalCents - order.paidCents)}`}
+                {" · "}
+                {order.status === "fechada" ? "fechada" : "aberta"}
+              </p>
+            ))}
           {brief.packages.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
           {brief.packages.map((item) => (
             <p key={item.id}>

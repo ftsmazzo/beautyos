@@ -12,6 +12,17 @@ export const dynamic = "force-dynamic";
 
 const SPAN = 92;
 
+const OPEN_FILTERS = [
+  { id: "todas", label: "Todas" },
+  { id: "falta", label: "Com falta" },
+  { id: "atrasada", label: "Atrasadas" },
+  { id: "hoje", label: "Hoje" },
+  { id: "vencer", label: "A vencer" },
+  { id: "credito", label: "Com crédito" },
+] as const;
+
+type OpenFilter = (typeof OPEN_FILTERS)[number]["id"];
+
 type OrderRow = {
   id: string;
   day?: string;
@@ -26,11 +37,50 @@ type OrderRow = {
   packageNote: string | null;
 };
 
+function isOpenFilter(value: string | undefined): value is OpenFilter {
+  return OPEN_FILTERS.some((item) => item.id === value);
+}
+
 function who(order: OrderRow) {
   return order.kind === "consumo" ? `Consumo · ${order.professionalName ?? "profissional"}` : order.clientName ?? "Sem nome";
 }
 
-function OrdersTable({ orders, showDay }: { orders: OrderRow[]; showDay: boolean }) {
+function gapOf(order: OrderRow) {
+  return order.totalCents - order.paidCents;
+}
+
+function openSituation(order: OrderRow, today: string) {
+  const gap = gapOf(order);
+  if (gap < 0) return "crédito";
+  if (gap === 0) return "em dia";
+  if (!order.day) return "com falta";
+  if (order.day < today) return "atrasada";
+  if (order.day === today) return "hoje";
+  return "a vencer";
+}
+
+function matchesOpen(order: OrderRow, filter: OpenFilter, today: string) {
+  const gap = gapOf(order);
+  if (filter === "todas") return true;
+  if (filter === "falta") return gap > 0;
+  if (filter === "credito") return gap < 0;
+  if (filter === "atrasada") return gap > 0 && !!order.day && order.day < today;
+  if (filter === "hoje") return gap > 0 && order.day === today;
+  if (filter === "vencer") return gap > 0 && !!order.day && order.day > today;
+  return true;
+}
+
+function OrdersTable({
+  orders,
+  showDay,
+  showSituation,
+  today,
+}: {
+  orders: OrderRow[];
+  showDay: boolean;
+  showSituation?: boolean;
+  today?: string;
+}) {
   if (orders.length === 0) return null;
   return (
     <table className="sheet">
@@ -40,6 +90,7 @@ function OrdersTable({ orders, showDay }: { orders: OrderRow[]; showDay: boolean
           <th>Quem</th>
           <th>Tipo</th>
           <th>Estado</th>
+          {showSituation ? <th>Situação</th> : null}
           <th>Total</th>
           <th>Pago</th>
           <th>Falta</th>
@@ -48,7 +99,7 @@ function OrdersTable({ orders, showDay }: { orders: OrderRow[]; showDay: boolean
       </thead>
       <tbody>
         {orders.map((order) => {
-          const gap = order.totalCents - order.paidCents;
+          const gap = gapOf(order);
           return (
             <tr key={order.id}>
               {showDay && order.day ? <td data-label="Dia">{formatDay(order.day)}</td> : null}
@@ -60,6 +111,7 @@ function OrdersTable({ orders, showDay }: { orders: OrderRow[]; showDay: boolean
               </td>
               <td data-label="Tipo">{order.kind === "consumo" ? "Consumo" : "Cliente"}</td>
               <td data-label="Estado">{order.status === "fechada" ? "Fechada" : "Aberta"}</td>
+              {showSituation && today ? <td data-label="Situação">{openSituation(order, today)}</td> : null}
               <td data-label="Total">{formatReais(order.totalCents)}</td>
               <td data-label="Pago">{formatReais(order.paidCents)}</td>
               <td data-label="Falta">{gap > 0 ? formatReais(gap) : gap < 0 ? `crédito ${formatReais(-gap)}` : "—"}</td>
@@ -77,7 +129,7 @@ function OrdersTable({ orders, showDay }: { orders: OrderRow[]; showDay: boolean
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dia?: string; erro?: string; lista?: string; de?: string; ate?: string; q?: string }>;
+  searchParams: Promise<{ dia?: string; erro?: string; lista?: string; de?: string; ate?: string; q?: string; filtro?: string }>;
 }) {
   const user = await requireDesk();
   const query = await searchParams;
@@ -93,15 +145,31 @@ export default async function OrdersPage({
   if (start > end) [start, end] = [end, start];
   const tooLong = lista === "historico" && daysBetween(start, end) > SPAN;
   const q = query.q?.trim() ?? "";
+  const openFilter: OpenFilter = isOpenFilter(query.filtro) ? query.filtro : "todas";
   const [orders, clients, listed] = await Promise.all([
     lista === "dia" ? dayOrders(user.accountId, day, own) : Promise.resolve([]),
     lista === "dia" && operator ? clientOptions(user.accountId) : Promise.resolve([]),
     lista === "abertas"
-      ? listedOrders(user.accountId, "aberta", own, today, null, null, null)
+      ? listedOrders(user.accountId, "aberta", own, today, null, null, q || null)
       : lista === "historico" && !tooLong
         ? listedOrders(user.accountId, "fechada", own, today, start, end, q || null)
         : Promise.resolve([]),
   ]);
+  const openRows =
+    lista === "abertas"
+      ? listed
+          .filter((row) => matchesOpen(row, openFilter, today))
+          .sort((a, b) => {
+            const gapA = gapOf(a);
+            const gapB = gapOf(b);
+            if (openFilter === "falta" || openFilter === "atrasada" || openFilter === "hoje" || openFilter === "vencer") {
+              if (a.day !== b.day) return (a.day ?? "").localeCompare(b.day ?? "");
+              return gapB - gapA;
+            }
+            return 0;
+          })
+      : listed;
+  const openDue = openRows.reduce((sum, row) => sum + Math.max(0, gapOf(row)), 0);
 
   return (
     <Panel user={user} current="/comandas" title="Comandas">
@@ -109,7 +177,7 @@ export default async function OrdersPage({
         <Link className={lista === "dia" ? "btn" : "btn quiet"} href={`/comandas?dia=${day}`}>
           Do dia
         </Link>
-        <Link className={lista === "abertas" ? "btn" : "btn quiet"} href="/comandas?lista=abertas">
+        <Link className={lista === "abertas" ? "btn" : "btn quiet"} href="/comandas?lista=abertas&filtro=falta">
           Abertas
         </Link>
         <Link className={lista === "historico" ? "btn" : "btn quiet"} href={`/comandas?lista=historico&de=${month.start}&ate=${today}`}>
@@ -171,8 +239,34 @@ export default async function OrdersPage({
         <div className="card">
           <h2>Abertas</h2>
           <p>Qualquer dia. A mais antiga vem primeiro. Fechar e receber continua na própria comanda.</p>
-          {listed.length === 0 ? <p>Nenhuma comanda aberta.</p> : null}
-          <OrdersTable orders={listed} showDay />
+          <div className="row">
+            {OPEN_FILTERS.map((item) => (
+              <Link
+                key={item.id}
+                className={item.id === openFilter ? "btn" : "btn quiet"}
+                href={q ? `/comandas?lista=abertas&filtro=${item.id}&q=${encodeURIComponent(q)}` : `/comandas?lista=abertas&filtro=${item.id}`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+          <form className="row" action="/comandas">
+            <input type="hidden" name="lista" value="abertas" />
+            <input type="hidden" name="filtro" value={openFilter} />
+            <label>
+              Busca
+              <input name="q" defaultValue={q} placeholder="Nome ou celular" />
+            </label>
+            <button className="btn" type="submit">
+              Buscar
+            </button>
+          </form>
+          <p>
+            {openRows.length} {openRows.length === 1 ? "comanda" : "comandas"}
+            {openDue > 0 ? ` · a receber ${formatReais(openDue)}` : ""}
+          </p>
+          {openRows.length === 0 ? <p>Nenhuma comanda neste filtro.</p> : null}
+          <OrdersTable orders={openRows} showDay showSituation today={today} />
         </div>
       ) : null}
       {lista === "historico" ? (

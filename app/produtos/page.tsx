@@ -12,12 +12,16 @@ export const dynamic = "force-dynamic";
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; erro?: string; modo?: string }>;
+  searchParams: Promise<{ ok?: string; erro?: string; modo?: string; filtro?: string }>;
 }) {
   const user = await requireOperator();
   const query = await searchParams;
   const counting = query.modo === "conferencia";
-  const products = await listProducts(user.accountId);
+  const onlyMin = query.filtro === "minimo";
+  const products = (await listProducts(user.accountId)).filter((product) => {
+    if (!onlyMin) return true;
+    return product.active && product.minQty > 0 && product.balance <= product.minQty;
+  });
   return (
     <Panel user={user} current="/produtos" title="Produtos">
       <SavedNote code={query.ok} />
@@ -35,10 +39,14 @@ export default async function ProductsPage({
         <Link className="btn quiet" href={counting ? "/produtos" : "/produtos?modo=conferencia"}>
           {counting ? "Voltar à lista" : "Conferência"}
         </Link>
+        <Link className={onlyMin ? "btn" : "btn quiet"} href={onlyMin ? "/produtos" : "/produtos?filtro=minimo"}>
+          {onlyMin ? "Ver todos" : "No mínimo"}
+        </Link>
       </div>
       {counting ? <p>Conte cada produto. A diferença entra no estoque quando você confirma, com a data e quem contou.</p> : null}
+      {onlyMin ? <p>Só quem chegou no mínimo da ficha. Zero no mínimo não avisa.</p> : null}
       <div className="card">
-        {products.length === 0 ? <p>Nenhum produto ainda.</p> : null}
+        {products.length === 0 ? <p>{onlyMin ? "Nenhum produto no mínimo." : "Nenhum produto ainda."}</p> : null}
         {products.length > 0 ? (
           <table>
             <thead>
