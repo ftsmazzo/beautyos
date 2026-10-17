@@ -590,7 +590,7 @@ export async function packageVisits(accountId: string, clientId: string) {
              AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
            ) AS late,
            c.internal_price_cents AS "internalPriceCents",
-           l.list_price_cents AS "listPriceCents"
+           COALESCE(l.list_price_cents, s.price_cents) AS "listPriceCents"
     FROM package_credits c
     JOIN client_packages cp ON cp.id = c.client_package_id
     JOIN services s ON s.id = c.service_id
@@ -763,6 +763,8 @@ export async function soldPackageVisits(accountId: string, id: string) {
     professionalName: string | null;
     orderId: string | null;
     late: boolean;
+    internalPriceCents: number;
+    listPriceCents: number;
   }[]>`
     SELECT cr.id, cr.service_id AS "serviceId", s.name AS "serviceName", cr.status,
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS "when",
@@ -770,12 +772,14 @@ export async function soldPackageVisits(accountId: string, id: string) {
            to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
            COALESCE(a.professional_id, l.professional_id) AS "professionalId",
            pr.name AS "professionalName",
-           l.order_id AS "orderId",
+           COALESCE(l.order_id, a.order_id) AS "orderId",
            (
              cp.valid_until IS NOT NULL
              AND a.starts_at IS NOT NULL
              AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > cp.valid_until
-           ) AS late
+           ) AS late,
+           cr.internal_price_cents AS "internalPriceCents",
+           COALESCE(l.list_price_cents, s.price_cents) AS "listPriceCents"
     FROM package_credits cr
     JOIN client_packages cp ON cp.id = cr.client_package_id
     JOIN services s ON s.id = cr.service_id

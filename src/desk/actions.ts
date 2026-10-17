@@ -1202,28 +1202,36 @@ export async function repeatPackageVisits(formData: FormData) {
 
 export async function pardonPackage(formData: FormData) {
   const user = await requireOperator();
-  const orderId = String(formData.get("order") ?? "");
-  return settle(`/comandas/${orderId}`, async () => {
-    const packageId = idOrNull(String(formData.get("package") ?? ""));
-    const creditId = idOrNull(String(formData.get("credit") ?? ""));
+  const packageId = idOrNull(String(formData.get("package") ?? ""));
+  const orderId = idOrNull(String(formData.get("order") ?? "")) ?? "";
+  const creditId = idOrNull(String(formData.get("credit") ?? ""));
+  const back = packageId ? `/pacotes/vendidos/${packageId}` : `/comandas/${orderId}`;
+  return settle(back, async () => {
     if (!packageId) throw new FormError("dados");
+    const today = todaySaoPaulo();
     await db().begin(async (tx) => {
-      const order = await tx<{ clientId: string | null; day: string; kind: string }[]>`
-        SELECT client_id AS "clientId", to_char(day, 'YYYY-MM-DD') AS day, kind
-        FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
-      `;
-      if (order[0]?.kind !== "cliente" || !order[0].clientId) throw new FormError("cliente");
       const held = await tx<{
+        clientId: string;
+        saleOrderId: string | null;
         validityDays: number;
         validUntil: string | null;
         name: string;
       }[]>`
-        SELECT validity_days AS "validityDays", to_char(valid_until, 'YYYY-MM-DD') AS "validUntil", name
+        SELECT client_id AS "clientId", order_id AS "saleOrderId",
+               validity_days AS "validityDays", to_char(valid_until, 'YYYY-MM-DD') AS "validUntil", name
         FROM client_packages
-        WHERE id = ${packageId} AND account_id = ${user.accountId}
-          AND client_id = ${order[0].clientId} AND status = 'ativo'
+        WHERE id = ${packageId} AND account_id = ${user.accountId} AND status = 'ativo'
       `;
       if (!held[0]?.validUntil) throw new FormError("prazo");
+      let eventOrderId = held[0].saleOrderId;
+      if (orderId) {
+        const order = await tx<{ clientId: string | null; kind: string }[]>`
+          SELECT client_id AS "clientId", kind
+          FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+        `;
+        if (order[0]?.kind !== "cliente" || order[0].clientId !== held[0].clientId) throw new FormError("cliente");
+        eventOrderId = orderId;
+      }
       const lateRows = await tx<{ creditId: string; day: string; serviceName: string }[]>`
         SELECT c.id AS "creditId",
                to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
@@ -1236,12 +1244,12 @@ export async function pardonPackage(formData: FormData) {
           AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date > ${held[0].validUntil}::date
         ORDER BY a.starts_at
       `;
-      const expired = held[0].validUntil < order[0].day;
+      const expired = held[0].validUntil < today;
       if (!expired && !lateRows.length) throw new FormError("prazo");
       const late = creditId
         ? lateRows.find((row) => row.creditId === creditId) ?? lateRows[0]
         : lateRows[0];
-      const lateOn = late?.day ?? order[0].day;
+      const lateOn = late?.day ?? today;
       const last = await tx<{ day: string | null }[]>`
         SELECT to_char(max(a.starts_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') AS day
         FROM package_credits c
@@ -1266,14 +1274,14 @@ export async function pardonPackage(formData: FormData) {
           id, account_id, client_package_id, client_id, order_id, credit_id, actor_id,
           expired_on, late_on, renewed_until, sequence, weeks_lost
         ) VALUES (
-          ${randomUUID()}, ${user.accountId}, ${packageId}, ${order[0].clientId}, ${orderId}, ${late?.creditId ?? null}, ${user.id},
+          ${randomUUID()}, ${user.accountId}, ${packageId}, ${held[0].clientId}, ${eventOrderId}, ${late?.creditId ?? null}, ${user.id},
           ${held[0].validUntil}::date, ${lateOn}::date, ${renewed}::date, ${sequence}, ${weeksLost}
         )
       `;
       const weekWord = weeksLost === 1 ? "semana perdida" : "semanas perdidas";
       await writeEvent(tx, {
         accountId: user.accountId,
-        orderId,
+        orderId: eventOrderId,
         lineId: null,
         appointmentId: null,
         actorId: user.id,
@@ -1283,38 +1291,50 @@ export async function pardonPackage(formData: FormData) {
         afterCents: null,
       });
     });
-    return `/comandas/${orderId}`;
+    return orderId ? `/comandas/${orderId}` : `/pacotes/vendidos/${packageId}`;
   });
 }
 
 export async function chargePackageDifference(formData: FormData) {
   const user = await requireOperator();
-  const orderId = String(formData.get("order") ?? "");
-  return settle(`/comandas/${orderId}`, async () => {
-    const creditId = idOrNull(String(formData.get("credit") ?? ""));
+  const creditId = idOrNull(String(formData.get("credit") ?? ""));
+  const packageHint = idOrNull(String(formData.get("package") ?? ""));
+  const orderHint = idOrNull(String(formData.get("order") ?? "")) ?? "";
+  const back = packageHint ? `/pacotes/vendidos/${packageHint}` : `/comandas/${orderHint}`;
+  return settle(back, async () => {
     if (!creditId) throw new FormError("dados");
-    await db().begin(async (tx) => {
+    const targetOrderId = await db().begin(async (tx) => {
       const credit = await tx<{
         clientPackageId: string;
+        clientId: string;
         packageName: string;
+        serviceId: string;
         serviceName: string;
+        servicePriceCents: number;
+        serviceCommission: number;
         internalPriceCents: number;
         lineId: string | null;
         lineOrderId: string | null;
         lineOrderStatus: string | null;
         appointmentId: string | null;
+        professionalId: string | null;
         listPriceCents: number | null;
         commissionPercent: number | null;
         validUntil: string | null;
         day: string | null;
+        start: string | null;
       }[]>`
-        SELECT c.client_package_id AS "clientPackageId", cp.name AS "packageName", s.name AS "serviceName",
+        SELECT c.client_package_id AS "clientPackageId", cp.client_id AS "clientId", cp.name AS "packageName",
+               c.service_id AS "serviceId", s.name AS "serviceName",
+               s.price_cents AS "servicePriceCents", s.commission_percent AS "serviceCommission",
                c.internal_price_cents AS "internalPriceCents", c.order_line_id AS "lineId",
                l.order_id AS "lineOrderId", o.status AS "lineOrderStatus",
                COALESCE(l.appointment_id, c.appointment_id) AS "appointmentId",
+               COALESCE(a.professional_id, l.professional_id) AS "professionalId",
                l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
                to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntil",
-               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+               to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start
         FROM package_credits c
         JOIN client_packages cp ON cp.id = c.client_package_id
         JOIN services s ON s.id = c.service_id
@@ -1323,24 +1343,86 @@ export async function chargePackageDifference(formData: FormData) {
         LEFT JOIN appointments a ON a.id = COALESCE(l.appointment_id, c.appointment_id) AND a.status <> 'cancelado'
         WHERE c.id = ${creditId} AND c.account_id = ${user.accountId} AND cp.status = 'ativo'
       `;
-      if (!credit[0]?.lineId || !credit[0].day || !credit[0].validUntil || credit[0].listPriceCents == null) throw new FormError("diferenca");
-      if (credit[0].lineOrderStatus === "fechada") throw new FormError("diferenca");
+      if (!credit[0]?.day || !credit[0].validUntil || !credit[0].appointmentId || !credit[0].professionalId) {
+        throw new FormError("diferenca");
+      }
       if (credit[0].day <= credit[0].validUntil) throw new FormError("diferenca");
-      const avulso = credit[0].listPriceCents ?? 0;
+      if (credit[0].lineOrderStatus === "fechada") throw new FormError("diferenca");
+
+      let lineId = credit[0].lineId;
+      let lineOrderId = credit[0].lineOrderId;
+      let avulso = credit[0].listPriceCents;
+      let percent = credit[0].commissionPercent;
+
+      if (!lineId) {
+        const offer = await tx<{ priceCents: number; commissionPercent: number }[]>`
+          SELECT COALESCE(ps.price_cents, ${credit[0].servicePriceCents}) AS "priceCents",
+                 COALESCE(ps.commission_percent, ${credit[0].serviceCommission}) AS "commissionPercent"
+          FROM professionals p
+          LEFT JOIN professional_services ps
+            ON ps.professional_id = p.id AND ps.service_id = ${credit[0].serviceId}
+          WHERE p.id = ${credit[0].professionalId} AND p.account_id = ${user.accountId}
+        `;
+        if (!offer[0]) throw new FormError("servico");
+        avulso = await chargedServicePrice(
+          tx,
+          credit[0].serviceId,
+          credit[0].day,
+          credit[0].start ?? "09:00",
+          offer[0].priceCents,
+        );
+        percent = offer[0].commissionPercent;
+        const existing = await tx<{ id: string; status: string }[]>`
+          SELECT id, status FROM orders
+          WHERE account_id = ${user.accountId} AND client_id = ${credit[0].clientId}
+            AND day = ${credit[0].day}::date AND kind = 'cliente'
+        `;
+        if (existing[0]?.status === "fechada") throw new FormError("fechada");
+        lineOrderId = existing[0]?.id ?? randomUUID();
+        if (!existing[0]) {
+          await tx`
+            INSERT INTO orders (id, account_id, client_id, day, kind, status)
+            VALUES (${lineOrderId}, ${user.accountId}, ${credit[0].clientId}, ${credit[0].day}::date, 'cliente', 'aberta')
+          `;
+        }
+        lineId = randomUUID();
+        const dueSeed = Math.max(0, avulso - credit[0].internalPriceCents);
+        const commissionSeed = Math.round(dueSeed * percent / 100);
+        await tx`
+          INSERT INTO order_lines (
+            id, account_id, order_id, appointment_id, kind, service_id, professional_id,
+            description, qty, price_cents, list_price_cents, commission_percent, commission_cents, package_credit_id
+          ) VALUES (
+            ${lineId}, ${user.accountId}, ${lineOrderId}, ${credit[0].appointmentId}, 'servico',
+            ${credit[0].serviceId}, ${credit[0].professionalId}, ${credit[0].serviceName}, 1,
+            ${dueSeed}, ${avulso}, ${percent}, ${commissionSeed}, ${creditId}
+          )
+        `;
+        await tx`
+          UPDATE appointments SET order_id = ${lineOrderId}
+          WHERE id = ${credit[0].appointmentId} AND account_id = ${user.accountId}
+        `;
+        await tx`
+          UPDATE package_credits SET order_line_id = ${lineId}
+          WHERE id = ${creditId}
+        `;
+      }
+
+      if (avulso == null || percent == null || !lineId) throw new FormError("diferenca");
       const due = Math.max(0, avulso - credit[0].internalPriceCents);
-      const percent = credit[0].commissionPercent ?? 0;
       const commission = Math.round(due * percent / 100);
       await tx`
         UPDATE order_lines
-        SET price_cents = ${due}, commission_cents = ${commission}, package_credit_id = NULL, courtesy = false
-        WHERE id = ${credit[0].lineId}
+        SET price_cents = ${due}, list_price_cents = ${avulso}, commission_percent = ${percent},
+            commission_cents = ${commission}, package_credit_id = NULL, courtesy = false
+        WHERE id = ${lineId}
       `;
-      if (credit[0].lineOrderId) {
-        await stampReferral(tx, user.accountId, credit[0].lineOrderId, credit[0].lineId, due);
+      if (lineOrderId) {
+        await stampReferral(tx, user.accountId, lineOrderId, lineId, due);
       }
       await tx`
         UPDATE package_credits
-        SET status = 'usado', used_on = ${credit[0].day}::date
+        SET status = 'usado', used_on = ${credit[0].day}::date, order_line_id = ${lineId}
         WHERE id = ${creditId}
       `;
       const leftovers = await tx<{
@@ -1395,8 +1477,8 @@ export async function chargePackageDifference(formData: FormData) {
       `;
       await writeEvent(tx, {
         accountId: user.accountId,
-        orderId: credit[0].lineOrderId ?? orderId,
-        lineId: credit[0].lineId,
+        orderId: lineOrderId,
+        lineId,
         appointmentId: credit[0].appointmentId,
         actorId: user.id,
         kind: "valor",
@@ -1404,8 +1486,10 @@ export async function chargePackageDifference(formData: FormData) {
         beforeCents: 0,
         afterCents: due,
       });
+      return lineOrderId;
     });
-    return `/comandas/${orderId}`;
+    if (!targetOrderId) throw new FormError("diferenca");
+    return `/comandas/${targetOrderId}`;
   });
 }
 
