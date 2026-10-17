@@ -118,6 +118,7 @@ export async function deskPulse(accountId: string, day: string, professionalId: 
       LEFT JOIN professionals p ON p.id = o.professional_id
       WHERE o.account_id = ${accountId}
         AND o.status = 'aberta'
+        AND o.day = ${day}::date
         AND (
           COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
           - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
@@ -127,7 +128,7 @@ export async function deskPulse(accountId: string, day: string, professionalId: 
             SELECT 1 FROM order_lines l
             WHERE l.order_id = o.id AND l.professional_id = ${professionalId}
           ))
-      ORDER BY o.day, o.created_at
+      ORDER BY o.created_at
       LIMIT 8
     `,
     professionalId
