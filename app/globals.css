@@ -599,6 +599,13 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
 .tiles .stat span { font-weight: 600; }
 
 .sale-bar { display: none; }
+.week-strip a.btn,
+.week-strip a.quiet {
+  min-width: 4.5rem;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+}
 
 @media (max-width: 860px) {
   table.sheet { border-collapse: separate; border-spacing: 0; }

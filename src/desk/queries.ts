@@ -47,6 +47,24 @@ export async function dayHours(accountId: string) {
   `;
 }
 
+export async function weekSlotCounts(accountId: string, start: string, end: string, professionalId: string | null) {
+  const from = stamp(start, "00:00");
+  const until = stamp(end, "23:59");
+  return db()<{ day: string; qty: number }[]>`
+    SELECT to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+           count(*)::int AS qty
+    FROM appointments a
+    WHERE a.account_id = ${accountId}
+      AND a.kind = 'horario'
+      AND a.status <> 'cancelado'
+      AND a.starts_at < ${until}
+      AND a.ends_at > ${from}
+      AND (${professionalId}::uuid IS NULL OR a.professional_id = ${professionalId})
+    GROUP BY 1
+    ORDER BY 1
+  `;
+}
+
 export async function deskPulse(accountId: string, day: string, professionalId: string | null) {
   const tomorrow = shiftDay(day, 1);
   const start = stamp(day, "00:00");

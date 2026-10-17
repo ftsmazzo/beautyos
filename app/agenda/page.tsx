@@ -3,7 +3,8 @@ import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais } from "@/catalog/format";
 import { birthdaysOn } from "@/catalog/queries";
 import { blockSlot, openConsumption, openDuePackageVisits } from "@/desk/actions";
-import { dayParam, freeGaps, fromMinutes, minutes, periodsFor, shiftDay } from "@/desk/clock";
+import { WEEKDAYS } from "@/catalog/labels";
+import { dayParam, freeGaps, fromMinutes, minutes, periodsFor, shiftDay, weekBounds, weekdayOf } from "@/desk/clock";
 import {
   clientOptions,
   dayAppointments,
@@ -12,6 +13,7 @@ import {
   dayRoster,
   linkedProfessional,
   serviceOptions,
+  weekSlotCounts,
 } from "@/desk/queries";
 import { APPOINTMENT_STATUS, blockPaint, CLOSED, FIT_IN, LUNCH, OUTSIDE } from "@/desk/statuses";
 import { AgendaDesk } from "@/ui/agenda-desk";
@@ -43,7 +45,19 @@ export default async function AgendaPage({
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const roster = own || user.role !== "profissional" ? await dayRoster(user.accountId, own) : [];
   const hours = await dayHours(user.accountId);
-  const appointments = await dayAppointments(user.accountId, day);
+  const week = weekBounds(day);
+  const [appointments, weekCounts] = await Promise.all([
+    dayAppointments(user.accountId, day),
+    weekSlotCounts(user.accountId, week.start, week.end, own),
+  ]);
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = shiftDay(week.start, index);
+    return {
+      day: date,
+      label: WEEKDAYS[weekdayOf(date)]?.slice(0, 3) ?? date,
+      qty: weekCounts.find((row) => row.day === date)?.qty ?? 0,
+    };
+  });
   const birthdays = await birthdaysOn(user.accountId, day);
   const birthdayClients = new Set(birthdays.clients.map((person) => person.id));
   const birthdayPros = new Set(birthdays.professionals.map((person) => person.id));
@@ -108,6 +122,26 @@ export default async function AgendaPage({
         <Link className="btn quiet" href="/agenda">
           Hoje
         </Link>
+        <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, -7)}`}>
+          Semana anterior
+        </Link>
+        <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, 7)}`}>
+          Próxima semana
+        </Link>
+      </div>
+      <div className="row week-strip">
+        {weekDays.map((item) => (
+          <Link
+            key={item.day}
+            className={item.day === day ? "btn" : "btn quiet"}
+            href={`/agenda?dia=${item.day}`}
+          >
+            {item.label} {item.day.slice(8, 10)}
+            {item.qty > 0 ? ` · ${item.qty}` : ""}
+          </Link>
+        ))}
+      </div>
+      <div className="row">
         {bookable.length > 0 ? (
           <Modal label="Novo horário" title="Novo horário" tone="blue" startOpen={Boolean((bookClient && bookService) || (bookProfessional && bookStart))}>
             <BookForm
