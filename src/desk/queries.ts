@@ -484,13 +484,18 @@ export async function visitNotes(accountId: string, orderId: string) {
 }
 
 export async function dayLogs(accountId: string, day: string) {
-  const start = stamp(day, "00:00");
-  const end = stamp(shiftDay(day, 1), "00:00");
+  return periodLogs(accountId, day, day, null);
+}
+
+export async function periodLogs(accountId: string, startDay: string, endDay: string, kind: string | null) {
+  const start = stamp(startDay, "00:00");
+  const end = stamp(shiftDay(endDay, 1), "00:00");
   return db()<{
     id: string;
     kind: string;
     summary: string;
     at: string;
+    day: string;
     actorName: string | null;
     orderId: string | null;
     clientName: string | null;
@@ -498,6 +503,7 @@ export async function dayLogs(accountId: string, day: string) {
   }[]>`
     SELECT e.id, e.kind, e.summary,
            to_char(e.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS at,
+           to_char(e.created_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
            u.name AS "actorName",
            e.order_id AS "orderId",
            c.name AS "clientName",
@@ -509,7 +515,9 @@ export async function dayLogs(accountId: string, day: string) {
     WHERE e.account_id = ${accountId}
       AND e.created_at >= ${start}
       AND e.created_at < ${end}
+      AND (${kind}::text IS NULL OR e.kind = ${kind})
     ORDER BY e.created_at DESC
+    LIMIT 400
   `;
 }
 
