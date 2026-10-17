@@ -47,6 +47,86 @@ export async function dayHours(accountId: string) {
   `;
 }
 
+export async function deskPulse(accountId: string, day: string, professionalId: string | null) {
+  const tomorrow = shiftDay(day, 1);
+  const start = stamp(day, "00:00");
+  const end = stamp(day, "23:59");
+  const nextStart = stamp(tomorrow, "00:00");
+  const nextEnd = stamp(tomorrow, "23:59");
+  const [todayRows, tomorrowRows, openRows, consumption] = await Promise.all([
+    db()<{
+      id: string;
+      time: string;
+      clientName: string | null;
+      serviceName: string | null;
+      status: string;
+      orderId: string | null;
+    }[]>`
+      SELECT a.id,
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS time,
+             c.name AS "clientName", s.name AS "serviceName", a.status, a.order_id AS "orderId"
+      FROM appointments a
+      LEFT JOIN clients c ON c.id = a.client_id
+      LEFT JOIN services s ON s.id = a.service_id
+      WHERE a.account_id = ${accountId}
+        AND a.kind = 'horario'
+        AND a.status <> 'cancelado'
+        AND a.starts_at < ${end}
+        AND a.ends_at > ${start}
+        AND (${professionalId}::uuid IS NULL OR a.professional_id = ${professionalId})
+      ORDER BY a.starts_at
+      LIMIT 12
+    `,
+    db()<{ qty: number }[]>`
+      SELECT count(*)::int AS qty
+      FROM appointments a
+      WHERE a.account_id = ${accountId}
+        AND a.kind = 'horario'
+        AND a.status <> 'cancelado'
+        AND a.starts_at < ${nextEnd}
+        AND a.ends_at > ${nextStart}
+        AND (${professionalId}::uuid IS NULL OR a.professional_id = ${professionalId})
+    `,
+    db()<{ id: string; who: string; gapCents: number; day: string }[]>`
+      SELECT o.id,
+             COALESCE(c.name, p.name, 'Sem nome') AS who,
+             to_char(o.day, 'YYYY-MM-DD') AS day,
+             (
+               COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
+               - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
+             )::int AS "gapCents"
+      FROM orders o
+      LEFT JOIN clients c ON c.id = o.client_id
+      LEFT JOIN professionals p ON p.id = o.professional_id
+      WHERE o.account_id = ${accountId}
+        AND o.status = 'aberta'
+        AND (${professionalId}::uuid IS NULL OR o.professional_id = ${professionalId}
+          OR EXISTS (
+            SELECT 1 FROM order_lines l
+            WHERE l.order_id = o.id AND l.professional_id = ${professionalId}
+          ))
+      ORDER BY o.day, o.created_at
+      LIMIT 8
+    `,
+    professionalId
+      ? db()<{ id: string; status: string }[]>`
+          SELECT id, status FROM orders
+          WHERE account_id = ${accountId}
+            AND professional_id = ${professionalId}
+            AND day = ${day}::date
+            AND kind = 'consumo'
+          LIMIT 1
+        `
+      : Promise.resolve([] as { id: string; status: string }[]),
+  ]);
+  return {
+    todaySlots: todayRows,
+    tomorrowQty: tomorrowRows[0]?.qty ?? 0,
+    openOrders: openRows,
+    consumption: consumption[0] ?? null,
+  };
+}
+
 export async function dayAppointments(accountId: string, day: string) {
   const start = stamp(day, "00:00");
   const end = stamp(day, "23:59");

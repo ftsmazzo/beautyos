@@ -61,6 +61,8 @@ export default async function OrderPage({
   if (!involved) redirect("/comandas");
   const operator = user.role === "administrador" || user.role === "balcao";
   const open = order.status === "aberta";
+  const canClose =
+    operator || (order.kind === "consumo" && own != null && order.professionalId === own);
   const total = order.lines.reduce((sum, line) => sum + line.priceCents, 0);
   const paid = order.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
   const people =
@@ -667,7 +669,7 @@ export default async function OrderPage({
         </div>
       )}
 
-      {operator ? (
+      {canClose ? (
         <form className="desk-close" action={open ? closeOrder : reopenOrder}>
           <input type="hidden" name="order" value={order.id} />
           <SubmitButton
@@ -679,10 +681,19 @@ export default async function OrderPage({
       ) : null}
       <div className="sale-bar">
         <div>
-          <strong>{formatReais(total)}</strong>
-          <span>{paid >= total ? "Coberta" : `Falta ${formatReais(total - paid)}`}</span>
+          {order.kind === "consumo" ? (
+            <>
+              <strong>Consumo interno</strong>
+              <span>{open ? "Fecha sem pagamento" : "Fechada"}</span>
+            </>
+          ) : (
+            <>
+              <strong>{formatReais(total)}</strong>
+              <span>{paid >= total ? "Coberta" : `Falta ${formatReais(total - paid)}`}</span>
+            </>
+          )}
         </div>
-        {operator ? (
+        {canClose ? (
           <form action={open ? closeOrder : reopenOrder}>
             <input type="hidden" name="order" value={order.id} />
             <SubmitButton

@@ -1802,18 +1802,28 @@ export async function removePayment(formData: FormData) {
 }
 
 export async function closeOrder(formData: FormData) {
-  const user = await requireOperator();
+  const user = await requireDesk();
   const orderId = String(formData.get("order") ?? "");
   const stay = formData.get("voltar") === "agenda";
+  const own = await scope(user.id, user.role);
   const fail = await db().begin(async (tx) => {
-    const order = await tx<{ status: string; kind: string; day: string; professionalName: string | null }[]>`
-      SELECT o.status, o.kind, to_char(o.day, 'YYYY-MM-DD') AS day, p.name AS "professionalName"
+    const order = await tx<{
+      status: string;
+      kind: string;
+      day: string;
+      professionalId: string | null;
+      professionalName: string | null;
+      incomplete: boolean;
+    }[]>`
+      SELECT o.status, o.kind, to_char(o.day, 'YYYY-MM-DD') AS day,
+             o.professional_id AS "professionalId", p.name AS "professionalName", o.incomplete
       FROM orders o
       LEFT JOIN professionals p ON p.id = o.professional_id
       WHERE o.id = ${orderId} AND o.account_id = ${user.accountId}
     `;
     if (!order[0] || order[0].status !== "aberta") return "fechada";
     if (order[0].kind === "consumo") {
+      if (own && order[0].professionalId !== own) return "fora";
       await tx`UPDATE orders SET status = 'fechada' WHERE id = ${orderId}`;
       await tx`
         INSERT INTO cash_movements (id, account_id, day, amount_cents, origin, label, order_id)
@@ -1824,6 +1834,8 @@ export async function closeOrder(formData: FormData) {
       `;
       return null;
     }
+    if (own) return "fora";
+    if (order[0].incomplete) return "cadastro";
     const lines = await tx<{ kind: string; professionalId: string | null; appointmentId: string | null; priceCents: number }[]>`
       SELECT kind, professional_id AS "professionalId", appointment_id AS "appointmentId", price_cents AS "priceCents"
       FROM order_lines WHERE order_id = ${orderId}
@@ -1856,13 +1868,17 @@ export async function closeOrder(formData: FormData) {
 }
 
 export async function reopenOrder(formData: FormData) {
-  const user = await requireOperator();
+  const user = await requireDesk();
   const orderId = String(formData.get("order") ?? "");
   const stay = formData.get("voltar") === "agenda";
-  const rows = await db()<{ day: string }[]>`
-    SELECT to_char(day, 'YYYY-MM-DD') AS day FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
-  `;
-  await db().begin(async (tx) => {
+  const own = await scope(user.id, user.role);
+  const rows = await db().begin(async (tx) => {
+    const order = await tx<{ day: string; kind: string; professionalId: string | null; status: string }[]>`
+      SELECT to_char(day, 'YYYY-MM-DD') AS day, kind, professional_id AS "professionalId", status
+      FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
+    `;
+    if (!order[0] || order[0].status !== "fechada") return order as { day: string }[];
+    if (own && (order[0].kind !== "consumo" || order[0].professionalId !== own)) return [] as { day: string }[];
     await tx`
       UPDATE orders SET status = 'aberta'
       WHERE id = ${orderId} AND account_id = ${user.accountId}
@@ -1871,9 +1887,11 @@ export async function reopenOrder(formData: FormData) {
       DELETE FROM cash_movements
       WHERE order_id = ${orderId} AND account_id = ${user.accountId} AND origin = 'consumo_interno'
     `;
+    return [{ day: order[0].day }];
   });
   const { redirect } = await import("next/navigation");
-  if (stay && rows[0]) redirect(`/agenda?dia=${rows[0].day}`);
+  if (!rows[0]) redirect(`/comandas/${orderId}?erro=fora`);
+  if (stay) redirect(`/agenda?dia=${rows[0].day}`);
   redirect(`/comandas/${orderId}`);
 }
 
@@ -2016,12 +2034,14 @@ export async function addConsumption(formData: FormData) {
   const orderId = String(formData.get("order") ?? "");
   return settle(`/comandas/${orderId}`, async () => {
     const productId = String(formData.get("product") ?? "");
+    const own = await scope(user.id, user.role);
     await db().begin(async (tx) => {
       const order = await tx<{ status: string; kind: string; professionalId: string }[]>`
         SELECT status, kind, professional_id AS "professionalId"
         FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.kind !== "consumo" || order[0].status !== "aberta") throw new FormError("fechada");
+      if (own && order[0].professionalId !== own) throw new FormError("fora");
       const product = await tx<{ name: string; salePriceCents: number; staffPriceCents: number | null }[]>`
         SELECT name, sale_price_cents AS "salePriceCents", staff_price_cents AS "staffPriceCents"
         FROM products WHERE id = ${productId} AND account_id = ${user.accountId}
@@ -2056,12 +2076,14 @@ export async function addStaffService(formData: FormData) {
     const professionalId = idOrNull(String(formData.get("professional") ?? ""));
     const serviceId = idOrNull(String(formData.get("service") ?? ""));
     if (!professionalId || !serviceId) throw new FormError("dados");
+    const own = await scope(user.id, user.role);
     await db().begin(async (tx) => {
       const order = await tx<{ status: string; kind: string; professionalId: string }[]>`
         SELECT status, kind, professional_id AS "professionalId"
         FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.kind !== "consumo" || order[0].status !== "aberta") throw new FormError("fechada");
+      if (own && order[0].professionalId !== own) throw new FormError("fora");
       if (professionalId === order[0].professionalId) throw new FormError("mesmo");
       const offer = await tx<{ name: string; priceCents: number; commissionPercent: number }[]>`
         SELECT s.name,
@@ -2452,12 +2474,14 @@ export async function removeLine(formData: FormData) {
   const lineId = idOrNull(String(formData.get("line") ?? ""));
   return settle(`/comandas/${orderId}`, async () => {
     if (!lineId) throw new FormError("dados");
+    const own = await scope(user.id, user.role);
     const next = await db().begin(async (tx) => {
-      const order = await tx<{ status: string; incomplete: boolean; day: string }[]>`
-        SELECT status, incomplete, to_char(day, 'YYYY-MM-DD') AS day
+      const order = await tx<{ status: string; incomplete: boolean; day: string; kind: string; professionalId: string | null }[]>`
+        SELECT status, incomplete, to_char(day, 'YYYY-MM-DD') AS day, kind, professional_id AS "professionalId"
         FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.status !== "aberta") throw new FormError("fechada");
+      if (own && order[0].kind === "consumo" && order[0].professionalId !== own) throw new FormError("fora");
       const line = await tx<{
         kind: string;
         description: string;
@@ -2645,15 +2669,17 @@ export async function openDayOrder(formData: FormData) {
 }
 
 export async function deleteEmptyOrder(formData: FormData) {
-  const user = await requireOperator();
+  const user = await requireDesk();
   const orderId = String(formData.get("order") ?? "");
   return settle(`/comandas/${orderId}`, async () => {
+    const own = await scope(user.id, user.role);
     const day = await db().begin(async (tx) => {
-      const order = await tx<{ status: string; day: string }[]>`
-        SELECT status, to_char(day, 'YYYY-MM-DD') AS day
+      const order = await tx<{ status: string; day: string; kind: string; professionalId: string | null }[]>`
+        SELECT status, to_char(day, 'YYYY-MM-DD') AS day, kind, professional_id AS "professionalId"
         FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}
       `;
       if (order[0]?.status !== "aberta") throw new FormError("fechada");
+      if (own && (order[0].kind !== "consumo" || order[0].professionalId !== own)) throw new FormError("fora");
       const left = await tx`SELECT id FROM order_lines WHERE order_id = ${orderId} LIMIT 1`;
       const paid = await tx`SELECT id FROM payments WHERE order_id = ${orderId} LIMIT 1`;
       if (left.length || paid.length) throw new FormError("dados");

@@ -82,7 +82,8 @@ export default async function ClientFormPage({
           {brief.packages.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
           {brief.packages.map((item) => (
             <p key={item.id}>
-              {item.name} · {item.used} de {item.total} · {packageDeadline(item)}
+              <Link href={`/pacotes/vendidos/${item.id}`}>{item.name}</Link>
+              {` · ${item.used} de ${item.total} · ${packageDeadline(item)}`}
             </p>
           ))}
           {brief.orders.length > 0 ? <h2>Comandas</h2> : null}
@@ -109,9 +110,23 @@ export default async function ClientFormPage({
                   <Link href={`/comandas/${visit.orderId}`}>Comanda</Link>
                 </>
               ) : null}
-              {visit.note ? ` · ${visit.note}` : ""}
             </p>
           ))}
+          {brief.agenda.some((visit) => visit.note) ? <h2>Avaliações</h2> : null}
+          {brief.agenda
+            .filter((visit) => visit.note)
+            .map((visit) => (
+              <p key={`note-${visit.id}`}>
+                {formatDay(visit.day)} {visit.time} · {visit.service}
+                {visit.orderId ? (
+                  <>
+                    {" · "}
+                    <Link href={`/comandas/${visit.orderId}`}>Comanda</Link>
+                  </>
+                ) : null}
+                {` · ${visit.note}`}
+              </p>
+            ))}
           <form action={openDayOrder}>
             <input type="hidden" name="from" value="cliente" />
             <input type="hidden" name="client" value={person.id} />
