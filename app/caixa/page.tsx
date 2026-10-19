@@ -28,17 +28,18 @@ export default async function CashPage({
     let end = dayParam(query.ate);
     if (start > end) [start, end] = [end, start];
     const tooLong = daysBetween(start, end) > SPAN;
-    const book = tooLong ? { methods: [], movements: [] } : await cashBook(user.accountId, start, end);
-    const days = [...new Set([...book.methods.map((row) => row.day), ...book.movements.map((row) => row.day)])].sort();
+    const book = tooLong ? { methods: [], movements: [], banks: [] } : await cashBook(user.accountId, start, end);
+    const days = [...new Set([...book.methods.map((row) => row.day), ...book.movements.map((row) => row.day), ...book.banks.map((row) => row.day)])].sort();
     const of = (day: string, method: string) =>
       book.methods.find((row) => row.day === day && row.method === method)?.amountCents ?? 0;
     const move = (day: string, origin: string) => book.movements.find((row) => row.day === day && row.origin === origin);
     const drawer = (day: string) => METHODS.reduce((sum, method) => sum + of(day, method), 0);
+    const bank = (day: string) => book.banks.find((row) => row.day === day)?.amountCents ?? 0;
     const month = monthBounds(today);
     const week = weekBounds(today);
     return (
       <Panel user={user} current="/caixa" title="Histórico do caixa">
-        <p>Só a gaveta. Recebimento no banco fica no extrato. A taxa de cartão e o estorno aparecem à parte. Consumo interno entra com valor zero.</p>
+        <p>A gaveta fica separada do banco. O banco é o que entrou no extrato neste período. A taxa de cartão e o estorno aparecem à parte. Consumo interno entra com valor zero.</p>
         <form className="row" action="/caixa">
           <label>
             De
@@ -75,6 +76,7 @@ export default async function CashPage({
                     <th key={method}>{methodLabel(method)}</th>
                   ))}
                   <th>Gaveta</th>
+                  <th>Banco</th>
                   <th>Taxa</th>
                   <th>Estorno</th>
                   <th>Consumo</th>
@@ -89,6 +91,7 @@ export default async function CashPage({
                       <td key={method}>{formatReais(of(day, method))}</td>
                     ))}
                     <td>{formatReais(drawer(day))}</td>
+                    <td>{formatReais(bank(day))}</td>
                     <td>{formatReais(move(day, "taxa_cartao")?.amountCents ?? 0)}</td>
                     <td>{formatReais(move(day, "estorno")?.amountCents ?? 0)}</td>
                     <td>{move(day, "consumo_interno")?.qty ?? 0}</td>
@@ -105,6 +108,7 @@ export default async function CashPage({
                     <td key={method}>{formatReais(days.reduce((sum, day) => sum + of(day, method), 0))}</td>
                   ))}
                   <td>{formatReais(days.reduce((sum, day) => sum + drawer(day), 0))}</td>
+                  <td>{formatReais(days.reduce((sum, day) => sum + bank(day), 0))}</td>
                   <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "taxa_cartao")?.amountCents ?? 0), 0))}</td>
                   <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "estorno")?.amountCents ?? 0), 0))}</td>
                   <td>{days.reduce((sum, day) => sum + (move(day, "consumo_interno")?.qty ?? 0), 0)}</td>
@@ -120,6 +124,9 @@ export default async function CashPage({
   const day = dayParam(query.dia);
   const cash = await dayCash(user.accountId, day);
   const received = cash.byMethod.reduce((sum, row) => sum + row.amountCents, 0);
+  const banked = cash.banks.reduce((sum, row) => sum + row.amountCents, 0);
+  const netCommission = cash.commissions.reduce((sum, row) => sum + row.amountCents - row.abatementCents, 0);
+  const openDue = cash.openGaps.reduce((sum, row) => sum + row.gapCents, 0);
 
   return (
     <Panel user={user} current="/caixa" title="Caixa do dia">
@@ -144,7 +151,19 @@ export default async function CashPage({
       <div className="tiles">
         <div className="stat">
           <strong>{formatReais(received)}</strong>
-          <span>Recebido</span>
+          <span>Gaveta</span>
+        </div>
+        <div className="stat">
+          <strong>{formatReais(banked)}</strong>
+          <span>Banco</span>
+        </div>
+        <div className="stat">
+          <strong>{formatReais(netCommission)}</strong>
+          <span>Comissão líquida</span>
+        </div>
+        <div className="stat">
+          <strong>{formatReais(openDue)}</strong>
+          <span>Ainda em aberto</span>
         </div>
       </div>
       <div className="card">
@@ -169,6 +188,47 @@ export default async function CashPage({
             </tbody>
           </table>
         ) : null}
+      </div>
+      <div className="card">
+        <h2>Banco</h2>
+        <p>Recebimento que entrou no extrato. Não soma na gaveta. A taxa continua no movimento do caixa.</p>
+        {cash.banks.length === 0 ? <p>Nenhum recebimento no banco neste dia.</p> : null}
+        {cash.banks.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Banco</th>
+                <th>Forma</th>
+                <th>Valor</th>
+                <th>Taxa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cash.banks.map((row) => (
+                <tr key={`${row.bank}-${row.method}`}>
+                  <td>{row.bank}</td>
+                  <td>{methodLabel(row.method)}</td>
+                  <td>{formatReais(row.amountCents)}</td>
+                  <td>{formatReais(row.feeCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </div>
+      <div className="card">
+        <h2>Ainda em aberto</h2>
+        <p>
+          Comanda deste dia que ainda não cobriu o total.{" "}
+          <Link href="/comandas?lista=abertas&filtro=falta">Fila a receber</Link>
+        </p>
+        {cash.openGaps.length === 0 ? <p>Nenhuma falta neste dia.</p> : null}
+        {cash.openGaps.map((row) => (
+          <p key={row.id}>
+            <Link href={`/comandas/${row.id}`}>{row.who}</Link>
+            {` · falta ${formatReais(row.gapCents)}`}
+          </p>
+        ))}
       </div>
       <div className="card">
         <h2>Movimentos</h2>
@@ -204,6 +264,7 @@ export default async function CashPage({
                 <th>Pessoa</th>
                 <th>Comissão</th>
                 <th>Abate</th>
+                <th>Líquido</th>
               </tr>
             </thead>
             <tbody>
@@ -212,6 +273,7 @@ export default async function CashPage({
                   <td>{row.name}</td>
                   <td>{formatReais(row.amountCents)}</td>
                   <td>{formatReais(row.abatementCents)}</td>
+                  <td>{formatReais(row.amountCents - row.abatementCents)}</td>
                 </tr>
               ))}
             </tbody>

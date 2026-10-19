@@ -431,7 +431,17 @@ export async function cashBook(accountId: string, start: string, end: string) {
       AND origin <> 'pagamento'
     GROUP BY day, origin
   `;
-  return { methods, movements };
+  const banks = await db()<{ day: string; amountCents: number }[]>`
+    SELECT to_char(o.day, 'YYYY-MM-DD') AS day, SUM(pay.amount_cents)::int AS "amountCents"
+    FROM payments pay
+    JOIN orders o ON o.id = pay.order_id
+    WHERE pay.account_id = ${accountId}
+      AND o.day >= ${start}::date
+      AND o.day <= ${end}::date
+      AND pay.bank_account_id IS NOT NULL
+    GROUP BY o.day
+  `;
+  return { methods, movements, banks };
 }
 
 export async function getOrder(accountId: string, id: string) {
@@ -912,6 +922,35 @@ export async function dayCash(accountId: string, day: string) {
     GROUP BY pay.method
     ORDER BY pay.method
   `;
+  const banks = await db()<{ bank: string; method: string; amountCents: number; feeCents: number }[]>`
+    SELECT b.name AS bank, pay.method,
+           SUM(pay.amount_cents)::int AS "amountCents",
+           SUM(pay.fee_cents)::int AS "feeCents"
+    FROM payments pay
+    JOIN orders o ON o.id = pay.order_id
+    JOIN bank_accounts b ON b.id = pay.bank_account_id
+    WHERE pay.account_id = ${accountId} AND o.day = ${day}::date
+    GROUP BY b.name, pay.method
+    ORDER BY b.name, pay.method
+  `;
+  const openGaps = await db()<{ id: string; who: string; gapCents: number }[]>`
+    SELECT o.id, COALESCE(c.name, 'Sem nome') AS who,
+           (
+             COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
+             - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
+           )::int AS "gapCents"
+    FROM orders o
+    LEFT JOIN clients c ON c.id = o.client_id
+    WHERE o.account_id = ${accountId}
+      AND o.day = ${day}::date
+      AND o.status = 'aberta'
+      AND o.kind = 'cliente'
+      AND (
+        COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
+        - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
+      ) > 0
+    ORDER BY c.name NULLS LAST
+  `;
   const commissions = await db()<{ name: string; amountCents: number; abatementCents: number }[]>`
     SELECT name,
            SUM(amount)::int AS "amountCents",
@@ -947,7 +986,7 @@ export async function dayCash(accountId: string, day: string) {
     GROUP BY name
     ORDER BY name
   `;
-  return { movements, byMethod, commissions };
+  return { movements, byMethod, banks, openGaps, commissions };
 }
 
 export async function ownCommission(accountId: string, professionalId: string, day: string) {
