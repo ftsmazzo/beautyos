@@ -65,7 +65,7 @@ export default async function CashPage({
           </Link>
         </div>
         {tooLong ? <p className="error">O período fica em até {SPAN} dias.</p> : null}
-        {!tooLong && days.length === 0 ? <p>Nada na gaveta neste período.</p> : null}
+        {!tooLong && days.length === 0 ? <p>Nada na gaveta nem no banco neste período.</p> : null}
         {!tooLong && days.length > 0 ? (
           <div className="card">
             <table>
