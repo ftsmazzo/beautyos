@@ -543,10 +543,16 @@ async function ensureSchema() {
       id uuid PRIMARY KEY,
       account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-      method text NOT NULL CHECK (method IN ('dinheiro', 'pix', 'debito', 'credito', 'outros')),
+      method text NOT NULL CHECK (method IN ('dinheiro', 'pix', 'debito', 'credito', 'outros', 'conta')),
       amount_cents integer NOT NULL CHECK (amount_cents > 0),
       created_at timestamptz NOT NULL DEFAULT now()
     )
+  `;
+  await sql`ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_method_check`;
+  await sql`
+    ALTER TABLE payments
+    ADD CONSTRAINT payments_method_check
+    CHECK (method IN ('dinheiro', 'pix', 'debito', 'credito', 'outros', 'conta'))
   `;
   await sql`
     CREATE TABLE IF NOT EXISTS cash_movements (

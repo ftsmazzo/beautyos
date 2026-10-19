@@ -6,6 +6,7 @@ import { birthdaysOn, houseRules } from "@/catalog/queries";
 import {
   addConsumption,
   addPayment,
+  applyClientCredit,
   addProduct,
   addServiceToOrder,
   adjustLinePrice,
@@ -29,7 +30,7 @@ import {
   toggleCourtesy,
   toggleFromOutside,
 } from "@/desk/actions";
-import { clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
+import { clientCredit, clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
 import { listBanks } from "@/finance/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
@@ -71,6 +72,11 @@ export default async function OrderPage({
       : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
   const banks = operator && open && order.kind === "cliente" ? await listBanks(user.accountId) : [];
+  const credit =
+    operator && open && order.kind === "cliente" && order.clientId
+      ? await clientCredit(user.accountId, order.clientId)
+      : 0;
+  const gap = Math.max(0, total - paid);
   const roster = order.kind === "cliente" || order.kind === "consumo" ? await dayRoster(user.accountId, null) : [];
   const catalog = order.kind === "cliente" || order.kind === "consumo" ? await serviceOptions(user.accountId) : [];
   const stock = order.kind === "consumo" && open ? await consumptionProducts(user.accountId) : [];
@@ -605,7 +611,9 @@ export default async function OrderPage({
                 {order.payments.map((payment) => (
                   <tr key={payment.id}>
                     <td data-label="Forma">
-                      {PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}
+                      {payment.method === "conta"
+                        ? "Conta do cliente"
+                        : PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}
                       {payment.bankName ? ` · ${payment.bankName}` : ""}
                     </td>
                     <td data-label="Valor">
@@ -660,6 +668,22 @@ export default async function OrderPage({
               </div>
               {banks.length > 0 ? <p>No banco, o recebimento entra no extrato e não passa pela gaveta.</p> : null}
               <SubmitButton label="Lançar pagamento" pendingLabel="Lançando…" />
+            </form>
+          ) : null}
+          {operator && open && order.clientId && credit > 0 && gap > 0 ? (
+            <form action={applyClientCredit}>
+              <input type="hidden" name="order" value={order.id} />
+              <p>Crédito da conta {formatReais(credit)}. Esse uso não entra na gaveta.</p>
+              <label>
+                Valor
+                <input
+                  name="amount"
+                  inputMode="decimal"
+                  defaultValue={centsToInput(Math.min(credit, gap))}
+                  required
+                />
+              </label>
+              <SubmitButton label="Usar crédito" pendingLabel="Usando…" />
             </form>
           ) : null}
         </div>

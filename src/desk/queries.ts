@@ -457,6 +457,7 @@ export async function cashBook(accountId: string, start: string, end: string) {
       AND o.day >= ${start}::date
       AND o.day <= ${end}::date
       AND pay.bank_account_id IS NULL
+      AND pay.method <> 'conta'
     GROUP BY o.day, pay.method
   `;
   const movements = await db()<{ day: string; origin: string; amountCents: number; qty: number }[]>`
@@ -957,7 +958,8 @@ export async function dayCash(accountId: string, day: string) {
     SELECT pay.method, SUM(pay.amount_cents)::int AS "amountCents"
     FROM payments pay
     JOIN orders o ON o.id = pay.order_id
-    WHERE pay.account_id = ${accountId} AND o.day = ${day} AND pay.bank_account_id IS NULL
+    WHERE pay.account_id = ${accountId} AND o.day = ${day}
+      AND pay.bank_account_id IS NULL AND pay.method <> 'conta'
     GROUP BY pay.method
     ORDER BY pay.method
   `;
@@ -1524,6 +1526,23 @@ export async function returnRegister(accountId: string, today: string) {
   }).sort((left, right) => left.name.localeCompare(right.name, "pt") || left.service.localeCompare(right.service, "pt"));
 }
 
+export async function clientCredit(accountId: string, clientId: string) {
+  const rows = await db()<{ creditCents: number }[]>`
+    SELECT GREATEST(
+      0,
+      COALESCE(SUM(GREATEST(cash_paid - total, 0)), 0) - COALESCE(SUM(conta_paid), 0)
+    )::int AS "creditCents"
+    FROM (
+      SELECT COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
+             COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method <> 'conta'), 0) AS cash_paid,
+             COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method = 'conta'), 0) AS conta_paid
+      FROM orders o
+      WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
+    ) bills
+  `;
+  return rows[0]?.creditCents ?? 0;
+}
+
 export async function clientBrief(accountId: string, clientId: string, fromOutside: boolean) {
   const today = todaySaoPaulo();
   const [lastRows, serviceRows, productRows, moneyRows, orders, agenda, packages] = await Promise.all([
@@ -1573,10 +1592,15 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
     db()<{ paidCents: number; dueCents: number; creditCents: number }[]>`
       SELECT COALESCE(SUM(paid), 0)::int AS "paidCents",
              COALESCE(SUM(GREATEST(total - paid, 0)), 0)::int AS "dueCents",
-             COALESCE(SUM(GREATEST(paid - total, 0)), 0)::int AS "creditCents"
+             GREATEST(
+               0,
+               COALESCE(SUM(GREATEST(cash_paid - total, 0)), 0) - COALESCE(SUM(conta_paid), 0)
+             )::int AS "creditCents"
       FROM (
         SELECT COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
-               COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0) AS paid
+               COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0) AS paid,
+               COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method <> 'conta'), 0) AS cash_paid,
+               COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method = 'conta'), 0) AS conta_paid
         FROM orders o
         WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
       ) bills

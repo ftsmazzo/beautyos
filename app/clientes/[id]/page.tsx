@@ -77,7 +77,9 @@ export default async function ClientFormPage({
           <p>
             Já pagou {formatReais(brief.money.paidCents)}.
             {brief.money.dueCents > 0 ? ` A receber ${formatReais(brief.money.dueCents)}.` : ""}
-            {brief.money.creditCents > 0 ? ` Crédito ${formatReais(brief.money.creditCents)}.` : ""}
+            {brief.money.creditCents > 0
+              ? ` Crédito ${formatReais(brief.money.creditCents)}. Pode usar na comanda aberta.`
+              : ""}
             {brief.money.dueCents === 0 && brief.money.creditCents === 0 ? " Conta em dia." : ""}
             {" "}
             O recebimento continua na comanda.{" "}

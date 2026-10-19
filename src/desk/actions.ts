@@ -1856,6 +1856,58 @@ export async function addPayment(formData: FormData) {
   });
 }
 
+export async function applyClientCredit(formData: FormData) {
+  const user = await requireOperator();
+  const orderId = String(formData.get("order") ?? "");
+  return settle(`/comandas/${orderId}`, async () => {
+    const amount = parseReais(String(formData.get("amount") ?? ""));
+    if (amount == null || amount < 1) throw new FormError("dados");
+    await db().begin(async (tx) => {
+      const order = await tx<{ status: string; clientId: string | null; totalCents: number; paidCents: number }[]>`
+        SELECT o.status, o.client_id AS "clientId",
+               COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
+               COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents"
+        FROM orders o
+        WHERE o.id = ${orderId} AND o.account_id = ${user.accountId} AND o.kind = 'cliente'
+      `;
+      const row = order[0];
+      if (!row || row.status !== "aberta" || !row.clientId) throw new FormError("dados");
+      const gap = row.totalCents - row.paidCents;
+      const credit = await tx<{ creditCents: number }[]>`
+        SELECT GREATEST(
+          0,
+          COALESCE(SUM(GREATEST(cash_paid - total, 0)), 0) - COALESCE(SUM(conta_paid), 0)
+        )::int AS "creditCents"
+        FROM (
+          SELECT COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
+                 COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method <> 'conta'), 0) AS cash_paid,
+                 COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method = 'conta'), 0) AS conta_paid
+          FROM orders o
+          WHERE o.account_id = ${user.accountId} AND o.client_id = ${row.clientId} AND o.kind = 'cliente'
+        ) bills
+      `;
+      const available = credit[0]?.creditCents ?? 0;
+      if (gap < 1 || amount > gap || amount > available) throw new FormError("saldo");
+      await tx`
+        INSERT INTO payments (id, account_id, order_id, method, amount_cents, fee_cents)
+        VALUES (${randomUUID()}, ${user.accountId}, ${orderId}, 'conta', ${amount}, 0)
+      `;
+      await writeEvent(tx, {
+        accountId: user.accountId,
+        orderId,
+        lineId: null,
+        appointmentId: null,
+        actorId: user.id,
+        kind: "valor",
+        summary: "Crédito da conta",
+        beforeCents: available,
+        afterCents: available - amount,
+      });
+    });
+    return `/comandas/${orderId}`;
+  });
+}
+
 export async function removePayment(formData: FormData) {
   const user = await requireOperator();
   const orderId = String(formData.get("order") ?? "");
