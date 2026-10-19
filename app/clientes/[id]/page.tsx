@@ -6,7 +6,7 @@ import { CHANNELS } from "@/catalog/labels";
 import { getClient, houseRules, listClients, listProfessionals } from "@/catalog/queries";
 import { saveClient } from "@/catalog/client-actions";
 import { openDayOrder } from "@/desk/actions";
-import { clientBrief } from "@/desk/queries";
+import { clientBrief, clientLedger } from "@/desk/queries";
 import { APPOINTMENT_STATUS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
@@ -30,11 +30,12 @@ export default async function ClientFormPage({
   if (!creating && !UUID.test(id)) redirect("/clientes");
   const person = creating ? null : await getClient(user.accountId, id);
   if (!creating && !person) redirect("/clientes");
-  const [rules, professionals, clients, brief] = await Promise.all([
+  const [rules, professionals, clients, brief, ledger] = await Promise.all([
     houseRules(user.accountId),
     listProfessionals(user.accountId),
     listClients(user.accountId, false, ""),
     person ? clientBrief(user.accountId, person.id, person.fromOutside) : Promise.resolve(null),
+    person ? clientLedger(user.accountId, person.id) : Promise.resolve(null),
   ]);
   const today = todaySaoPaulo();
 
@@ -77,10 +78,10 @@ export default async function ClientFormPage({
           <p>
             Já pagou {formatReais(brief.money.paidCents)}.
             {brief.money.dueCents > 0 ? ` A receber ${formatReais(brief.money.dueCents)}.` : ""}
-            {brief.money.creditCents > 0
-              ? ` Crédito ${formatReais(brief.money.creditCents)}. Pode usar na comanda aberta.`
+            {ledger && ledger.creditCents > 0
+              ? ` Crédito ${formatReais(ledger.creditCents)}. Pode usar na comanda aberta.`
               : ""}
-            {brief.money.dueCents === 0 && brief.money.creditCents === 0 ? " Conta em dia." : ""}
+            {brief.money.dueCents === 0 && (!ledger || ledger.creditCents === 0) ? " Conta em dia." : ""}
             {" "}
             O recebimento continua na comanda.{" "}
             {brief.money.dueCents > 0 ? <Link href="/comandas?lista=abertas&filtro=falta">Fila a receber</Link> : null}
@@ -93,12 +94,32 @@ export default async function ClientFormPage({
                 {" · "}
                 {formatReais(order.totalCents)}
                 {order.paidCents > order.totalCents
-                  ? ` · crédito ${formatReais(order.paidCents - order.totalCents)}`
+                  ? ` · pago a mais ${formatReais(order.paidCents - order.totalCents)}`
                   : ` · em aberto ${formatReais(order.totalCents - order.paidCents)}`}
                 {" · "}
                 {order.status === "fechada" ? "fechada" : "aberta"}
               </p>
             ))}
+          {ledger ? (
+            <>
+              <h2>Movimento da conta</h2>
+              <p>O que foi pago a mais vira crédito. Usar na comanda aberta tira daqui e não volta para a gaveta.</p>
+              {ledger.sources.length === 0 ? <p>Nada pago a mais.</p> : null}
+              {ledger.sources.map((row) => (
+                <p key={`origem-${row.orderId}`}>
+                  Entrou · <Link href={`/comandas/${row.orderId}`}>{formatDay(row.day)}</Link>
+                  {` · ${formatReais(row.cents)}`}
+                </p>
+              ))}
+              {ledger.uses.length === 0 ? <p>Nenhum uso ainda.</p> : null}
+              {ledger.uses.map((row, index) => (
+                <p key={`uso-${row.orderId}-${index}`}>
+                  Usado · <Link href={`/comandas/${row.orderId}`}>{formatDay(row.day)}</Link>
+                  {` · ${formatReais(row.cents)}`}
+                </p>
+              ))}
+            </>
+          ) : null}
           {brief.packages.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
           {brief.packages.map((item) => (
             <p key={item.id}>
@@ -112,7 +133,7 @@ export default async function ClientFormPage({
               <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
               {" · "}
               {formatReais(order.totalCents)}
-              {order.paidCents > order.totalCents ? ` · crédito ${formatReais(order.paidCents - order.totalCents)}` : ""}
+              {order.paidCents > order.totalCents ? ` · pago a mais ${formatReais(order.paidCents - order.totalCents)}` : ""}
               {order.paidCents < order.totalCents ? ` · em aberto ${formatReais(order.totalCents - order.paidCents)}` : ""}
               {" · "}
               {order.status === "fechada" ? "fechada" : "aberta"}

@@ -30,7 +30,7 @@ import {
   toggleCourtesy,
   toggleFromOutside,
 } from "@/desk/actions";
-import { clientCredit, clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
+import { clientLedger, clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
 import { listBanks } from "@/finance/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
@@ -72,10 +72,11 @@ export default async function OrderPage({
       : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
   const banks = operator && open && order.kind === "cliente" ? await listBanks(user.accountId) : [];
-  const credit =
+  const ledger =
     operator && open && order.kind === "cliente" && order.clientId
-      ? await clientCredit(user.accountId, order.clientId)
-      : 0;
+      ? await clientLedger(user.accountId, order.clientId)
+      : null;
+  const credit = ledger?.creditCents ?? 0;
   const gap = Math.max(0, total - paid);
   const roster = order.kind === "cliente" || order.kind === "consumo" ? await dayRoster(user.accountId, null) : [];
   const catalog = order.kind === "cliente" || order.kind === "consumo" ? await serviceOptions(user.accountId) : [];
@@ -673,7 +674,12 @@ export default async function OrderPage({
           {operator && open && order.clientId && credit > 0 && gap > 0 ? (
             <form action={applyClientCredit}>
               <input type="hidden" name="order" value={order.id} />
-              <p>Crédito da conta {formatReais(credit)}. Esse uso não entra na gaveta.</p>
+              <p>
+                Crédito da conta {formatReais(credit)}. Esse uso não entra na gaveta.
+                {ledger && ledger.sources.length > 0
+                  ? ` Veio de ${ledger.sources.map((row) => `${formatDay(row.day)} ${formatReais(row.cents)}`).join(", ")}.`
+                  : ""}
+              </p>
               <label>
                 Valor
                 <input

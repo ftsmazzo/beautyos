@@ -1526,21 +1526,63 @@ export async function returnRegister(accountId: string, today: string) {
   }).sort((left, right) => left.name.localeCompare(right.name, "pt") || left.service.localeCompare(right.service, "pt"));
 }
 
+export type CreditMove = { orderId: string; day: string; cents: number };
+
+export async function clientLedger(accountId: string, clientId: string) {
+  const [sources, uses] = await Promise.all([
+    db()<CreditMove[]>`
+      SELECT id AS "orderId", to_char(day, 'YYYY-MM-DD') AS day, (cash_paid - total)::int AS cents
+      FROM (
+        SELECT o.id, o.day,
+               COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
+               COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method <> 'conta'), 0) AS cash_paid
+        FROM orders o
+        WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
+      ) bills
+      WHERE cash_paid > total
+      ORDER BY day, id
+    `,
+    db()<CreditMove[]>`
+      SELECT o.id AS "orderId", to_char(o.day, 'YYYY-MM-DD') AS day, pay.amount_cents AS cents
+      FROM payments pay
+      JOIN orders o ON o.id = pay.order_id
+      WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente' AND pay.method = 'conta'
+      ORDER BY o.day, pay.created_at
+    `,
+  ]);
+  const surplus = sources.reduce((sum, row) => sum + row.cents, 0);
+  const spent = uses.reduce((sum, row) => sum + row.cents, 0);
+  return { creditCents: Math.max(0, surplus - spent), sources, uses };
+}
+
 export async function clientCredit(accountId: string, clientId: string) {
-  const rows = await db()<{ creditCents: number }[]>`
-    SELECT GREATEST(
-      0,
-      COALESCE(SUM(GREATEST(cash_paid - total, 0)), 0) - COALESCE(SUM(conta_paid), 0)
-    )::int AS "creditCents"
+  const ledger = await clientLedger(accountId, clientId);
+  return ledger.creditCents;
+}
+
+export async function clientsWithCredit(accountId: string) {
+  return db()<{ id: string; name: string; phone: string | null; creditCents: number }[]>`
+    SELECT c.id, c.name, c.phone,
+           GREATEST(
+             0,
+             COALESCE(SUM(GREATEST(b.cash_paid - b.total, 0)), 0) - COALESCE(SUM(b.conta_paid), 0)
+           )::int AS "creditCents"
     FROM (
-      SELECT COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
+      SELECT o.client_id,
+             COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
              COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method <> 'conta'), 0) AS cash_paid,
              COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id AND pay.method = 'conta'), 0) AS conta_paid
       FROM orders o
-      WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
-    ) bills
+      WHERE o.account_id = ${accountId} AND o.kind = 'cliente' AND o.client_id IS NOT NULL
+    ) b
+    JOIN clients c ON c.id = b.client_id AND c.account_id = ${accountId}
+    GROUP BY c.id, c.name, c.phone
+    HAVING GREATEST(
+      0,
+      COALESCE(SUM(GREATEST(b.cash_paid - b.total, 0)), 0) - COALESCE(SUM(b.conta_paid), 0)
+    ) > 0
+    ORDER BY c.name
   `;
-  return rows[0]?.creditCents ?? 0;
 }
 
 export async function clientBrief(accountId: string, clientId: string, fromOutside: boolean) {

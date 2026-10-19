@@ -5,6 +5,7 @@ import { saveHouseRules } from "@/catalog/house-actions";
 import { applyDuePrices, birthdaysAhead, catalogCounts, houseRules, listProfessionals, openPriceNotices, productsAtMinimum } from "@/catalog/queries";
 import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import {
+  clientsWithCredit,
   deskPulse,
   deskReceivables,
   latePackageVisits,
@@ -54,6 +55,7 @@ export default async function StartPage({
       ? await deskReceivables(user.accountId, operator ? null : own)
       : [];
   const lowStock = operator ? await productsAtMinimum(user.accountId) : [];
+  const wallets = operator ? await clientsWithCredit(user.accountId) : [];
   const week = weekBounds(today);
   const ranking = operator
     ? rankStaff(
@@ -168,6 +170,19 @@ export default async function StartPage({
               <Link href="/comandas?lista=abertas&filtro=falta">Ver as {receivables.length}</Link>
             </p>
           ) : null}
+        </div>
+      ) : null}
+      {operator && wallets.length > 0 ? (
+        <div className="card">
+          <h2>Crédito na conta</h2>
+          <p>Pago a mais e ainda sem usar. Na comanda aberta, Usar crédito abate o que falta e não entra na gaveta.</p>
+          {wallets.map((person) => (
+            <p key={person.id}>
+              <Link href={`/clientes/${person.id}`}>{person.name}</Link>
+              {person.phone ? ` · ${formatPhone(person.phone)}` : ""}
+              {` · ${formatReais(person.creditCents)}`}
+            </p>
+          ))}
         </div>
       ) : null}
       {operator && counts ? (
