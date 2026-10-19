@@ -261,7 +261,7 @@ export default async function OrderPage({
                   <td data-label="Profissional">{line.professionalName ?? "—"}</td>
                   <td data-label="Horário">
                     {line.start && line.end ? `${line.start}–${line.end}` : "—"}
-                    {line.waitMin == null ? "" : ` · esperou ${line.waitMin} min`}
+                    {line.waitMin == null ? "" : line.appointmentStatus === "chegou" ? ` · há ${line.waitMin} min` : ` · esperou ${line.waitMin} min`}
                   </td>
                   <td data-label="Valor">
                     {operator && open && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (

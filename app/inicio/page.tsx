@@ -109,6 +109,22 @@ export default async function StartPage({
               </>
             ) : null}
           </p>
+          {pulse.floor.length > 0 ? <h2>Na casa</h2> : null}
+          {pulse.floor.map((slot) => (
+            <p key={slot.id}>
+              {slot.status === "chegou" ? "Chegou" : "Em atendimento"}
+              {` · ${slot.time} · ${slot.clientName ?? "Sem nome"}`}
+              {slot.phone ? ` · ${formatPhone(slot.phone)}` : ""}
+              {` · ${slot.serviceName ?? "Horário"} · ${slot.professionalName}`}
+              {slot.waitMin != null ? (slot.status === "chegou" ? ` · há ${slot.waitMin} min` : ` · esperou ${slot.waitMin} min`) : ""}
+              {slot.orderId ? (
+                <>
+                  {" · "}
+                  <Link href={`/comandas/${slot.orderId}`}>Comanda</Link>
+                </>
+              ) : null}
+            </p>
+          ))}
           {pulse.todaySlots.length === 0 ? <p>Nenhum horário ainda hoje.</p> : null}
           {pulse.todaySlots.map((slot) => (
             <p key={slot.id}>

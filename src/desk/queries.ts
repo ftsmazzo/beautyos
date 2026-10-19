@@ -71,7 +71,7 @@ export async function deskPulse(accountId: string, day: string, professionalId: 
   const end = stamp(day, "23:59");
   const nextStart = stamp(tomorrow, "00:00");
   const nextEnd = stamp(tomorrow, "23:59");
-  const [todayRows, tomorrowRows, openRows, consumption] = await Promise.all([
+  const [todayRows, tomorrowRows, openRows, floorRows, consumption] = await Promise.all([
     db()<{
       id: string;
       time: string;
@@ -131,6 +131,40 @@ export async function deskPulse(accountId: string, day: string, professionalId: 
       ORDER BY o.created_at
       LIMIT 8
     `,
+    db()<{
+      id: string;
+      time: string;
+      clientName: string | null;
+      phone: string | null;
+      serviceName: string | null;
+      professionalName: string;
+      status: string;
+      orderId: string | null;
+      waitMin: number | null;
+    }[]>`
+      SELECT a.id,
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS time,
+             c.name AS "clientName", c.phone, s.name AS "serviceName", pr.name AS "professionalName",
+             a.status, a.order_id AS "orderId",
+             CASE
+               WHEN a.arrived_at IS NOT NULL AND a.started_at IS NOT NULL
+               THEN GREATEST(0, floor(extract(epoch FROM (a.started_at - a.arrived_at)) / 60))::int
+               WHEN a.arrived_at IS NOT NULL AND a.status = 'chegou'
+               THEN GREATEST(0, floor(extract(epoch FROM (now() - a.arrived_at)) / 60))::int
+               ELSE NULL
+             END AS "waitMin"
+      FROM appointments a
+      LEFT JOIN clients c ON c.id = a.client_id
+      LEFT JOIN services s ON s.id = a.service_id
+      JOIN professionals pr ON pr.id = a.professional_id
+      WHERE a.account_id = ${accountId}
+        AND a.kind = 'horario'
+        AND a.status IN ('chegou', 'em_atendimento')
+        AND a.starts_at < ${end}
+        AND a.ends_at > ${start}
+        AND (${professionalId}::uuid IS NULL OR a.professional_id = ${professionalId})
+      ORDER BY CASE a.status WHEN 'chegou' THEN 0 ELSE 1 END, a.starts_at
+    `,
     professionalId
       ? db()<{ id: string; status: string }[]>`
           SELECT id, status FROM orders
@@ -146,6 +180,7 @@ export async function deskPulse(accountId: string, day: string, professionalId: 
     todaySlots: todayRows,
     tomorrowQty: tomorrowRows[0]?.qty ?? 0,
     openOrders: openRows,
+    floor: floorRows,
     consumption: consumption[0] ?? null,
   };
 }
@@ -221,6 +256,8 @@ export async function dayAppointments(accountId: string, day: string) {
            CASE
              WHEN a.arrived_at IS NOT NULL AND a.started_at IS NOT NULL
              THEN GREATEST(0, floor(extract(epoch FROM (a.started_at - a.arrived_at)) / 60))::int
+             WHEN a.arrived_at IS NOT NULL AND a.status = 'chegou'
+             THEN GREATEST(0, floor(extract(epoch FROM (now() - a.arrived_at)) / 60))::int
              ELSE NULL
            END AS "waitMin"
     FROM appointments a
@@ -506,6 +543,8 @@ export async function getOrder(accountId: string, id: string) {
            CASE
              WHEN a.arrived_at IS NOT NULL AND a.started_at IS NOT NULL
              THEN GREATEST(0, floor(extract(epoch FROM (a.started_at - a.arrived_at)) / 60))::int
+             WHEN a.arrived_at IS NOT NULL AND a.status = 'chegou'
+             THEN GREATEST(0, floor(extract(epoch FROM (now() - a.arrived_at)) / 60))::int
              ELSE NULL
            END AS "waitMin"
     FROM order_lines l

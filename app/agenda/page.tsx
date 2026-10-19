@@ -345,7 +345,7 @@ export default async function AgendaPage({
                         >
                           <strong>{title}</strong>
                           <span className="slot-meta">
-                            {[phone, when, item.waitMin == null ? "" : `esperou ${item.waitMin} min`].filter(Boolean).join(" · ")}
+                            {[phone, when, item.waitMin == null ? "" : item.status === "chegou" ? `há ${item.waitMin} min` : `esperou ${item.waitMin} min`].filter(Boolean).join(" · ")}
                           </span>
                           {item.serviceName ? <span className="slot-service">{item.serviceName}</span> : null}
                           {item.status === "cancelado" ? null : <span className="resize" data-resize="1" />}
@@ -358,6 +358,31 @@ export default async function AgendaPage({
             })}
           </div>
           </AgendaDesk>
+          <div className="card">
+            <h2>Na casa</h2>
+            <p>Quem já chegou e quem está em atendimento. Chegou não cobra. A espera corre até a partida.</p>
+            {listed.filter((item) => item.status === "chegou" || item.status === "em_atendimento").length === 0 ? <p>Ninguém na casa neste dia.</p> : null}
+            {listed
+              .filter((item) => item.status === "chegou" || item.status === "em_atendimento")
+              .map((item) => {
+                const who = bookable.find((person) => person.id === item.professionalId);
+                return (
+                  <p key={item.id}>
+                    {item.status === "chegou" ? "Chegou" : "Em atendimento"}
+                    {` · ${item.start} · ${item.clientName ?? "Sem nome"}`}
+                    {item.phone ? ` · ${formatPhone(item.phone)}` : ""}
+                    {` · ${item.serviceName ?? "Horário"} · ${who ? who.nickname || who.name : "—"}`}
+                    {item.waitMin != null ? (item.status === "chegou" ? ` · há ${item.waitMin} min` : ` · esperou ${item.waitMin} min`) : ""}
+                    {item.orderId ? (
+                      <>
+                        {" · "}
+                        <Link href={`/comandas/${item.orderId}`}>Comanda</Link>
+                      </>
+                    ) : null}
+                  </p>
+                );
+              })}
+          </div>
           <div className="card">
             <h2>Agendamentos do dia</h2>
             {listed.length === 0 ? <p>Nenhum agendamento neste dia.</p> : (
