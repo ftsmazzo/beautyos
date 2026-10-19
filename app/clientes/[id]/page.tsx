@@ -76,7 +76,11 @@ export default async function ClientFormPage({
           </p>
           <h2>Conta</h2>
           <p>
-            Já pagou {formatReais(brief.money.paidCents)}.
+            Gastou {formatReais(brief.money.spentCents)}
+            {brief.money.orderCount > 0
+              ? ` em ${brief.money.orderCount} ${brief.money.orderCount === 1 ? "comanda" : "comandas"}`
+              : ""}
+            .
             {brief.money.dueCents > 0 ? ` A receber ${formatReais(brief.money.dueCents)}.` : ""}
             {ledger && ledger.creditCents > 0
               ? ` Crédito ${formatReais(ledger.creditCents)}. Pode usar na comanda aberta.`
@@ -127,7 +131,8 @@ export default async function ClientFormPage({
               {` · ${item.used} de ${item.total} · ${packageDeadline(item)}`}
             </p>
           ))}
-          {brief.orders.length > 0 ? <h2>Comandas</h2> : null}
+          <h2>Comandas</h2>
+          {brief.orders.length === 0 ? <p>Nenhuma comanda ainda.</p> : null}
           {brief.orders.map((order) => (
             <p key={order.id}>
               <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
@@ -139,7 +144,8 @@ export default async function ClientFormPage({
               {order.status === "fechada" ? "fechada" : "aberta"}
             </p>
           ))}
-          {brief.agenda.length > 0 ? <h2>Agenda</h2> : null}
+          <h2>Agenda</h2>
+          {brief.agenda.length === 0 ? <p>Nenhum horário nesta pessoa.</p> : null}
           {brief.agenda.map((visit) => (
             <p key={visit.id}>
               {formatDay(visit.day)} {visit.time} · {visit.service} · {visit.professional}
@@ -153,21 +159,21 @@ export default async function ClientFormPage({
               ) : null}
             </p>
           ))}
-          {brief.agenda.some((visit) => visit.note) ? <h2>Avaliações</h2> : null}
-          {brief.agenda
-            .filter((visit) => visit.note)
-            .map((visit) => (
-              <p key={`note-${visit.id}`}>
-                {formatDay(visit.day)} {visit.time} · {visit.service}
-                {visit.orderId ? (
-                  <>
-                    {" · "}
-                    <Link href={`/comandas/${visit.orderId}`}>Comanda</Link>
-                  </>
-                ) : null}
-                {` · ${visit.note}`}
-              </p>
-            ))}
+          <h2>Avaliações</h2>
+          <p>Texto da visita, quem escreveu e quando. Sai da avaliação na comanda.</p>
+          {brief.notes.length === 0 ? <p>Nenhuma avaliação ainda.</p> : null}
+          {brief.notes.map((note) => (
+            <p key={note.id}>
+              {formatDay(note.day)} {note.time} · {note.service}
+              {note.orderId ? (
+                <>
+                  {" · "}
+                  <Link href={`/comandas/${note.orderId}`}>Comanda</Link>
+                </>
+              ) : null}
+              {` · ${note.author} · ${note.at} · ${note.body}`}
+            </p>
+          ))}
           <form action={openDayOrder}>
             <input type="hidden" name="from" value="cliente" />
             <input type="hidden" name="client" value={person.id} />

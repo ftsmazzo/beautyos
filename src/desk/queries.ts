@@ -1619,7 +1619,7 @@ export async function clientsWithCredit(accountId: string) {
 
 export async function clientBrief(accountId: string, clientId: string, fromOutside: boolean) {
   const today = todaySaoPaulo();
-  const [lastRows, serviceRows, productRows, moneyRows, orders, agenda, packages] = await Promise.all([
+  const [lastRows, serviceRows, productRows, moneyRows, orders, agenda, notes, packages] = await Promise.all([
     db()<{
       day: string;
       time: string;
@@ -1663,13 +1663,15 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
       ORDER BY SUM(l.qty) DESC, p.name
       LIMIT 1
     `,
-    db()<{ paidCents: number; dueCents: number; creditCents: number }[]>`
+    db()<{ paidCents: number; spentCents: number; dueCents: number; creditCents: number; orderCount: number }[]>`
       SELECT COALESCE(SUM(paid), 0)::int AS "paidCents",
+             COALESCE(SUM(cash_paid), 0)::int AS "spentCents",
              COALESCE(SUM(GREATEST(total - paid, 0)), 0)::int AS "dueCents",
              GREATEST(
                0,
                COALESCE(SUM(GREATEST(cash_paid - total, 0)), 0) - COALESCE(SUM(conta_paid), 0)
-             )::int AS "creditCents"
+             )::int AS "creditCents",
+             count(*)::int AS "orderCount"
       FROM (
         SELECT COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
                COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0) AS paid,
@@ -1686,7 +1688,7 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
       FROM orders o
       WHERE o.account_id = ${accountId} AND o.client_id = ${clientId} AND o.kind = 'cliente'
       ORDER BY o.day DESC, o.created_at DESC
-      LIMIT 8
+      LIMIT 40
     `,
     db()<{
       id: string;
@@ -1696,23 +1698,12 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
       time: string;
       service: string;
       professional: string;
-      note: string | null;
     }[]>`
       SELECT a.id, a.order_id AS "orderId", a.status,
              to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
              to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS time,
              COALESCE(s.name, 'Horário') AS service,
-             pr.name AS professional,
-             (
-               SELECT string_agg(
-                 to_char(n.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM HH24:MI')
-                 || ' ' || COALESCE(u.name, 'Balcão') || ': ' || n.body,
-                 ' · ' ORDER BY n.created_at
-               )
-               FROM visit_notes n
-               LEFT JOIN users u ON u.id = n.created_by
-               WHERE n.appointment_id = a.id
-             ) AS note
+             pr.name AS professional
       FROM appointments a
       LEFT JOIN services s ON s.id = a.service_id
       JOIN professionals pr ON pr.id = a.professional_id
@@ -1721,7 +1712,32 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
         AND a.kind = 'horario'
         AND a.status <> 'cancelado'
       ORDER BY a.starts_at DESC
-      LIMIT 8
+      LIMIT 20
+    `,
+    db()<{
+      id: string;
+      orderId: string | null;
+      day: string;
+      time: string;
+      service: string;
+      body: string;
+      at: string;
+      author: string;
+    }[]>`
+      SELECT n.id, a.order_id AS "orderId",
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS time,
+             COALESCE(s.name, 'Horário') AS service,
+             n.body,
+             to_char(n.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at,
+             COALESCE(u.name, 'Balcão') AS author
+      FROM visit_notes n
+      JOIN appointments a ON a.id = n.appointment_id
+      LEFT JOIN services s ON s.id = a.service_id
+      LEFT JOIN users u ON u.id = n.created_by
+      WHERE n.account_id = ${accountId} AND a.client_id = ${clientId}
+      ORDER BY n.created_at DESC
+      LIMIT 40
     `,
     clientPackages(accountId, clientId, today),
   ]);
@@ -1731,9 +1747,10 @@ export async function clientBrief(accountId: string, clientId: string, fromOutsi
     last,
     topService: serviceRows[0] ?? null,
     topProduct: productRows[0] ?? null,
-    money: moneyRows[0] ?? { paidCents: 0, dueCents: 0, creditCents: 0 },
+    money: moneyRows[0] ?? { paidCents: 0, spentCents: 0, dueCents: 0, creditCents: 0, orderCount: 0 },
     orders,
     agenda,
+    notes,
     packages,
     returns,
   };

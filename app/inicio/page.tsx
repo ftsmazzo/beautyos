@@ -73,7 +73,7 @@ export default async function StartPage({
       {birthdays ? (
         <div className="card">
           <h2>Aniversário</h2>
-          <p>Os próximos 14 dias. Quem faz anos hoje também aparece na agenda.</p>
+          <p>Os próximos 14 dias. Quem faz anos no dia aparece na agenda daquele dia.</p>
           {birthdays.length === 0 ? <p>Nenhum nestes dias.</p> : null}
           {birthdays.map((person) => (
             <p key={`${person.kind}-${person.id}-${person.day}`}>

@@ -42,6 +42,7 @@ export default async function AgendaPage({
   const bookStart = query.inicio && timeOk.test(query.inicio) ? query.inicio : "";
   const day = dayParam(query.dia);
   await openDuePackageVisits(user.accountId, user.id, day);
+  const operator = user.role === "administrador" || user.role === "balcao";
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const roster = own || user.role !== "profissional" ? await dayRoster(user.accountId, own) : [];
   const hours = await dayHours(user.accountId);
@@ -210,6 +211,31 @@ export default async function AgendaPage({
         ) : null}
       </div>
       <ErrorNote code={query.erro} />
+      <div className="card">
+        <h2>Aniversário</h2>
+        <p>Quem faz anos neste dia. Na grade, o horário e a coluna também levam a marca.</p>
+        {birthdays.clients.length === 0 && birthdays.professionals.length === 0 ? (
+          <p>Ninguém faz anos neste dia.</p>
+        ) : null}
+        {birthdays.clients.map((person) => (
+          <p key={`cli-${person.id}`}>
+            Cliente ·{" "}
+            {operator ? <Link href={`/clientes/${person.id}`}>{person.name}</Link> : person.name}
+            {operator ? (
+              <>
+                {" · "}
+                <Link href={`/agenda?dia=${day}&cliente=${person.id}`}>Agendar</Link>
+              </>
+            ) : null}
+          </p>
+        ))}
+        {birthdays.professionals.map((person) => (
+          <p key={`pro-${person.id}`}>
+            Equipe ·{" "}
+            {operator ? <Link href={`/profissionais/${person.id}`}>{person.name}</Link> : person.name}
+          </p>
+        ))}
+      </div>
       {user.role === "profissional" && !own ? (
         <div className="card">
           <p>Este acesso ainda não está ligado a um profissional.</p>
@@ -253,7 +279,7 @@ export default async function AgendaPage({
             startMin={startMin}
             hourPx={HOUR}
             lockedProfessional={own}
-            operator={user.role === "administrador" || user.role === "balcao"}
+            operator={operator}
             professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
             services={services}
             clients={people.map((person) => ({ id: person.id, name: person.name }))}
