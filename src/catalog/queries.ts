@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { formatReais } from "@/catalog/format";
+import { HOUSE_MODULES, type HouseModuleId } from "@/catalog/modules";
 import { db } from "@/db/client";
 import { shiftDay } from "@/desk/clock";
 import { chargedServicePrice } from "@/desk/pricing";
@@ -164,6 +165,16 @@ export async function openPriceNotices(accountId: string) {
     WHERE account_id = ${accountId} AND seen_at IS NULL
     ORDER BY changed_on, service_name
   `;
+}
+
+export async function houseModules(accountId: string) {
+  const rows = await db()<{ modules: Partial<Record<HouseModuleId, boolean>> | null }[]>`
+    SELECT modules FROM accounts WHERE id = ${accountId}
+  `;
+  const stored = rows[0]?.modules ?? {};
+  const on = {} as Record<HouseModuleId, boolean>;
+  for (const item of HOUSE_MODULES) on[item.id] = stored[item.id] !== false;
+  return on;
 }
 
 export async function houseRules(accountId: string) {

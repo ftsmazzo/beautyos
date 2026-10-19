@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { HOUSE_MODULES } from "@/catalog/modules";
 import { parsePercent } from "@/catalog/format";
 import { currentUser } from "@/auth/session";
 import { db } from "@/db/client";
@@ -24,4 +25,12 @@ export async function saveHouseRules(formData: FormData) {
     WHERE id = ${user.accountId}
   `;
   redirect("/inicio?ok=regras");
+}
+
+export async function saveHouseModules(formData: FormData) {
+  const user = await currentUser();
+  if (!user || user.role !== "administrador") redirect("/inicio");
+  const modules = Object.fromEntries(HOUSE_MODULES.map((item) => [item.id, formData.get(item.id) === "1"]));
+  await db()`UPDATE accounts SET modules = ${db().json(modules)} WHERE id = ${user.accountId}`;
+  redirect("/acesso?ok=modulos");
 }

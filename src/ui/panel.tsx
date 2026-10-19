@@ -1,81 +1,11 @@
-"use client";
-
-import Link from "next/link";
-import { useState } from "react";
-import { logout } from "@/auth/actions";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import type { SessionUser } from "@/auth/session";
-import { SubmitButton } from "@/ui/submit-button";
+import { moduleAllows } from "@/catalog/modules";
+import { houseModules } from "@/catalog/queries";
+import { PanelFrame } from "@/ui/panel-frame";
 
-const OPERATION = [
-  { href: "/inicio", label: "Início" },
-  { href: "/agenda", label: "Agenda" },
-  { href: "/comandas", label: "Comandas" },
-];
-
-const CATALOG = [
-  { href: "/servicos", label: "Serviços" },
-  { href: "/profissionais", label: "Profissionais" },
-  { href: "/clientes", label: "Clientes" },
-  { href: "/volta", label: "Volta" },
-  { href: "/produtos", label: "Produtos" },
-  { href: "/fornecedores", label: "Fornecedores" },
-  { href: "/pacotes", label: "Pacotes" },
-  { href: "/pacotes/vendidos", label: "Vendidos" },
-  { href: "/pacotes/relatorio", label: "Relatório" },
-];
-
-function NavIcon({ href }: { href: string }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, "aria-hidden": true as const };
-  if (href === "/inicio") {
-    return <svg {...common}><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" /></svg>;
-  }
-  if (href === "/agenda") {
-    return <svg {...common}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg>;
-  }
-  if (href === "/comandas") {
-    return <svg {...common}><path d="M7 4h10v16H7z" /><path d="M10 8h4M10 12h4M10 16h2" /></svg>;
-  }
-  if (href === "/caixa" || href === "/comissao") {
-    return <svg {...common}><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></svg>;
-  }
-  if (href === "/logs") {
-    return <svg {...common}><path d="M8 6h11M8 12h11M8 18h11" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></svg>;
-  }
-  if (href === "/servicos") {
-    return <svg {...common}><path d="M8 7h8M8 12h8M8 17h5" /><rect x="4" y="4" width="16" height="16" rx="2" /></svg>;
-  }
-  if (href === "/profissionais") {
-    return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 19c1.5-3 3.8-4.5 7-4.5S17.5 16 19 19" /></svg>;
-  }
-  if (href === "/volta") {
-    return <svg {...common}><path d="M4 12a8 8 0 1 0 2.2-5.5" /><path d="M4 4v5h5" /></svg>;
-  }
-  if (href === "/clientes") {
-    return <svg {...common}><circle cx="9" cy="8" r="2.5" /><circle cx="16" cy="9" r="2" /><path d="M4.5 18c.8-2.4 2.4-3.5 4.5-3.5s3.7 1.1 4.5 3.5M14 14.5c1.6 0 3 .7 3.8 2.5" /></svg>;
-  }
-  if (href === "/produtos" || href === "/fornecedores") {
-    return <svg {...common}><path d="M3 8l9-4 9 4-9 4-9-4z" /><path d="M3 8v8l9 4 9-4V8" /><path d="M12 12v8" /></svg>;
-  }
-  if (href === "/pacotes" || href === "/pacotes/vendidos") {
-    return <svg {...common}><path d="M8 7h11v12H8z" /><path d="M5 4h11v3" /></svg>;
-  }
-  if (href === "/pacotes/relatorio") {
-    return <svg {...common}><path d="M5 19V10M12 19V5M19 19v-7" /></svg>;
-  }
-  if (href === "/financeiro") {
-    return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M7 11h4M7 15h10" /></svg>;
-  }
-  return <svg {...common}><rect x="6" y="10" width="12" height="9" rx="1.5" /><path d="M8 10V8a4 4 0 0 1 8 0v2" /></svg>;
-}
-
-const ROLE_LABEL: Record<string, string> = {
-  balcao: "Balcão",
-  administrador: "Administrador",
-  profissional: "Profissional",
-  cliente: "Cliente",
-};
-
-export function Panel({
+export async function Panel({
   user,
   current,
   title,
@@ -86,63 +16,12 @@ export function Panel({
   title: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const operator = user.role === "administrador" || user.role === "balcao";
-  const links = (operator
-    ? [...OPERATION, { href: "/caixa", label: "Caixa" }, { href: "/comissao", label: "Comissão" }, { href: "/logs", label: "Logs" }, ...CATALOG]
-    : user.role === "profissional"
-      ? [...OPERATION, { href: "/comissao", label: "Comissão" }]
-      : OPERATION.filter((link) => link.href === "/inicio")).slice();
-  if (user.role === "administrador") {
-    links.push({ href: "/financeiro", label: "Financeiro" });
-    links.push({ href: "/acesso", label: "Acesso" });
-  }
-
+  const modules = await houseModules(user.accountId);
+  const path = (await headers()).get("x-pathname") ?? current;
+  if (!moduleAllows(modules, path)) redirect("/inicio");
   return (
-    <div className="app">
-      <aside className={open ? "side open" : "side"}>
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            B
-          </span>
-          <div>
-            <strong>BeautyOS</strong>
-            <small>{user.accountName}</small>
-          </div>
-        </div>
-        <nav>
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={current === link.href ? "page" : undefined}
-              onClick={() => setOpen(false)}
-            >
-              <NavIcon href={link.href} />
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </aside>
-      {open ? (
-        <button type="button" className="scrim" aria-label="Fechar menu" onClick={() => setOpen(false)} />
-      ) : null}
-      <div className="workspace">
-        <header className="topbar">
-          <button type="button" className="btn quiet menu-btn" onClick={() => setOpen(true)}>
-            Menu
-          </button>
-          <h1>{title}</h1>
-          <div className="who">
-            <strong>{user.name}</strong>
-            <span>{ROLE_LABEL[user.role] ?? user.role}</span>
-          </div>
-          <form action={logout}>
-            <SubmitButton label="Sair" pendingLabel="Saindo…" className="quiet" />
-          </form>
-        </header>
-        <main className="content">{children}</main>
-      </div>
-    </div>
+    <PanelFrame user={user} current={current} title={title} modules={modules}>
+      {children}
+    </PanelFrame>
   );
 }

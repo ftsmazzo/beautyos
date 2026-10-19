@@ -43,6 +43,7 @@ async function ensureSchema() {
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS card_debit_percent integer NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS card_credit_percent integer NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS staff_service_discount_percent integer NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS modules jsonb NOT NULL DEFAULT '{}'::jsonb`;
   await sql`
     CREATE TABLE IF NOT EXISTS users (
       id uuid PRIMARY KEY,

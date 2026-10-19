@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAccess, setAccessActive, setAccessPassword, setAccessRole } from "@/auth/actions";
 import { currentUser } from "@/auth/session";
+import { saveHouseModules } from "@/catalog/house-actions";
+import { HOUSE_MODULES } from "@/catalog/modules";
+import { houseModules } from "@/catalog/queries";
 import { databaseReady, db } from "@/db/client";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -11,13 +14,14 @@ export const dynamic = "force-dynamic";
 export default async function AccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; ok?: string }>;
 }) {
   const user = await currentUser();
   if (!user) redirect("/entrar");
   if (user.role !== "administrador") redirect("/inicio");
 
   await databaseReady();
+  const modules = await houseModules(user.accountId);
   const people = await db()<
     { id: string; name: string; email: string; role: string; active: boolean; professionalId: string | null; professionalName: string | null }[]
   >`
@@ -37,6 +41,18 @@ export default async function AccessPage({
       {params.erro === "dados" ? <p className="error">Revise nome, e-mail, senha e papel.</p> : null}
       {params.erro === "proprio" ? <p className="error">Você não desativa o próprio acesso.</p> : null}
       {params.erro === "ultimo" ? <p className="error">A casa precisa de um administrador ativo.</p> : null}
+      {params.ok === "modulos" ? <p className="ok">Módulos salvos. O que ficou desligado sai do menu e da rota.</p> : null}
+      <form action={saveHouseModules} className="card">
+        <h2>Módulos</h2>
+        <p>Início, agenda, comandas, serviços, profissionais, clientes e acesso ficam sempre ligados. O resto a casa liga ou desliga.</p>
+        {HOUSE_MODULES.map((item) => (
+          <label className="check" key={item.id}>
+            <input type="checkbox" name={item.id} value="1" defaultChecked={modules[item.id]} />
+            {item.label}
+          </label>
+        ))}
+        <SubmitButton label="Salvar módulos" pendingLabel="Salvando…" />
+      </form>
       {people.map((person) => (
         <div className="card" key={person.id}>
           <p>
