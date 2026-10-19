@@ -1555,6 +1555,38 @@ export async function clientLedger(accountId: string, clientId: string) {
   return { creditCents: Math.max(0, surplus - spent), sources, uses };
 }
 
+export async function clientOtherDues(accountId: string, clientId: string, exceptOrderId: string) {
+  return db()<{ id: string; day: string; gapCents: number }[]>`
+    SELECT id, to_char(day, 'YYYY-MM-DD') AS day, (total - paid)::int AS "gapCents"
+    FROM (
+      SELECT o.id, o.day,
+             COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0) AS total,
+             COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0) AS paid
+      FROM orders o
+      WHERE o.account_id = ${accountId}
+        AND o.client_id = ${clientId}
+        AND o.kind = 'cliente'
+        AND o.status = 'aberta'
+        AND o.id <> ${exceptOrderId}
+    ) bills
+    WHERE total > paid
+    ORDER BY day
+  `;
+}
+
+export async function orderTrail(accountId: string, orderId: string) {
+  return db()<{ id: string; kind: string; summary: string; at: string; actorName: string | null }[]>`
+    SELECT e.id, e.kind, e.summary,
+           to_char(e.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at,
+           u.name AS "actorName"
+    FROM order_events e
+    LEFT JOIN users u ON u.id = e.actor_id
+    WHERE e.account_id = ${accountId} AND e.order_id = ${orderId}
+    ORDER BY e.created_at DESC
+    LIMIT 30
+  `;
+}
+
 export async function clientCredit(accountId: string, clientId: string) {
   const ledger = await clientLedger(accountId, clientId);
   return ledger.creditCents;

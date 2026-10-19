@@ -30,7 +30,7 @@ import {
   toggleCourtesy,
   toggleFromOutside,
 } from "@/desk/actions";
-import { clientLedger, clientOptions, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
+import { clientLedger, clientOptions, clientOtherDues, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, orderTrail, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
 import { listBanks } from "@/finance/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
@@ -77,6 +77,11 @@ export default async function OrderPage({
       ? await clientLedger(user.accountId, order.clientId)
       : null;
   const credit = ledger?.creditCents ?? 0;
+  const otherDues =
+    order.kind === "cliente" && order.clientId
+      ? await clientOtherDues(user.accountId, order.clientId, order.id)
+      : [];
+  const trail = await orderTrail(user.accountId, order.id);
   const gap = Math.max(0, total - paid);
   const roster = order.kind === "cliente" || order.kind === "consumo" ? await dayRoster(user.accountId, null) : [];
   const catalog = order.kind === "cliente" || order.kind === "consumo" ? await serviceOptions(user.accountId) : [];
@@ -121,12 +126,28 @@ export default async function OrderPage({
               {order.incomplete ? " · Cadastro pendente" : ""}
               {birthday ? " · Aniversário" : ""}
             </p>
-            {held.map((item) => (
-              <p key={item.id}>
-                {item.name} · {packageDeadline(item)}
-                {item.pardons > 0 ? " · já houve perdão" : ""}
+            {held.map((item) => {
+              const left = Math.max(0, item.total - item.used);
+              return (
+                <p key={item.id}>
+                  {item.name} · {left === 1 ? "1 ida restante" : `${left} idas restantes`} · {packageDeadline(item)}
+                  {item.pardons > 0 ? " · já houve perdão" : ""}
+                </p>
+              );
+            })}
+            {otherDues.length > 0 ? (
+              <p>
+                Outras em aberto:{" "}
+                {otherDues.map((row, index) => (
+                  <span key={row.id}>
+                    {index > 0 ? " · " : ""}
+                    <Link href={`/comandas/${row.id}`}>
+                      {formatDay(row.day)} {formatReais(row.gapCents)}
+                    </Link>
+                  </span>
+                ))}
               </p>
-            ))}
+            ) : null}
           </div>
           <div>
             <p>Total {formatReais(total)}</p>
@@ -698,6 +719,20 @@ export default async function OrderPage({
           <p>Consumo interno não recebe dinheiro. No caixa do dia a linha fecha zerada.</p>
         </div>
       )}
+
+      <div className="card">
+        <h2>O que mudou</h2>
+        <p>Preço, cliente, crédito da conta e cancelamento nesta comanda.</p>
+        {trail.length === 0 ? <p>Nada alterado nesta comanda.</p> : null}
+        {trail.map((row) => (
+          <p key={row.id}>
+            {row.at}
+            {` · ${row.kind === "valor" ? "Valor" : row.kind === "cliente" ? "Cliente" : "Cancelamento"}`}
+            {row.actorName ? ` · ${row.actorName}` : ""}
+            {` · ${row.summary}`}
+          </p>
+        ))}
+      </div>
 
       {canClose ? (
         <form className="desk-close" action={open ? closeOrder : reopenOrder}>
