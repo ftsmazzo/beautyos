@@ -8,8 +8,10 @@ import {
   clientsWithCredit,
   deskPulse,
   deskReceivables,
+  extrasBook,
   latePackageVisits,
   linkedProfessional,
+  openIncompleteOrders,
   overdueReturns,
   ownCommission,
   commissionBook,
@@ -38,7 +40,7 @@ export default async function StartPage({
   if (operator) await applyDuePrices(user.accountId);
   const notices = operator ? await openPriceNotices(user.accountId) : [];
   const counts = operator ? await catalogCounts(user.accountId) : null;
-  const rules = user.role === "administrador" ? await houseRules(user.accountId) : null;
+  const rules = operator || user.role === "administrador" ? await houseRules(user.accountId) : null;
   const today = todaySaoPaulo();
   const tomorrow = shiftDay(today, 1);
   const birthdays = user.role === "cliente" ? null : await birthdaysAhead(user.accountId, today);
@@ -56,6 +58,10 @@ export default async function StartPage({
       : [];
   const lowStock = operator ? await productsAtMinimum(user.accountId) : [];
   const wallets = operator ? await clientsWithCredit(user.accountId) : [];
+  const nameless =
+    operator || own
+      ? await openIncompleteOrders(user.accountId, operator ? null : own)
+      : [];
   const week = weekBounds(today);
   const ranking = operator
     ? rankStaff(
@@ -63,6 +69,10 @@ export default async function StartPage({
         new Set((await listProfessionals(user.accountId)).map((person) => person.id)),
       )
     : [];
+  const extras =
+    operator && rules?.extrasLadder
+      ? await extrasBook(user.accountId, week.start, today)
+      : [];
   const dueOpen = pulse?.openOrders ?? [];
   const dueTotal = receivables.reduce((sum, row) => sum + row.gapCents, 0);
 
@@ -146,6 +156,22 @@ export default async function StartPage({
             <p key={row.id}>
               <Link href={`/comandas/${row.id}`}>{row.who}</Link>
               {` · ${formatDay(row.day)} · falta ${formatReais(row.gapCents)}`}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      {(operator || own) && nameless.length > 0 ? (
+        <div className="card">
+          <h2>Sem nome</h2>
+          <p>
+            Comanda aberta com cadastro pendente. Completar continua na própria comanda.{" "}
+            <Link href="/comandas?lista=abertas&filtro=semnome">Abrir a fila</Link>
+          </p>
+          {nameless.map((row) => (
+            <p key={row.id}>
+              <Link href={`/comandas/${row.id}`}>{formatDay(row.day)}</Link>
+              {` · ${formatReais(row.totalCents)}`}
+              {row.paidCents < row.totalCents ? ` · falta ${formatReais(row.totalCents - row.paidCents)}` : ""}
             </p>
           ))}
         </div>
@@ -265,6 +291,37 @@ export default async function StartPage({
               </table>
             ) : null}
           </div>
+          {rules?.extrasLadder ? (
+            <div className="card">
+              <h2>Meta de extras</h2>
+              <p>
+                {formatDay(week.start)} até hoje. Só serviço marcado na ficha. Ordinário e cortesia ficam fora. Sem escada de percentual.
+              </p>
+              {extras.length === 0 ? <p>Nenhum extra nesta semana.</p> : null}
+              {extras.length > 0 ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Pessoa</th>
+                      <th>Extras</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extras.map((person, index) => (
+                      <tr key={person.id}>
+                        <td>{index + 1}</td>
+                        <td>{person.name}</td>
+                        <td>{person.visits}</td>
+                        <td>{formatReais(person.cents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+            </div>
+          ) : null}
           <div className="tiles">
             <Link className="tile tile-blue" href="/agenda">
               <strong>Agenda</strong>
@@ -348,7 +405,7 @@ export default async function StartPage({
           <p>O histórico do cliente entra no acesso dele.</p>
         </div>
       ) : null}
-      {rules ? (
+      {user.role === "administrador" && rules ? (
         <Modal label="Regras da casa" title="Regras da casa" tone="navy">
           <form action={saveHouseRules}>
             <label>
@@ -375,6 +432,11 @@ export default async function StartPage({
               <input name="credit" type="number" min={0} max={100} required defaultValue={rules.credit} />
             </label>
             <p>Zero não cobra. A taxa entra no caixa, separada. Metade fica com a casa e metade sai da comissão de quem executou o que foi pago no cartão.</p>
+            <label className="check">
+              <input type="checkbox" name="extras_ladder" value="1" defaultChecked={rules.extrasLadder} />
+              Mostrar meta de extras
+            </label>
+            <p>Conta só o serviço marcado na ficha. Ordinário e cortesia ficam fora. Sem percentual inventado.</p>
             <SubmitButton label="Salvar regras" />
           </form>
         </Modal>

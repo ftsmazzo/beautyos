@@ -20,6 +20,7 @@ const OPEN_FILTERS = [
   { id: "vencer", label: "A vencer" },
   { id: "credito", label: "Com crédito" },
   { id: "vazia", label: "Vazias" },
+  { id: "semnome", label: "Sem nome" },
 ] as const;
 
 type OpenFilter = (typeof OPEN_FILTERS)[number]["id"];
@@ -56,6 +57,7 @@ function isEmpty(order: OrderRow) {
 }
 
 function openSituation(order: OrderRow, today: string) {
+  if (order.incomplete) return "sem nome";
   if (isEmpty(order)) return "vazia";
   const gap = gapOf(order);
   if (gap < 0) return "crédito";
@@ -69,6 +71,7 @@ function openSituation(order: OrderRow, today: string) {
 function matchesOpen(order: OrderRow, filter: OpenFilter, today: string) {
   const gap = gapOf(order);
   if (filter === "todas") return true;
+  if (filter === "semnome") return order.incomplete;
   if (filter === "vazia") return isEmpty(order);
   if (filter === "falta") return gap > 0;
   if (filter === "credito") return gap < 0;
@@ -188,7 +191,8 @@ export default async function OrdersPage({
               openFilter === "atrasada" ||
               openFilter === "hoje" ||
               openFilter === "vencer" ||
-              openFilter === "vazia"
+              openFilter === "vazia" ||
+              openFilter === "semnome"
             ) {
               if (a.day !== b.day) return (a.day ?? "").localeCompare(b.day ?? "");
               return gapB - gapA;
@@ -276,6 +280,7 @@ export default async function OrdersPage({
           <p>
             Qualquer dia. A mais antiga vem primeiro. Fechar e receber continua na própria comanda.
             {openFilter === "vazia" ? " Vazias não têm serviço, produto nem pagamento. Excluir some só com a comanda vazia." : ""}
+            {openFilter === "semnome" ? " Cadastro pendente. Completar continua na própria comanda." : ""}
           </p>
           <div className="row">
             {OPEN_FILTERS.map((item) => (

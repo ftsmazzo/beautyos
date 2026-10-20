@@ -1195,6 +1195,54 @@ export function rankNet(person: RankedPerson) {
   return person.commissionCents + person.referralCents - person.abatementCents - person.feeCents;
 }
 
+export async function extrasBook(accountId: string, start: string, end: string) {
+  return db()<{ id: string; name: string; visits: number; cents: number }[]>`
+    SELECT pr.id, COALESCE(pr.nickname, pr.name) AS name,
+           count(*)::int AS visits,
+           COALESCE(SUM(l.price_cents), 0)::int AS cents
+    FROM order_lines l
+    JOIN orders o ON o.id = l.order_id
+    JOIN services s ON s.id = l.service_id
+    JOIN professionals pr ON pr.id = l.professional_id
+    WHERE o.account_id = ${accountId}
+      AND o.kind = 'cliente'
+      AND o.day >= ${start}::date
+      AND o.day <= ${end}::date
+      AND l.kind = 'servico'
+      AND s.extras_goal
+      AND NOT l.courtesy
+      AND NOT EXISTS (
+        SELECT 1 FROM appointments a
+        WHERE a.id = l.appointment_id AND a.status = 'cancelado'
+      )
+    GROUP BY pr.id, pr.name, pr.nickname
+    ORDER BY count(*) DESC, COALESCE(SUM(l.price_cents), 0) DESC, COALESCE(pr.nickname, pr.name)
+  `;
+}
+
+export async function openIncompleteOrders(accountId: string, professionalId: string | null) {
+  return db()<{ id: string; day: string; totalCents: number; paidCents: number }[]>`
+    SELECT o.id, to_char(o.day, 'YYYY-MM-DD') AS day,
+           COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
+           COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents"
+    FROM orders o
+    WHERE o.account_id = ${accountId}
+      AND o.status = 'aberta'
+      AND o.kind = 'cliente'
+      AND o.incomplete
+      AND (
+        ${professionalId}::uuid IS NULL
+        OR o.professional_id = ${professionalId}
+        OR EXISTS (
+          SELECT 1 FROM order_lines l
+          WHERE l.order_id = o.id AND l.professional_id = ${professionalId}
+        )
+      )
+    ORDER BY o.day, o.created_at
+    LIMIT 40
+  `;
+}
+
 export function rankStaff(rows: CommissionLine[], staffIds: Set<string> | null) {
   const map = new Map<string, RankedPerson>();
   for (const row of rows) {

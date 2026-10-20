@@ -178,16 +178,24 @@ export async function houseModules(accountId: string) {
 }
 
 export async function houseRules(accountId: string) {
-  const rows = await db()<{ referral: number; consumption: number; debit: number; credit: number; serviceDiscount: number }[]>`
+  const rows = await db()<{
+    referral: number;
+    consumption: number;
+    debit: number;
+    credit: number;
+    serviceDiscount: number;
+    extrasLadder: boolean;
+  }[]>`
     SELECT referral_commission_percent AS referral,
            staff_consumption_percent AS consumption,
            card_debit_percent AS debit,
            card_credit_percent AS credit,
-           staff_service_discount_percent AS "serviceDiscount"
+           staff_service_discount_percent AS "serviceDiscount",
+           extras_ladder AS "extrasLadder"
     FROM accounts
     WHERE id = ${accountId}
   `;
-  return rows[0] ?? { referral: 0, consumption: 30, debit: 0, credit: 0, serviceDiscount: 0 };
+  return rows[0] ?? { referral: 0, consumption: 30, debit: 0, credit: 0, serviceDiscount: 0, extrasLadder: true };
 }
 
 export async function catalogCounts(accountId: string) {

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
 import { formatDay, formatReais, todaySaoPaulo } from "@/catalog/format";
-import { listProfessionals } from "@/catalog/queries";
+import { houseRules, listProfessionals } from "@/catalog/queries";
 import { dayParam, daysBetween, monthBounds, weekBounds } from "@/desk/clock";
-import { commissionBook, linkedProfessional, rankNet, rankStaff, type CommissionLine } from "@/desk/queries";
+import { commissionBook, extrasBook, linkedProfessional, rankNet, rankStaff, type CommissionLine } from "@/desk/queries";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
@@ -59,9 +59,13 @@ export default async function CommissionPage({
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
   const asked = query.profissional && UUID.test(query.profissional) ? query.profissional : "";
   const professionalId = own ?? (asked || null);
-  const [rows, roster] = await Promise.all([
+  const rules = await houseRules(user.accountId);
+  const [rows, roster, extras] = await Promise.all([
     (user.role === "profissional" && !own) || tooLong ? Promise.resolve([]) : commissionBook(user.accountId, start, end, professionalId),
     operator ? listProfessionals(user.accountId) : Promise.resolve([]),
+    operator && rules.extrasLadder && !tooLong
+      ? extrasBook(user.accountId, start, end)
+      : Promise.resolve([]),
   ]);
   const people = peopleOf(rows);
   const staffIds = new Set(roster.map((person) => person.id));
@@ -178,6 +182,37 @@ export default async function CommissionPage({
               </table>
             ) : null}
           </div>
+          {rules.extrasLadder ? (
+            <div className="card">
+              <h2>Meta de extras</h2>
+              <p>
+                {formatDay(start)} a {formatDay(end)}. Só serviço marcado na ficha. Ordinário e cortesia ficam fora. Sem escada de percentual.
+              </p>
+              {extras.length === 0 ? <p>Nenhum extra neste período.</p> : null}
+              {extras.length > 0 ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Pessoa</th>
+                      <th>Extras</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extras.map((person, index) => (
+                      <tr key={person.id}>
+                        <td>{index + 1}</td>
+                        <td>{person.name}</td>
+                        <td>{person.visits}</td>
+                        <td>{formatReais(person.cents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+            </div>
+          ) : null}
           <div className="card">
             <h2>Linhas</h2>
             {rows.length === 0 ? <p>Nada para detalhar.</p> : null}

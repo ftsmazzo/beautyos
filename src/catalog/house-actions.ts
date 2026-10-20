@@ -14,6 +14,7 @@ export async function saveHouseRules(formData: FormData) {
   const debit = parsePercent(formData.get("debit"));
   const credit = parsePercent(formData.get("credit"));
   const serviceDiscount = parsePercent(formData.get("service_discount"));
+  const extrasLadder = formData.get("extras_ladder") === "1";
   if (referral == null || consumption == null || debit == null || credit == null || serviceDiscount == null) redirect("/inicio?erro=dados");
   await db()`
     UPDATE accounts
@@ -21,7 +22,8 @@ export async function saveHouseRules(formData: FormData) {
         staff_consumption_percent = ${consumption},
         card_debit_percent = ${debit},
         card_credit_percent = ${credit},
-        staff_service_discount_percent = ${serviceDiscount}
+        staff_service_discount_percent = ${serviceDiscount},
+        extras_ladder = ${extrasLadder}
     WHERE id = ${user.accountId}
   `;
   redirect("/inicio?ok=regras");
