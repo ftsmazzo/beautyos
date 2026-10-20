@@ -244,6 +244,7 @@ export default async function OrderPage({
         {open && order.lines.length === 0 && order.payments.length === 0 ? (
           <form action={deleteEmptyOrder}>
             <input type="hidden" name="order" value={order.id} />
+            <input type="hidden" name="back" value={`/comandas/${order.id}`} />
             <SubmitButton label="Excluir comanda" pendingLabel="Excluindo…" className="quiet" />
           </form>
         ) : null}

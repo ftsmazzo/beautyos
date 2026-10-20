@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireDesk } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { dayParam, daysBetween, monthBounds, shiftDay } from "@/desk/clock";
-import { openDayOrder, openDuePackageVisits } from "@/desk/actions";
+import { deleteEmptyOrder, openDayOrder, openDuePackageVisits } from "@/desk/actions";
 import { clientOptions, dayOrders, linkedProfessional, listedOrders } from "@/desk/queries";
 import { ErrorNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
@@ -19,6 +19,7 @@ const OPEN_FILTERS = [
   { id: "hoje", label: "Hoje" },
   { id: "vencer", label: "A vencer" },
   { id: "credito", label: "Com crédito" },
+  { id: "vazia", label: "Vazias" },
 ] as const;
 
 type OpenFilter = (typeof OPEN_FILTERS)[number]["id"];
@@ -34,6 +35,7 @@ type OrderRow = {
   professionalName: string | null;
   totalCents: number;
   paidCents: number;
+  lineCount: number;
   packageNote: string | null;
 };
 
@@ -49,7 +51,12 @@ function gapOf(order: OrderRow) {
   return order.totalCents - order.paidCents;
 }
 
+function isEmpty(order: OrderRow) {
+  return order.lineCount === 0 && order.paidCents === 0;
+}
+
 function openSituation(order: OrderRow, today: string) {
+  if (isEmpty(order)) return "vazia";
   const gap = gapOf(order);
   if (gap < 0) return "crédito";
   if (gap === 0) return "em dia";
@@ -62,6 +69,7 @@ function openSituation(order: OrderRow, today: string) {
 function matchesOpen(order: OrderRow, filter: OpenFilter, today: string) {
   const gap = gapOf(order);
   if (filter === "todas") return true;
+  if (filter === "vazia") return isEmpty(order);
   if (filter === "falta") return gap > 0;
   if (filter === "credito") return gap < 0;
   if (filter === "atrasada") return gap > 0 && !!order.day && order.day < today;
@@ -75,11 +83,15 @@ function OrdersTable({
   showDay,
   showSituation,
   today,
+  canClearEmpty,
+  emptyBack,
 }: {
   orders: OrderRow[];
   showDay: boolean;
   showSituation?: boolean;
   today?: string;
+  canClearEmpty?: boolean;
+  emptyBack?: string;
 }) {
   if (orders.length === 0) return null;
   return (
@@ -100,6 +112,7 @@ function OrdersTable({
       <tbody>
         {orders.map((order) => {
           const gap = gapOf(order);
+          const empty = isEmpty(order);
           return (
             <tr key={order.id}>
               {showDay && order.day ? <td data-label="Dia">{formatDay(order.day)}</td> : null}
@@ -108,6 +121,7 @@ function OrdersTable({
                 {order.phone ? <div>{formatPhone(order.phone)}</div> : null}
                 {order.packageNote ? <div>{order.packageNote}</div> : null}
                 {order.incomplete ? <div>Cadastro pendente</div> : null}
+                {empty && !showSituation ? <div>Vazia</div> : null}
               </td>
               <td data-label="Tipo">{order.kind === "consumo" ? "Consumo" : "Cliente"}</td>
               <td data-label="Estado">{order.status === "fechada" ? "Fechada" : "Aberta"}</td>
@@ -115,8 +129,15 @@ function OrdersTable({
               <td data-label="Total">{formatReais(order.totalCents)}</td>
               <td data-label="Pago">{formatReais(order.paidCents)}</td>
               <td data-label="Falta">{gap > 0 ? formatReais(gap) : gap < 0 ? `crédito ${formatReais(-gap)}` : "—"}</td>
-              <td>
+              <td data-label="Ações">
                 <Link href={`/comandas/${order.id}`}>Abrir</Link>
+                {canClearEmpty && empty && emptyBack ? (
+                  <form action={deleteEmptyOrder}>
+                    <input type="hidden" name="order" value={order.id} />
+                    <input type="hidden" name="back" value={emptyBack} />
+                    <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                  </form>
+                ) : null}
               </td>
             </tr>
           );
@@ -162,7 +183,13 @@ export default async function OrdersPage({
           .sort((a, b) => {
             const gapA = gapOf(a);
             const gapB = gapOf(b);
-            if (openFilter === "falta" || openFilter === "atrasada" || openFilter === "hoje" || openFilter === "vencer") {
+            if (
+              openFilter === "falta" ||
+              openFilter === "atrasada" ||
+              openFilter === "hoje" ||
+              openFilter === "vencer" ||
+              openFilter === "vazia"
+            ) {
               if (a.day !== b.day) return (a.day ?? "").localeCompare(b.day ?? "");
               return gapB - gapA;
             }
@@ -170,6 +197,9 @@ export default async function OrdersPage({
           })
       : listed;
   const openDue = openRows.reduce((sum, row) => sum + Math.max(0, gapOf(row)), 0);
+  const emptyBack = q
+    ? `/comandas?lista=abertas&filtro=vazia&q=${encodeURIComponent(q)}`
+    : "/comandas?lista=abertas&filtro=vazia";
 
   return (
     <Panel user={user} current="/comandas" title="Comandas">
@@ -231,14 +261,22 @@ export default async function OrdersPage({
           ) : null}
           <div className="card">
             {orders.length === 0 ? <p>Nenhuma comanda neste dia.</p> : null}
-            <OrdersTable orders={orders} showDay={false} />
+            <OrdersTable
+              orders={orders}
+              showDay={false}
+              canClearEmpty={operator}
+              emptyBack={`/comandas?dia=${day}`}
+            />
           </div>
         </>
       ) : null}
       {lista === "abertas" ? (
         <div className="card">
           <h2>Abertas</h2>
-          <p>Qualquer dia. A mais antiga vem primeiro. Fechar e receber continua na própria comanda.</p>
+          <p>
+            Qualquer dia. A mais antiga vem primeiro. Fechar e receber continua na própria comanda.
+            {openFilter === "vazia" ? " Vazias não têm serviço, produto nem pagamento. Excluir some só com a comanda vazia." : ""}
+          </p>
           <div className="row">
             {OPEN_FILTERS.map((item) => (
               <Link
@@ -266,7 +304,14 @@ export default async function OrdersPage({
             {openDue > 0 ? ` · a receber ${formatReais(openDue)}` : ""}
           </p>
           {openRows.length === 0 ? <p>Nenhuma comanda neste filtro.</p> : null}
-          <OrdersTable orders={openRows} showDay showSituation today={today} />
+          <OrdersTable
+            orders={openRows}
+            showDay
+            showSituation
+            today={today}
+            canClearEmpty={operator}
+            emptyBack={emptyBack}
+          />
         </div>
       ) : null}
       {lista === "historico" ? (

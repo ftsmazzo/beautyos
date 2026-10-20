@@ -2807,7 +2807,14 @@ export async function openDayOrder(formData: FormData) {
 export async function deleteEmptyOrder(formData: FormData) {
   const user = await requireDesk();
   const orderId = String(formData.get("order") ?? "");
-  return settle(`/comandas/${orderId}`, async () => {
+  const backRaw = String(formData.get("back") ?? "");
+  const back =
+    backRaw.startsWith("/comandas?lista=abertas") ||
+    backRaw.startsWith("/comandas?dia=") ||
+    backRaw.startsWith(`/comandas/${orderId}`)
+      ? backRaw.slice(0, 120)
+      : null;
+  return settle(back ?? `/comandas/${orderId}`, async () => {
     const own = await scope(user.id, user.role);
     const day = await db().begin(async (tx) => {
       const order = await tx<{ status: string; day: string; kind: string; professionalId: string | null }[]>`
@@ -2826,7 +2833,7 @@ export async function deleteEmptyOrder(formData: FormData) {
       await tx`DELETE FROM orders WHERE id = ${orderId} AND account_id = ${user.accountId}`;
       return order[0].day;
     });
-    return `/comandas?dia=${day}`;
+    return back ?? `/comandas?dia=${day}`;
   });
 }
 

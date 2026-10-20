@@ -319,12 +319,14 @@ export async function dayOrders(accountId: string, day: string, professionalId: 
     professionalName: string | null;
     totalCents: number;
     paidCents: number;
+    lineCount: number;
     packageNote: string | null;
   }[]>`
     SELECT o.id, c.name AS "clientName", c.phone, o.kind, o.status, o.incomplete,
            p.name AS "professionalName",
            COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
            COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents",
+           COALESCE((SELECT count(*) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "lineCount",
            (
              SELECT string_agg(note, ' · ' ORDER BY sort NULLS LAST)
              FROM (
@@ -390,12 +392,14 @@ export async function listedOrders(
     professionalName: string | null;
     totalCents: number;
     paidCents: number;
+    lineCount: number;
     packageNote: string | null;
   }[]>`
     SELECT o.id, to_char(o.day, 'YYYY-MM-DD') AS day, c.name AS "clientName", c.phone, o.kind, o.status, o.incomplete,
            p.name AS "professionalName",
            COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "totalCents",
            COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)::int AS "paidCents",
+           COALESCE((SELECT count(*) FROM order_lines l WHERE l.order_id = o.id), 0)::int AS "lineCount",
            (
              SELECT string_agg(note, ' · ' ORDER BY sort NULLS LAST)
              FROM (
