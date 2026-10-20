@@ -1,9 +1,10 @@
-import { Source_Sans_3 } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 
-const sourceSans = Source_Sans_3({
+const outfit = Outfit({
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-ui",
 });
 
 export const metadata = {
@@ -19,7 +20,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body className={sourceSans.className}>{children}</body>
+      <body className={`${outfit.variable} ${outfit.className}`}>{children}</body>
     </html>
   );
 }

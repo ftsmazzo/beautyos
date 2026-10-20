@@ -7,25 +7,37 @@ import { moduleAllows, type HouseModuleId } from "@/catalog/modules";
 import type { SessionUser } from "@/auth/session";
 import { SubmitButton } from "@/ui/submit-button";
 
-const OPERATION = [
-  { href: "/inicio", label: "Início" },
-  { href: "/agenda", label: "Agenda" },
-  { href: "/comandas", label: "Comandas" },
-  { href: "/espera", label: "Espera" },
-  { href: "/lembretes", label: "Lembretes" },
+type NavLink = { href: string; label: string; group: string };
+
+const OPERATION: NavLink[] = [
+  { href: "/inicio", label: "Início", group: "Operação" },
+  { href: "/agenda", label: "Agenda", group: "Operação" },
+  { href: "/comandas", label: "Comandas", group: "Operação" },
+  { href: "/espera", label: "Espera", group: "Operação" },
+  { href: "/lembretes", label: "Lembretes", group: "Operação" },
+  { href: "/caixa", label: "Caixa", group: "Operação" },
+  { href: "/comissao", label: "Comissão", group: "Operação" },
+  { href: "/agente", label: "Conversas", group: "Operação" },
 ];
 
-const CATALOG = [
-  { href: "/servicos", label: "Serviços" },
-  { href: "/profissionais", label: "Profissionais" },
-  { href: "/clientes", label: "Clientes" },
-  { href: "/aniversariantes", label: "Aniversariantes" },
-  { href: "/volta", label: "Volta" },
-  { href: "/produtos", label: "Produtos" },
-  { href: "/fornecedores", label: "Fornecedores" },
-  { href: "/pacotes", label: "Pacotes" },
-  { href: "/pacotes/vendidos", label: "Vendidos" },
-  { href: "/pacotes/relatorio", label: "Relatório" },
+const CATALOG: NavLink[] = [
+  { href: "/servicos", label: "Serviços", group: "Cadastros" },
+  { href: "/profissionais", label: "Profissionais", group: "Cadastros" },
+  { href: "/clientes", label: "Clientes", group: "Cadastros" },
+  { href: "/aniversariantes", label: "Aniversariantes", group: "Cadastros" },
+  { href: "/volta", label: "Volta", group: "Cadastros" },
+  { href: "/produtos", label: "Produtos", group: "Cadastros" },
+  { href: "/fornecedores", label: "Fornecedores", group: "Cadastros" },
+  { href: "/pacotes", label: "Pacotes", group: "Cadastros" },
+  { href: "/pacotes/vendidos", label: "Vendidos", group: "Cadastros" },
+  { href: "/pacotes/relatorio", label: "Relatório", group: "Cadastros" },
+];
+
+const SYSTEM: NavLink[] = [
+  { href: "/logs", label: "Logs", group: "Sistema" },
+  { href: "/financeiro", label: "Financeiro", group: "Sistema" },
+  { href: "/acesso", label: "Acesso", group: "Sistema" },
+  { href: "/meu", label: "Minha conta", group: "Conta" },
 ];
 
 function NavIcon({ href }: { href: string }) {
@@ -106,27 +118,29 @@ export function PanelFrame({
 }) {
   const [open, setOpen] = useState(false);
   const operator = user.role === "administrador" || user.role === "balcao";
-  const links = (operator
-    ? [
-        ...OPERATION,
-        { href: "/caixa", label: "Caixa" },
-        { href: "/comissao", label: "Comissão" },
-        { href: "/logs", label: "Logs" },
-        { href: "/agente", label: "Conversas" },
-        ...CATALOG,
-      ]
+  const links: NavLink[] = (operator
+    ? [...OPERATION, ...CATALOG, ...SYSTEM.filter((l) => l.href === "/logs")]
     : user.role === "profissional"
-      ? [...OPERATION, { href: "/comissao", label: "Comissão" }]
+      ? OPERATION.filter((l) =>
+          ["/inicio", "/agenda", "/comandas", "/espera", "/lembretes", "/comissao"].includes(l.href),
+        )
       : [
-          { href: "/inicio", label: "Início" },
-          { href: "/meu", label: "Minha conta" },
-        ])
-    .filter((link) => moduleAllows(modules, link.href));
+          { href: "/inicio", label: "Início", group: "Conta" },
+          ...SYSTEM.filter((l) => l.href === "/meu"),
+        ]
+  ).filter((link) => moduleAllows(modules, link.href));
   if (user.role === "administrador" && modules.financeiro) {
-    links.push({ href: "/financeiro", label: "Financeiro" });
+    links.push(...SYSTEM.filter((l) => l.href === "/financeiro"));
   }
   if (user.role === "administrador") {
-    links.push({ href: "/acesso", label: "Acesso" });
+    links.push(...SYSTEM.filter((l) => l.href === "/acesso"));
+  }
+
+  const groups: { name: string; items: NavLink[] }[] = [];
+  for (const link of links) {
+    const last = groups[groups.length - 1];
+    if (last && last.name === link.group) last.items.push(link);
+    else groups.push({ name: link.group, items: [link] });
   }
 
   return (
@@ -142,16 +156,21 @@ export function PanelFrame({
           </div>
         </div>
         <nav>
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={current === link.href ? "page" : undefined}
-              onClick={() => setOpen(false)}
-            >
-              <NavIcon href={link.href} />
-              {link.label}
-            </Link>
+          {groups.map((group) => (
+            <div key={group.name}>
+              <div className="nav-group">{group.name}</div>
+              {group.items.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={current === link.href ? "page" : undefined}
+                  onClick={() => setOpen(false)}
+                >
+                  <NavIcon href={link.href} />
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>
