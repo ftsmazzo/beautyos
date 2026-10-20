@@ -109,13 +109,23 @@ export default async function OrderPage({
   return (
     <Panel user={user} current="/comandas" title={order.kind === "consumo" ? "Consumo" : "Comanda"}>
       <div className="order-desk">
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn quiet" href={`/comandas?dia=${order.day}`}>
-          Comandas do dia
+          ← Comandas
         </Link>
         <Link className="btn quiet" href={`/agenda?dia=${order.day}`}>
           Agenda
         </Link>
+        {canClose ? (
+          <form action={open ? closeOrder : reopenOrder} style={{ margin: 0 }}>
+            <input type="hidden" name="order" value={order.id} />
+            <SubmitButton
+              label={open ? "Fechar" : "Reabrir"}
+              pendingLabel={open ? "Fechando…" : "Reabrindo…"}
+              className={open ? undefined : "quiet"}
+            />
+          </form>
+        ) : null}
       </div>
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
@@ -184,7 +194,6 @@ export default async function OrderPage({
                         ))}
                     </select>
                   </label>
-                  <p>A mesma comanda e os mesmos horários. O log guarda quem era e quem ficou.</p>
                   <SubmitButton label="Trocar" pendingLabel="Trocando…" />
                 </form>
               </Modal>
@@ -211,8 +220,8 @@ export default async function OrderPage({
       </div>
 
       {operator && order.incomplete && open ? (
-        <div className="card">
-          <h2>Completar o sem nome</h2>
+        <div className="order-section">
+          <h2>Completar cadastro</h2>
           <form action={attachClient}>
             <input type="hidden" name="order" value={order.id} />
             <label>
@@ -238,24 +247,105 @@ export default async function OrderPage({
             </div>
             <label className="check">
               <input type="checkbox" name="from_outside" value="1" />
-              De fora. Conta no caixa e fica fora da análise de volta.
+              De fora
             </label>
-            <p>Se essa pessoa já tiver comanda neste dia, as linhas entram nela. Continua o mesmo atendimento.</p>
             <SubmitButton label="Completar" pendingLabel="Salvando…" />
           </form>
         </div>
       ) : null}
 
-      <div className="card">
-        {order.lines.length === 0 ? (
-          <p>
-            {order.kind !== "cliente" || !open
-              ? "Nenhuma linha ainda."
-              : products.length > 0
-                ? "Nenhuma linha ainda. Produto entra sem horário. Serviço precisa de profissional e hora para fechar."
-                : "Nenhuma linha ainda. Nenhum produto à venda. Serviço precisa de profissional e hora para fechar."}
-          </p>
-        ) : null}
+      <div className="order-section">
+        <div className="order-actions-bar">
+          <h2 style={{ margin: 0, border: 0, padding: 0, flex: "1 1 auto" }}>Itens</h2>
+          {open && order.kind === "cliente" && catalog.length > 0 ? (
+            <Modal label="Serviço" title="Serviço na comanda" tone="blue">
+              <OrderServiceForm
+                orderId={order.id}
+                professionals={roster.filter((person) => person.bookable).map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+                services={[...catalog.reduce((map, row) => {
+                  const current = map.get(row.id) ?? { id: row.id, name: row.name, professionalIds: [] as string[] };
+                  current.professionalIds.push(row.professionalId);
+                  map.set(row.id, current);
+                  return map;
+                }, new Map<string, { id: string; name: string; professionalIds: string[] }>()).values()]}
+              />
+            </Modal>
+          ) : null}
+          {open && order.kind === "cliente" && products.length > 0 ? (
+            <Modal label="Produto" title="Produto na comanda" tone="teal">
+              <form action={addProduct}>
+                <input type="hidden" name="order" value={order.id} />
+                <label>
+                  Código de barras
+                  <input name="barcode" autoComplete="off" />
+                </label>
+                <label>
+                  Produto
+                  <select name="product" defaultValue="">
+                    <option value="">Pelo código</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} · {formatReais(product.priceCents)}
+                        {product.barcode ? ` · ${product.barcode}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Quantidade
+                  <input name="qty" type="number" min={1} defaultValue={1} required />
+                </label>
+                <label>
+                  Quem vendeu
+                  <select name="professional" defaultValue="">
+                    <option value="">Sem profissional</option>
+                    {roster.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.nickname || person.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <SubmitButton label="Lançar" pendingLabel="Lançando…" className="teal" />
+              </form>
+            </Modal>
+          ) : null}
+          {open && order.kind === "consumo" && stock.length > 0 ? (
+            <Modal label="Produto consumido" title="Consumo interno" tone="teal">
+              <form action={addConsumption}>
+                <input type="hidden" name="order" value={order.id} />
+                <label>
+                  Produto
+                  <select name="product" required defaultValue={stock[0]?.id}>
+                    {stock.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <SubmitButton label="Lançar consumo" pendingLabel="Lançando…" className="teal" />
+              </form>
+            </Modal>
+          ) : null}
+          {open && order.kind === "consumo" && roster.some((person) => person.id !== order.professionalId) ? (
+            <Modal label="Serviço recebido" title="Serviço entre profissionais" tone="blue">
+              <StaffServiceForm
+                orderId={order.id}
+                professionals={roster
+                  .filter((person) => person.id !== order.professionalId)
+                  .map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+                services={[...catalog.reduce((map, row) => {
+                  const current = map.get(row.id) ?? { id: row.id, name: row.name, professionalIds: [] as string[] };
+                  current.professionalIds.push(row.professionalId);
+                  map.set(row.id, current);
+                  return map;
+                }, new Map<string, { id: string; name: string; professionalIds: string[] }>()).values()]}
+              />
+            </Modal>
+          ) : null}
+        </div>
+        {order.lines.length === 0 ? <p className="queue-empty">Nenhuma linha ainda.</p> : null}
         {open && order.lines.length === 0 && order.payments.length === 0 ? (
           <form action={deleteEmptyOrder}>
             <input type="hidden" name="order" value={order.id} />
@@ -425,105 +515,67 @@ export default async function OrderPage({
               ))}
             </tbody>
           </table>
-          {operator && open && order.lines.some((line) => line.packageCreditId && line.kind === "servico") ? (
-            <p>No uso do pacote o valor cobrado fica. O percentual desta ida sobe ou desce, sempre sobre o preço interno.</p>
-          ) : null}
           </>
-        ) : null}
-        {open && order.kind === "cliente" && catalog.length > 0 ? (
-          <Modal label="Serviço" title="Serviço na comanda" tone="blue">
-            <OrderServiceForm
-              orderId={order.id}
-              professionals={roster.filter((person) => person.bookable).map((person) => ({ id: person.id, name: person.nickname || person.name }))}
-              services={[...catalog.reduce((map, row) => {
-                const current = map.get(row.id) ?? { id: row.id, name: row.name, professionalIds: [] as string[] };
-                current.professionalIds.push(row.professionalId);
-                map.set(row.id, current);
-                return map;
-              }, new Map<string, { id: string; name: string; professionalIds: string[] }>()).values()]}
-            />
-          </Modal>
-        ) : null}
-        {open && order.kind === "cliente" && products.length > 0 ? (
-          <Modal label="Produto" title="Produto na comanda" tone="teal">
-            <form action={addProduct}>
-              <input type="hidden" name="order" value={order.id} />
-              <label>
-                Código de barras
-                <input name="barcode" autoComplete="off" />
-              </label>
-              <label>
-                Produto
-                <select name="product" defaultValue="">
-                  <option value="">Pelo código</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} · {formatReais(product.priceCents)}
-                      {product.barcode ? ` · ${product.barcode}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Quantidade
-                <input name="qty" type="number" min={1} defaultValue={1} required />
-              </label>
-              <label>
-                Quem vendeu
-                <select name="professional" defaultValue="">
-                  <option value="">Sem profissional</option>
-                  {roster.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {person.nickname || person.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <SubmitButton label="Lançar" pendingLabel="Lançando…" className="teal" />
-            </form>
-          </Modal>
-        ) : null}
-        {open && order.kind === "consumo" && stock.length > 0 ? (
-          <Modal label="Produto consumido" title="Consumo interno" tone="teal">
-            <form action={addConsumption}>
-              <input type="hidden" name="order" value={order.id} />
-              <label>
-                Produto
-                <select name="product" required defaultValue={stock[0]?.id}>
-                  {stock.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p>Baixa uma unidade. Não gera comissão. O abate sai do preço de consumo.</p>
-              <SubmitButton label="Lançar consumo" pendingLabel="Lançando…" className="teal" />
-            </form>
-          </Modal>
-        ) : null}
-        {open && order.kind === "consumo" && roster.some((person) => person.id !== order.professionalId) ? (
-          <Modal label="Serviço recebido" title="Serviço entre profissionais" tone="blue">
-            <StaffServiceForm
-              orderId={order.id}
-              professionals={roster
-                .filter((person) => person.id !== order.professionalId)
-                .map((person) => ({ id: person.id, name: person.nickname || person.name }))}
-              services={[...catalog.reduce((map, row) => {
-                const current = map.get(row.id) ?? { id: row.id, name: row.name, professionalIds: [] as string[] };
-                current.professionalIds.push(row.professionalId);
-                map.set(row.id, current);
-                return map;
-              }, new Map<string, { id: string; name: string; professionalIds: string[] }>()).values()]}
-            />
-          </Modal>
         ) : null}
       </div>
 
       {order.kind === "cliente" && order.clientId && (held.length > 0 || forSale.length > 0) ? (
-        <div className="card">
-          <h2>Pacote</h2>
-          {held.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
+        <div className="order-section">
+          <div className="order-actions-bar">
+            <h2 style={{ margin: 0, border: 0, padding: 0, flex: "1 1 auto" }}>Pacote</h2>
+            {operator && visits.some((visit) => visit.status === "falta_agendar") ? (
+              <Modal label="Marcar visita" title="Marcar visita do pacote" tone="blue">
+                <PackageVisitForm
+                  orderId={order.id}
+                  credits={visits.filter((visit) => visit.status === "falta_agendar").map((visit, index, list) => {
+                    const same = list.filter((item) => item.serviceId === visit.serviceId);
+                    const place = same.findIndex((item) => item.id === visit.id) + 1;
+                    return {
+                      id: visit.id,
+                      serviceId: visit.serviceId,
+                      serviceName: visit.serviceName,
+                      label: same.length > 1 ? `${visit.serviceName} · ${place}` : visit.serviceName,
+                    };
+                  })}
+                  people={roster.map((person) => ({
+                    id: person.id,
+                    name: person.nickname || person.name,
+                    serviceIds: catalog.filter((service) => service.professionalId === person.id).map((service) => service.id),
+                  }))}
+                />
+              </Modal>
+            ) : null}
+            {forSale.length > 0 ? (
+              <Modal label="Vender pacote" title="Vender pacote" tone="blue">
+                <form action={sellPackage}>
+                  <input type="hidden" name="order" value={order.id} />
+                  <label>
+                    Pacote
+                    <select name="package" required defaultValue={forSale[0]?.id}>
+                      {forSale.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} · {formatReais(item.priceCents)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Quem vendeu
+                    <select name="seller" defaultValue="">
+                      <option value="">Sem comissão de venda</option>
+                      {roster.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.nickname || person.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <SubmitButton label="Vender" pendingLabel="Vendendo…" />
+                </form>
+              </Modal>
+            ) : null}
+          </div>
+          {held.length === 0 ? <p className="queue-empty">Nenhum pacote ativo.</p> : null}
           {held.map((item) => {
             const warned = item.expired || item.late;
             return (
@@ -574,68 +626,13 @@ export default async function OrderPage({
               </div>
             );
           })}
-          {operator && visits.some((visit) => visit.status === "falta_agendar") ? (
-            <Modal label="Marcar visita" title="Marcar visita do pacote" tone="blue">
-              <PackageVisitForm
-                orderId={order.id}
-                credits={visits.filter((visit) => visit.status === "falta_agendar").map((visit, index, list) => {
-                  const same = list.filter((item) => item.serviceId === visit.serviceId);
-                  const place = same.findIndex((item) => item.id === visit.id) + 1;
-                  return {
-                    id: visit.id,
-                    serviceId: visit.serviceId,
-                    serviceName: visit.serviceName,
-                    label: same.length > 1 ? `${visit.serviceName} · ${place}` : visit.serviceName,
-                  };
-                })}
-                people={roster.map((person) => ({
-                  id: person.id,
-                  name: person.nickname || person.name,
-                  serviceIds: catalog.filter((service) => service.professionalId === person.id).map((service) => service.id),
-                }))}
-              />
-            </Modal>
-          ) : null}
-          {forSale.length > 0 ? (
-            <Modal label="Vender pacote" title="Vender pacote" tone="blue">
-              <form action={sellPackage}>
-                <input type="hidden" name="order" value={order.id} />
-                <label>
-                  Pacote
-                  <select name="package" required defaultValue={forSale[0]?.id}>
-                    {forSale.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} · {formatReais(item.priceCents)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Quem vendeu
-                  <select name="seller" defaultValue="">
-                    <option value="">Sem comissão de venda</option>
-                    {roster.map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.nickname || person.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p>
-                  A venda entra nesta comanda. Se o serviço de hoje já está aqui, a primeira visita é abatida agora.
-                  As outras ficam para agendar. A comissão do serviço nasce no uso, sobre o preço interno.
-                </p>
-                <SubmitButton label="Vender" pendingLabel="Vendendo…" />
-              </form>
-            </Modal>
-          ) : null}
         </div>
       ) : null}
 
       {order.kind === "cliente" ? (
-        <div className="card">
+        <div className="order-section">
           <h2>Pagamentos</h2>
-          {order.payments.length === 0 ? <p>Nenhum pagamento ainda. Pagamento parcial deixa a comanda aberta.</p> : null}
+          {order.payments.length === 0 ? <p className="queue-empty">Nenhum pagamento ainda.</p> : null}
           {order.payments.length > 0 ? (
             <table className="sheet">
               <thead>
@@ -704,17 +701,16 @@ export default async function OrderPage({
                   </label>
                 ) : null}
               </div>
-              {banks.length > 0 ? <p>No banco, o recebimento entra no extrato e não passa pela gaveta.</p> : null}
               <SubmitButton label="Lançar pagamento" pendingLabel="Lançando…" />
             </form>
           ) : null}
           {operator && open && order.clientId && credit > 0 && gap > 0 ? (
             <form action={applyClientCredit}>
               <input type="hidden" name="order" value={order.id} />
-              <p>
-                Crédito da conta {formatReais(credit)}. Esse uso não entra na gaveta.
+              <p className="desk-hint">
+                Crédito {formatReais(credit)}
                 {ledger && ledger.sources.length > 0
-                  ? ` Veio de ${ledger.sources.map((row) => `${formatDay(row.day)} ${formatReais(row.cents)}`).join(", ")}.`
+                  ? ` · ${ledger.sources.map((row) => `${formatDay(row.day)} ${formatReais(row.cents)}`).join(", ")}`
                   : ""}
               </p>
               <label>
@@ -731,24 +727,26 @@ export default async function OrderPage({
           ) : null}
         </div>
       ) : (
-        <div className="card">
-          <p>Consumo interno não recebe dinheiro. No caixa do dia a linha fecha zerada.</p>
-        </div>
+        <p className="desk-hint">Consumo interno · fecha sem pagamento</p>
       )}
 
-      <div className="card">
-        <h2>O que mudou</h2>
-        <p>Preço, cliente, crédito da conta e cancelamento nesta comanda.</p>
-        {trail.length === 0 ? <p>Nada alterado nesta comanda.</p> : null}
-        {trail.map((row) => (
-          <p key={row.id}>
-            {row.at}
-            {` · ${row.kind === "valor" ? "Valor" : row.kind === "cliente" ? "Cliente" : "Cancelamento"}`}
-            {row.actorName ? ` · ${row.actorName}` : ""}
-            {` · ${row.summary}`}
-          </p>
-        ))}
-      </div>
+      {trail.length > 0 ? (
+        <details className="desk-secondary">
+          <summary>Histórico ({trail.length})</summary>
+          <div className="queue" style={{ marginTop: 8 }}>
+            {trail.map((row) => (
+              <div className="queue-row" key={row.id}>
+                <span>{row.at}</span>
+                <strong>
+                  {row.kind === "valor" ? "Valor" : row.kind === "cliente" ? "Cliente" : "Cancelamento"}
+                </strong>
+                {row.actorName ? <span>{row.actorName}</span> : null}
+                <span>{row.summary}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
 
       {canClose ? (
         <form className="desk-close" action={open ? closeOrder : reopenOrder}>

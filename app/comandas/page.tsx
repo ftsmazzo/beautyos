@@ -5,6 +5,7 @@ import { dayParam, daysBetween, monthBounds, shiftDay } from "@/desk/clock";
 import { deleteEmptyOrder, openDayOrder, openDuePackageVisits } from "@/desk/actions";
 import { clientOptions, dayOrders, linkedProfessional, listedOrders } from "@/desk/queries";
 import { ErrorNote } from "@/ui/error-note";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -224,155 +225,159 @@ export default async function OrdersPage({
 
   return (
     <Panel user={user} current="/comandas" title="Comandas">
-      <div className="row">
-        <Link className={lista === "dia" ? "btn" : "btn quiet"} href={`/comandas?dia=${day}`}>
-          Do dia
-        </Link>
-        <Link className={lista === "abertas" ? "btn" : "btn quiet"} href="/comandas?lista=abertas&filtro=falta">
-          Abertas
-        </Link>
-        <Link className={lista === "historico" ? "btn" : "btn quiet"} href={`/comandas?lista=historico&de=${month.start}&ate=${today}`}>
-          Histórico
-        </Link>
-      </div>
-      {lista === "dia" ? (
-        <>
-          <div className="row">
-            <Link className="btn quiet" href={`/comandas?dia=${shiftDay(day, -1)}`}>
-              Dia anterior
-            </Link>
-            <strong>{formatDay(day)}</strong>
-            <Link className="btn quiet" href={`/comandas?dia=${shiftDay(day, 1)}`}>
-              Próximo dia
-            </Link>
-            <Link className="btn quiet" href={`/comandas?dia=${today}`}>
-              Hoje
-            </Link>
-            <Link className="btn" href={`/agenda?dia=${day}`}>
-              Agenda do dia
-            </Link>
-            {operator ? (
-              <Link className="btn quiet" href="/pacotes/vendidos">
-                Prazos dos pacotes
+      <div className="desk">
+        <div className="desk-bar">
+          <Link className={lista === "dia" ? "btn" : "btn quiet"} href={`/comandas?dia=${day}`}>
+            Do dia
+          </Link>
+          <Link className={lista === "abertas" ? "btn" : "btn quiet"} href="/comandas?lista=abertas&filtro=falta">
+            Abertas
+          </Link>
+          <Link
+            className={lista === "historico" ? "btn" : "btn quiet"}
+            href={`/comandas?lista=historico&de=${month.start}&ate=${today}`}
+          >
+            Histórico
+          </Link>
+          {lista === "dia" ? (
+            <>
+              <Link className="btn quiet" href={`/comandas?dia=${shiftDay(day, -1)}`}>
+                ←
               </Link>
-            ) : null}
-          </div>
-          <ErrorNote code={query.erro} />
-          {operator ? (
-            <form action={openDayOrder} className="card">
-              <h2>Comanda do dia</h2>
-              <p>Produto entra sem horário. Serviço entra na comanda e precisa de profissional e hora para fechar. Quem já tem comanda neste dia abre a mesma.</p>
-              <input type="hidden" name="day" value={day} />
-              <label>
-                Cliente
-                <select name="client" required defaultValue="">
-                  <option value="" disabled>
-                    Escolha
-                  </option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                      {client.phone ? ` · ${formatPhone(client.phone)}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <SubmitButton label="Abrir comanda" pendingLabel="Abrindo…" />
-            </form>
+              <span className="day-label">{formatDay(day)}</span>
+              <Link className="btn quiet" href={`/comandas?dia=${shiftDay(day, 1)}`}>
+                →
+              </Link>
+              <Link className="btn quiet" href={`/comandas?dia=${today}`}>
+                Hoje
+              </Link>
+              <Link className="btn quiet" href={`/agenda?dia=${day}`}>
+                Agenda
+              </Link>
+              {operator ? (
+                <Modal label="Nova comanda" title="Abrir comanda do dia" tone="blue">
+                  <form action={openDayOrder}>
+                    <input type="hidden" name="day" value={day} />
+                    <label>
+                      Cliente
+                      <select name="client" required defaultValue="">
+                        <option value="" disabled>
+                          Escolha
+                        </option>
+                        {clients.map((client) => (
+                          <option key={client.id} value={client.id}>
+                            {client.name}
+                            {client.phone ? ` · ${formatPhone(client.phone)}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <SubmitButton label="Abrir" pendingLabel="Abrindo…" />
+                  </form>
+                </Modal>
+              ) : null}
+              <form className="desk-bar" action="/comandas" style={{ margin: 0, flex: "1 1 220px" }}>
+                <input type="hidden" name="dia" value={day} />
+                <input name="q" defaultValue={q} placeholder="Nome, celular ou profissional" aria-label="Busca" />
+                <button className="btn quiet" type="submit">
+                  Buscar
+                </button>
+              </form>
+            </>
           ) : null}
-          <form className="row" action="/comandas">
-            <input type="hidden" name="dia" value={day} />
-            <label>
-              Busca
-              <input name="q" defaultValue={q} placeholder="Nome, celular ou profissional" />
-            </label>
-            <button className="btn" type="submit">
-              Buscar
-            </button>
-          </form>
-          <div className="card">
-            {dayRows.length === 0 ? <p>{q ? "Nenhuma comanda neste filtro." : "Nenhuma comanda neste dia."}</p> : null}
-            <OrdersTable
-              orders={dayRows}
-              showDay={false}
-              canClearEmpty={operator}
-              emptyBack={q ? `/comandas?dia=${day}&q=${encodeURIComponent(q)}` : `/comandas?dia=${day}`}
-            />
-          </div>
-        </>
-      ) : null}
-      {lista === "abertas" ? (
-        <div className="card">
-          <h2>Abertas</h2>
-          <p>
-            Qualquer dia. A mais antiga vem primeiro. Fechar e receber continua na própria comanda.
-            {openFilter === "vazia" ? " Vazias não têm serviço, produto nem pagamento. Excluir some só com a comanda vazia." : ""}
-            {openFilter === "semnome" ? " Cadastro pendente. Completar continua na própria comanda." : ""}
-          </p>
-          <div className="row">
-            {OPEN_FILTERS.map((item) => (
-              <Link
-                key={item.id}
-                className={item.id === openFilter ? "btn" : "btn quiet"}
-                href={q ? `/comandas?lista=abertas&filtro=${item.id}&q=${encodeURIComponent(q)}` : `/comandas?lista=abertas&filtro=${item.id}`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
-          <form className="row" action="/comandas">
-            <input type="hidden" name="lista" value="abertas" />
-            <input type="hidden" name="filtro" value={openFilter} />
-            <label>
-              Busca
-              <input name="q" defaultValue={q} placeholder="Nome ou celular" />
-            </label>
-            <button className="btn" type="submit">
-              Buscar
-            </button>
-          </form>
-          <p>
-            {openRows.length} {openRows.length === 1 ? "comanda" : "comandas"}
-            {openDue > 0 ? ` · a receber ${formatReais(openDue)}` : ""}
-          </p>
-          {openRows.length === 0 ? <p>Nenhuma comanda neste filtro.</p> : null}
-          <OrdersTable
-            orders={openRows}
-            showDay
-            showSituation
-            today={today}
-            canClearEmpty={operator}
-            emptyBack={emptyBack}
-          />
         </div>
-      ) : null}
-      {lista === "historico" ? (
-        <div className="card">
-          <h2>Histórico</h2>
-          <p>Só as fechadas. A busca é por nome ou celular.</p>
-          <form className="row" action="/comandas">
-            <input type="hidden" name="lista" value="historico" />
-            <label>
-              De
-              <input name="de" type="date" defaultValue={start} required />
-            </label>
-            <label>
-              Até
-              <input name="ate" type="date" defaultValue={end} required />
-            </label>
-            <label>
-              Busca
-              <input name="q" defaultValue={q} placeholder="Nome ou celular" />
-            </label>
-            <button className="btn" type="submit">
-              Ver
-            </button>
-          </form>
-          {tooLong ? <p className="error">O período fica em até {SPAN} dias.</p> : null}
-          {!tooLong && listed.length === 0 ? <p>Nenhuma comanda fechada neste período.</p> : null}
-          {!tooLong ? <OrdersTable orders={listed} showDay /> : null}
-        </div>
-      ) : null}
+
+        <ErrorNote code={query.erro} />
+
+        {lista === "dia" ? (
+          dayRows.length === 0 ? (
+            <p className="queue-empty">{q ? "Nenhuma comanda neste filtro." : "Nenhuma comanda neste dia."}</p>
+          ) : (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <OrdersTable
+                orders={dayRows}
+                showDay={false}
+                canClearEmpty={operator}
+                emptyBack={q ? `/comandas?dia=${day}&q=${encodeURIComponent(q)}` : `/comandas?dia=${day}`}
+              />
+            </div>
+          )
+        ) : null}
+
+        {lista === "abertas" ? (
+          <>
+            <div className="desk-bar">
+              {OPEN_FILTERS.map((item) => (
+                <Link
+                  key={item.id}
+                  className={item.id === openFilter ? "btn" : "btn quiet"}
+                  href={
+                    q
+                      ? `/comandas?lista=abertas&filtro=${item.id}&q=${encodeURIComponent(q)}`
+                      : `/comandas?lista=abertas&filtro=${item.id}`
+                  }
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <form className="desk-bar" action="/comandas" style={{ margin: 0, flex: "1 1 200px" }}>
+                <input type="hidden" name="lista" value="abertas" />
+                <input type="hidden" name="filtro" value={openFilter} />
+                <input name="q" defaultValue={q} placeholder="Nome ou celular" aria-label="Busca" />
+                <button className="btn quiet" type="submit">
+                  Buscar
+                </button>
+              </form>
+              <span className="chip">
+                {openRows.length} · {openDue > 0 ? `a receber ${formatReais(openDue)}` : "em dia"}
+              </span>
+            </div>
+            {openRows.length === 0 ? (
+              <p className="queue-empty">Nenhuma comanda neste filtro.</p>
+            ) : (
+              <div className="queue" style={{ overflowX: "auto" }}>
+                <OrdersTable
+                  orders={openRows}
+                  showDay
+                  showSituation
+                  today={today}
+                  canClearEmpty={operator}
+                  emptyBack={emptyBack}
+                />
+              </div>
+            )}
+          </>
+        ) : null}
+
+        {lista === "historico" ? (
+          <>
+            <form className="desk-bar" action="/comandas">
+              <input type="hidden" name="lista" value="historico" />
+              <label>
+                De
+                <input name="de" type="date" defaultValue={start} required />
+              </label>
+              <label>
+                Até
+                <input name="ate" type="date" defaultValue={end} required />
+              </label>
+              <input name="q" defaultValue={q} placeholder="Nome ou celular" aria-label="Busca" />
+              <button className="btn" type="submit">
+                Ver
+              </button>
+            </form>
+            {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
+            {!tooLong && listed.length === 0 ? (
+              <p className="queue-empty">Nenhuma comanda fechada neste período.</p>
+            ) : null}
+            {!tooLong && listed.length > 0 ? (
+              <div className="queue" style={{ overflowX: "auto" }}>
+                <OrdersTable orders={listed} showDay />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
     </Panel>
   );
 }
