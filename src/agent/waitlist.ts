@@ -98,31 +98,83 @@ export async function listClientWaitlist(accountId: string, clientId: string) {
   `;
 }
 
-export async function listOpenWaitlist(accountId: string) {
+export async function listOpenWaitlist(accountId: string, day?: string | null) {
   await expirePastWaitlist(accountId);
+  const when = day ? dayParam(day) : null;
   return db()<
     {
       id: string;
       day: string;
+      clientId: string;
       clientName: string;
       phone: string;
+      serviceId: string;
       serviceName: string;
+      professionalId: string | null;
       professionalName: string | null;
       note: string | null;
       status: string;
     }[]
   >`
     SELECT w.id, to_char(w.day, 'YYYY-MM-DD') AS day,
-           c.name AS "clientName", c.phone,
-           s.name AS "serviceName",
+           w.client_id AS "clientId", c.name AS "clientName", c.phone,
+           w.service_id AS "serviceId", s.name AS "serviceName",
+           w.professional_id AS "professionalId",
            COALESCE(NULLIF(p.nickname, ''), p.name) AS "professionalName",
            w.note, w.status
     FROM waitlist w
     JOIN clients c ON c.id = w.client_id
     JOIN services s ON s.id = w.service_id
     LEFT JOIN professionals p ON p.id = w.professional_id
-    WHERE w.account_id = ${accountId} AND w.status = 'aberta'
+    WHERE w.account_id = ${accountId}
+      AND w.status IN ('aberta', 'avisada')
+      AND (${when}::date IS NULL OR w.day = ${when}::date)
     ORDER BY w.day, w.created_at
     LIMIT 80
   `;
+}
+
+export async function markWaitlistAvisada(accountId: string, waitlistId: string) {
+  if (!UUID.test(waitlistId)) throw new FormError("dados");
+  await db()`
+    UPDATE waitlist SET status = 'avisada'
+    WHERE id = ${waitlistId} AND account_id = ${accountId} AND status = 'aberta'
+  `;
+}
+
+export async function cancelWaitlistEntry(accountId: string, waitlistId: string) {
+  if (!UUID.test(waitlistId)) throw new FormError("dados");
+  await db()`
+    UPDATE waitlist SET status = 'cancelada'
+    WHERE id = ${waitlistId} AND account_id = ${accountId} AND status IN ('aberta', 'avisada')
+  `;
+}
+
+/** Quando um horário libera, marca a espera do mesmo dia/serviço (e profissional, se houver) como avisada. */
+export async function promoteWaitlistOnCancel(
+  accountId: string,
+  input: { day: string; serviceId: string | null; professionalId: string | null },
+) {
+  if (!input.serviceId || !UUID.test(input.serviceId)) return [];
+  const day = dayParam(input.day);
+  const pro = input.professionalId && UUID.test(input.professionalId) ? input.professionalId : null;
+  const matches = await db()<
+    { id: string; clientName: string; phone: string; serviceName: string }[]
+  >`
+    SELECT w.id, c.name AS "clientName", c.phone, s.name AS "serviceName"
+    FROM waitlist w
+    JOIN clients c ON c.id = w.client_id
+    JOIN services s ON s.id = w.service_id
+    WHERE w.account_id = ${accountId}
+      AND w.status = 'aberta'
+      AND w.day = ${day}::date
+      AND w.service_id = ${input.serviceId}
+      AND (${pro}::uuid IS NULL OR w.professional_id IS NULL OR w.professional_id = ${pro})
+    ORDER BY w.created_at
+    LIMIT 5
+  `;
+  for (const row of matches) {
+    await db()`UPDATE waitlist SET status = 'avisada' WHERE id = ${row.id}`;
+  }
+  return matches;
 }

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createAccess, setAccessActive, setAccessPassword, setAccessRole } from "@/auth/actions";
+import { createAccess, setAccessActive, setAccessClient, setAccessPassword, setAccessRole } from "@/auth/actions";
 import { currentUser } from "@/auth/session";
 import { saveHouseModules } from "@/catalog/house-actions";
+import { formatPhone } from "@/catalog/format";
 import { HOUSE_MODULES } from "@/catalog/modules";
-import { houseModules } from "@/catalog/queries";
+import { houseModules, listClients } from "@/catalog/queries";
 import { databaseReady, db } from "@/db/client";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -23,15 +24,28 @@ export default async function AccessPage({
   await databaseReady();
   const modules = await houseModules(user.accountId);
   const people = await db()<
-    { id: string; name: string; email: string; role: string; active: boolean; professionalId: string | null; professionalName: string | null }[]
+    {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      active: boolean;
+      professionalId: string | null;
+      professionalName: string | null;
+      clientId: string | null;
+      clientName: string | null;
+    }[]
   >`
     SELECT u.id, u.name, u.email, u.role, u.active,
-           p.id AS "professionalId", p.name AS "professionalName"
+           p.id AS "professionalId", p.name AS "professionalName",
+           u.client_id AS "clientId", c.name AS "clientName"
     FROM users u
     LEFT JOIN professionals p ON p.user_id = u.id AND p.account_id = u.account_id
+    LEFT JOIN clients c ON c.id = u.client_id AND c.account_id = u.account_id
     WHERE u.account_id = ${user.accountId}
     ORDER BY u.name
   `;
+  const clients = await listClients(user.accountId, false, "");
   const params = await searchParams;
 
   return (
@@ -89,6 +103,28 @@ export default async function AccessPage({
             </label>
             <SubmitButton label="Trocar senha" pendingLabel="Trocando…" className="quiet" />
           </form>
+          {person.role === "cliente" ? (
+            <form action={setAccessClient} className="row">
+              <input type="hidden" name="id" value={person.id} />
+              <label>
+                Ficha do cliente
+                <select name="client" defaultValue={person.clientId ?? ""}>
+                  <option value="">Sem vínculo</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name} · {formatPhone(client.phone)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <SubmitButton label="Vincular ficha" pendingLabel="Salvando…" />
+            </form>
+          ) : null}
+          {person.role === "cliente" && person.clientName ? (
+            <p>
+              Portal · <Link href="/meu">{person.clientName}</Link>
+            </p>
+          ) : null}
           {person.id === user.id ? <p>Este é o seu acesso.</p> : (
             <form action={setAccessActive}>
               <input type="hidden" name="id" value={person.id} />

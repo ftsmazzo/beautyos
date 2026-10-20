@@ -11,12 +11,15 @@ const OPERATION = [
   { href: "/inicio", label: "Início" },
   { href: "/agenda", label: "Agenda" },
   { href: "/comandas", label: "Comandas" },
+  { href: "/espera", label: "Espera" },
+  { href: "/lembretes", label: "Lembretes" },
 ];
 
 const CATALOG = [
   { href: "/servicos", label: "Serviços" },
   { href: "/profissionais", label: "Profissionais" },
   { href: "/clientes", label: "Clientes" },
+  { href: "/aniversariantes", label: "Aniversariantes" },
   { href: "/volta", label: "Volta" },
   { href: "/produtos", label: "Produtos" },
   { href: "/fornecedores", label: "Fornecedores" },
@@ -32,6 +35,15 @@ function NavIcon({ href }: { href: string }) {
   }
   if (href === "/agenda") {
     return <svg {...common}><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg>;
+  }
+  if (href === "/espera") {
+    return <svg {...common}><path d="M6 7h12v3H6zM6 12h12v3H6zM6 17h8v3H6z" /></svg>;
+  }
+  if (href === "/lembretes") {
+    return <svg {...common}><path d="M12 4v2M6 9h12v10H6z" /><path d="M9 13h6M9 16h4" /></svg>;
+  }
+  if (href === "/aniversariantes") {
+    return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M6 19c1-3 3-4.5 6-4.5S17 16 18 19" /><path d="M17 5l1.5 1.5L20 5" /></svg>;
   }
   if (href === "/comandas") {
     return <svg {...common}><path d="M7 4h10v16H7z" /><path d="M10 8h4M10 12h4M10 16h2" /></svg>;
@@ -105,7 +117,10 @@ export function PanelFrame({
       ]
     : user.role === "profissional"
       ? [...OPERATION, { href: "/comissao", label: "Comissão" }]
-      : OPERATION.filter((link) => link.href === "/inicio"))
+      : [
+          { href: "/inicio", label: "Início" },
+          { href: "/meu", label: "Minha conta" },
+        ])
     .filter((link) => moduleAllows(modules, link.href));
   if (user.role === "administrador" && modules.financeiro) {
     links.push({ href: "/financeiro", label: "Financeiro" });

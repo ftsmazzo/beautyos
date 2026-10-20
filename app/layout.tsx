@@ -9,6 +9,11 @@ const sourceSans = Source_Sans_3({
 export const metadata = {
   title: "BeautyOS",
   description: "Painel operacional da casa",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "BeautyOS",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

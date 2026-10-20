@@ -121,9 +121,17 @@ export async function bookAppointment(input: BookAppointmentInput) {
 export async function cancelAppointment(accountId: string, actorId: string | null, appointmentId: string) {
   const id = idOrNull(appointmentId);
   if (!id) throw new FormError("dados");
-  await db().begin(async (tx) => {
-    const rows = await tx<{ professionalId: string; orderStatus: string | null; orderId: string | null }[]>`
-      SELECT a.professional_id AS "professionalId", o.status AS "orderStatus", a.order_id AS "orderId"
+  const cancelled = await db().begin(async (tx) => {
+    const rows = await tx<{
+      professionalId: string;
+      serviceId: string | null;
+      day: string;
+      orderStatus: string | null;
+      orderId: string | null;
+    }[]>`
+      SELECT a.professional_id AS "professionalId", a.service_id AS "serviceId",
+             to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+             o.status AS "orderStatus", a.order_id AS "orderId"
       FROM appointments a
       LEFT JOIN orders o ON o.id = a.order_id
       WHERE a.id = ${id} AND a.account_id = ${accountId} AND a.kind = 'horario' AND a.status <> 'cancelado'
@@ -134,6 +142,13 @@ export async function cancelAppointment(accountId: string, actorId: string | nul
     await releaseCredits(tx, accountId, id);
     await tx`UPDATE appointments SET status = 'cancelado' WHERE id = ${id}`;
     await tx`DELETE FROM order_lines WHERE appointment_id = ${id} AND account_id = ${accountId}`;
+    return rows[0];
+  });
+  const { promoteWaitlistOnCancel } = await import("@/agent/waitlist");
+  await promoteWaitlistOnCancel(accountId, {
+    day: cancelled.day,
+    serviceId: cancelled.serviceId,
+    professionalId: cancelled.professionalId,
   });
 }
 

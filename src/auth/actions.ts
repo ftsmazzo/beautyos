@@ -149,6 +149,35 @@ export async function setAccessRole(formData: FormData) {
   if (role !== "profissional") {
     await db()`UPDATE professionals SET user_id = NULL WHERE user_id = ${id} AND account_id = ${user.accountId}`;
   }
+  if (role !== "cliente") {
+    await db()`UPDATE users SET client_id = NULL WHERE id = ${id} AND account_id = ${user.accountId}`;
+  }
+  redirect(back);
+}
+
+export async function setAccessClient(formData: FormData) {
+  const user = await requireAdminUser();
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("client") ?? "").trim();
+  const back = accessBack(formData);
+  await databaseReady();
+  const rows = await db()<{ role: string }[]>`
+    SELECT role FROM users WHERE id = ${id} AND account_id = ${user.accountId}
+  `;
+  if (!rows[0] || rows[0].role !== "cliente") redirect(`${back}?erro=dados`);
+  if (!clientId) {
+    await db()`UPDATE users SET client_id = NULL WHERE id = ${id} AND account_id = ${user.accountId}`;
+    redirect(back);
+  }
+  if (!/^[0-9a-f-]{36}$/i.test(clientId)) redirect(`${back}?erro=dados`);
+  const owned = await db()`
+    SELECT id FROM clients WHERE id = ${clientId} AND account_id = ${user.accountId} AND active
+  `;
+  if (!owned.length) redirect(`${back}?erro=dados`);
+  await db()`
+    UPDATE users SET client_id = ${clientId}
+    WHERE id = ${id} AND account_id = ${user.accountId}
+  `;
   redirect(back);
 }
 

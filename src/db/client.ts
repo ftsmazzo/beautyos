@@ -425,6 +425,7 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS clients_account_idx ON clients (account_id)`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id) ON DELETE SET NULL`;
   await sql`
     CREATE TABLE IF NOT EXISTS packages (
       id uuid PRIMARY KEY,
@@ -731,4 +732,21 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS waitlist_account_day_idx ON waitlist (account_id, day, status)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS reminders (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      kind text NOT NULL CHECK (kind IN ('agendamento', 'aniversario')),
+      client_id uuid REFERENCES clients(id) ON DELETE CASCADE,
+      appointment_id uuid REFERENCES appointments(id) ON DELETE CASCADE,
+      day date NOT NULL,
+      body text NOT NULL,
+      status text NOT NULL DEFAULT 'pendente'
+        CHECK (status IN ('pendente', 'feito', 'cancelado')),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (account_id, kind, appointment_id),
+      UNIQUE (account_id, kind, client_id, day)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS reminders_account_day_idx ON reminders (account_id, day, status)`;
 }

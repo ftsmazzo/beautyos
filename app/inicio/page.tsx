@@ -460,8 +460,13 @@ export default async function StartPage({
         </div>
       ) : null}
       {user.role === "cliente" ? (
-        <div className="card">
-          <p>O histórico do cliente entra no acesso dele.</p>
+        <div className="card stack">
+          <p>Veja horários, créditos do pacote e o histórico da casa.</p>
+          <div className="row">
+            <Link className="btn" href="/meu">
+              Abrir minha conta
+            </Link>
+          </div>
         </div>
       ) : null}
       {user.role === "administrador" && rules ? (

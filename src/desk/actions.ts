@@ -185,6 +185,12 @@ export async function setStatus(formData: FormData) {
       const { redirect } = await import("next/navigation");
       redirect(`/comandas/${orderId}?erro=fechada`);
     }
+    const slot = await db()<{ day: string; serviceId: string | null; professionalId: string }[]>`
+      SELECT to_char(starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+             service_id AS "serviceId", professional_id AS "professionalId"
+      FROM appointments
+      WHERE id = ${appointmentId} AND account_id = ${user.accountId}
+    `;
     await db().begin(async (tx) => {
       await logCancellation(tx, user.id, user.accountId, appointmentId);
       await releasePackageVisits(tx, user.accountId, appointmentId);
@@ -195,6 +201,14 @@ export async function setStatus(formData: FormData) {
       await applyServiceUse(tx, user.accountId, appointmentId, user.id);
       await tx`DELETE FROM order_lines WHERE appointment_id = ${appointmentId} AND account_id = ${user.accountId}`;
     });
+    if (slot[0]) {
+      const { promoteWaitlistOnCancel } = await import("@/agent/waitlist");
+      await promoteWaitlistOnCancel(user.accountId, {
+        day: slot[0].day,
+        serviceId: slot[0].serviceId,
+        professionalId: slot[0].professionalId,
+      });
+    }
   } else {
     await db().begin(async (tx) => {
       await markAttendance(tx, user.accountId, appointmentId, status);
@@ -2517,6 +2531,21 @@ export async function paintSlot(input: { id: string; status: string }) {
         await applyServiceUse(tx, user.accountId, id, user.id);
       }
     });
+    if (input.status === "cancelado") {
+      const slot = await db()<{ day: string; serviceId: string | null; professionalId: string }[]>`
+        SELECT to_char(starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+               service_id AS "serviceId", professional_id AS "professionalId"
+        FROM appointments WHERE id = ${id} AND account_id = ${user.accountId}
+      `;
+      if (slot[0]) {
+        const { promoteWaitlistOnCancel } = await import("@/agent/waitlist");
+        await promoteWaitlistOnCancel(user.accountId, {
+          day: slot[0].day,
+          serviceId: slot[0].serviceId,
+          professionalId: slot[0].professionalId,
+        });
+      }
+    }
   } catch (error) {
     if (error instanceof FormError) return fail(error.code);
     throw error;

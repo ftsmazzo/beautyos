@@ -12,6 +12,7 @@ export type SessionUser = {
   role: "balcao" | "administrador" | "profissional" | "cliente";
   accountId: string;
   accountName: string;
+  clientId: string | null;
 };
 
 export async function currentUser(): Promise<SessionUser | null> {
@@ -25,7 +26,8 @@ export async function currentUser(): Promise<SessionUser | null> {
       u.email,
       u.role,
       u.account_id AS "accountId",
-      a.name AS "accountName"
+      a.name AS "accountName",
+      u.client_id AS "clientId"
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     JOIN accounts a ON a.id = u.account_id
