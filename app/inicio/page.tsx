@@ -17,6 +17,7 @@ import {
   commissionBook,
   rankNet,
   rankStaff,
+  unpaidPackageSales,
 } from "@/desk/queries";
 import { openConsumption } from "@/desk/actions";
 import { shiftDay, weekBounds } from "@/desk/clock";
@@ -58,6 +59,7 @@ export default async function StartPage({
       : [];
   const lowStock = operator ? await productsAtMinimum(user.accountId) : [];
   const wallets = operator ? await clientsWithCredit(user.accountId) : [];
+  const unpaidPackages = operator ? await unpaidPackageSales(user.accountId) : [];
   const nameless =
     operator || own
       ? await openIncompleteOrders(user.accountId, operator ? null : own)
@@ -194,6 +196,33 @@ export default async function StartPage({
           {receivables.length > 12 ? (
             <p>
               <Link href="/comandas?lista=abertas&filtro=falta">Ver as {receivables.length}</Link>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {operator && unpaidPackages.length > 0 ? (
+        <div className="card">
+          <h2>Pacote a receber</h2>
+          <p>
+            Venda com valor pago abaixo do pacote. Receber continua na comanda da venda.{" "}
+            <Link href="/pacotes/vendidos?filtro=receber">Ver a fila</Link>
+          </p>
+          {unpaidPackages.slice(0, 12).map((row) => (
+            <p key={row.id}>
+              <Link href={`/pacotes/vendidos/${row.id}`}>{row.clientName}</Link>
+              {row.phone ? ` · ${formatPhone(row.phone)}` : ""}
+              {` · ${row.name} · ${formatDay(row.soldOn)} · falta ${formatReais(row.priceCents - row.paidCents)}`}
+              {row.orderId ? (
+                <>
+                  {" · "}
+                  <Link href={`/comandas/${row.orderId}`}>Comanda</Link>
+                </>
+              ) : null}
+            </p>
+          ))}
+          {unpaidPackages.length > 12 ? (
+            <p>
+              <Link href="/pacotes/vendidos?filtro=receber">Ver os {unpaidPackages.length}</Link>
             </p>
           ) : null}
         </div>

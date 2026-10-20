@@ -75,6 +75,13 @@ export default async function SoldPackagePage({
           {item.paidCents !== item.priceCents ? ` · pacote ${formatReais(item.priceCents)}` : ""}
           {item.paidCents < item.priceCents ? ` · falta ${formatReais(item.priceCents - item.paidCents)}` : ""}
         </p>
+        {item.paidCents < item.priceCents && item.orderId ? (
+          <p>
+            Receber continua na{" "}
+            <Link href={`/comandas/${item.orderId}`}>comanda da venda</Link>
+            .
+          </p>
+        ) : null}
         <p>
           {deadline}
           {item.pardons > 0 ? " · já houve perdão" : ""}

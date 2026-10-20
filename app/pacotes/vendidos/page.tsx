@@ -22,6 +22,7 @@ export const dynamic = "force-dynamic";
 
 const FILTERS = [
   { id: "aberto", label: "Ativas" },
+  { id: "receber", label: "A receber" },
   { id: "expirado", label: "Vencidas" },
   { id: "estourado", label: "Estouradas sem perdão" },
   { id: "perdoado", label: "Perdoadas" },
@@ -39,6 +40,7 @@ function isFilter(value: string | undefined): value is FilterId {
 
 function matches(row: SoldPackage, filter: FilterId) {
   if (filter === "aberto") return row.status === "ativo" && !row.expired && !row.late;
+  if (filter === "receber") return row.status !== "cancelado" && row.paidCents < row.priceCents;
   if (filter === "expirado") return row.status === "ativo" && (row.expired || row.late);
   if (filter === "estourado") return row.status === "ativo" && row.late && row.pardons === 0;
   if (filter === "perdoado") return row.status === "ativo" && row.pardons > 0;

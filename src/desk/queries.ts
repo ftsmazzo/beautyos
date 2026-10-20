@@ -866,6 +866,42 @@ export async function soldPackage(accountId: string, id: string, day: string) {
   return rows.find((row) => row.id === id) ?? null;
 }
 
+export async function unpaidPackageSales(accountId: string) {
+  return db()<
+    {
+      id: string;
+      clientName: string;
+      phone: string | null;
+      name: string;
+      priceCents: number;
+      paidCents: number;
+      orderId: string | null;
+      soldOn: string;
+    }[]
+  >`
+    SELECT cp.id, c.name AS "clientName", c.phone, cp.name,
+           cp.price_cents AS "priceCents",
+           COALESCE((
+             SELECT SUM(pay.amount_cents)::int
+             FROM payments pay
+             WHERE pay.order_id = cp.order_id
+           ), 0) AS "paidCents",
+           cp.order_id AS "orderId",
+           to_char(cp.sold_on, 'YYYY-MM-DD') AS "soldOn"
+    FROM client_packages cp
+    JOIN clients c ON c.id = cp.client_id
+    WHERE cp.account_id = ${accountId}
+      AND cp.status <> 'cancelado'
+      AND COALESCE((
+        SELECT SUM(pay.amount_cents)::int
+        FROM payments pay
+        WHERE pay.order_id = cp.order_id
+      ), 0) < cp.price_cents
+    ORDER BY cp.sold_on, c.name
+    LIMIT 40
+  `;
+}
+
 export async function soldPackageVisits(accountId: string, id: string) {
   return db()<{
     id: string;
