@@ -663,26 +663,47 @@ async function ensureSchema() {
       id uuid PRIMARY KEY,
       account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       provider text NOT NULL DEFAULT 'simulador'
-        CHECK (provider IN ('simulador', 'whatsapp_cloud')),
+        CHECK (provider IN ('simulador', 'evolution')),
       phone_e164 text,
       webhook_token text NOT NULL,
+      instance_name text,
+      connection_status text NOT NULL DEFAULT 'disconnected',
+      display_name text NOT NULL DEFAULT 'Agente',
+      business_name text,
+      greeting text,
+      handoff_phone text,
       active boolean NOT NULL DEFAULT true,
       created_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (account_id)
     )
   `;
+  await sql`ALTER TABLE agent_channels DROP CONSTRAINT IF EXISTS agent_channels_provider_check`;
+  await sql`UPDATE agent_channels SET provider = 'evolution' WHERE provider = 'whatsapp_cloud'`;
+  await sql`
+    ALTER TABLE agent_channels
+    ADD CONSTRAINT agent_channels_provider_check
+    CHECK (provider IN ('simulador', 'evolution'))
+  `;
+  await sql`ALTER TABLE agent_channels ADD COLUMN IF NOT EXISTS instance_name text`;
+  await sql`ALTER TABLE agent_channels ADD COLUMN IF NOT EXISTS connection_status text NOT NULL DEFAULT 'disconnected'`;
+  await sql`ALTER TABLE agent_channels ADD COLUMN IF NOT EXISTS display_name text NOT NULL DEFAULT 'Agente'`;
+  await sql`ALTER TABLE agent_channels ADD COLUMN IF NOT EXISTS business_name text`;
+  await sql`ALTER TABLE agent_channels ADD COLUMN IF NOT EXISTS greeting text`;
+  await sql`ALTER TABLE agent_channels ADD COLUMN IF NOT EXISTS handoff_phone text`;
   await sql`
     CREATE TABLE IF NOT EXISTS agent_conversations (
       id uuid PRIMARY KEY,
       account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       client_id uuid REFERENCES clients(id) ON DELETE SET NULL,
       external_key text NOT NULL,
+      mode text NOT NULL DEFAULT 'ai' CHECK (mode IN ('ai', 'human')),
       status text NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'fechada')),
       last_message_at timestamptz NOT NULL DEFAULT now(),
       created_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (account_id, external_key)
     )
   `;
+  await sql`ALTER TABLE agent_conversations ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'ai'`;
   await sql`CREATE INDEX IF NOT EXISTS agent_conversations_account_idx ON agent_conversations (account_id, last_message_at DESC)`;
   await sql`
     CREATE TABLE IF NOT EXISTS agent_messages (

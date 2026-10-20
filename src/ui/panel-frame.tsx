@@ -100,7 +100,7 @@ export function PanelFrame({
         { href: "/caixa", label: "Caixa" },
         { href: "/comissao", label: "Comissão" },
         { href: "/logs", label: "Logs" },
-        { href: "/agente", label: "Agente" },
+        { href: "/agente", label: "Conversas" },
         ...CATALOG,
       ]
     : user.role === "profissional"

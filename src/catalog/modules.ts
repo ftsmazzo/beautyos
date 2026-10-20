@@ -6,7 +6,7 @@ export const HOUSE_MODULES = [
   { id: "produtos", label: "Produtos e fornecedores" },
   { id: "pacotes", label: "Pacotes" },
   { id: "financeiro", label: "Financeiro" },
-  { id: "agente", label: "Agente" },
+  { id: "agente", label: "Conversas / Agente" },
 ] as const;
 
 export type HouseModuleId = (typeof HOUSE_MODULES)[number]["id"];
