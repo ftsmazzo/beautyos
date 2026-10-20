@@ -658,4 +658,56 @@ async function ensureSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS package_pardons_package_idx ON package_pardons (client_package_id, sequence)`;
   await sql`ALTER TABLE client_packages ADD COLUMN IF NOT EXISTS cancel_reason text`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_channels (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      provider text NOT NULL DEFAULT 'simulador'
+        CHECK (provider IN ('simulador', 'whatsapp_cloud')),
+      phone_e164 text,
+      webhook_token text NOT NULL,
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (account_id)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_conversations (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      client_id uuid REFERENCES clients(id) ON DELETE SET NULL,
+      external_key text NOT NULL,
+      status text NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'fechada')),
+      last_message_at timestamptz NOT NULL DEFAULT now(),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (account_id, external_key)
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS agent_conversations_account_idx ON agent_conversations (account_id, last_message_at DESC)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_messages (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      conversation_id uuid NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+      direction text NOT NULL CHECK (direction IN ('in', 'out', 'system')),
+      body text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS agent_messages_conversation_idx ON agent_messages (conversation_id, created_at)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS waitlist (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      client_id uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      service_id uuid NOT NULL REFERENCES services(id),
+      professional_id uuid REFERENCES professionals(id) ON DELETE SET NULL,
+      day date NOT NULL,
+      note text,
+      status text NOT NULL DEFAULT 'aberta'
+        CHECK (status IN ('aberta', 'avisada', 'cancelada', 'expirada')),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS waitlist_account_day_idx ON waitlist (account_id, day, status)`;
 }

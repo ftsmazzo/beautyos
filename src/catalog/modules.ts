@@ -6,6 +6,7 @@ export const HOUSE_MODULES = [
   { id: "produtos", label: "Produtos e fornecedores" },
   { id: "pacotes", label: "Pacotes" },
   { id: "financeiro", label: "Financeiro" },
+  { id: "agente", label: "Agente" },
 ] as const;
 
 export type HouseModuleId = (typeof HOUSE_MODULES)[number]["id"];
@@ -18,5 +19,6 @@ export function moduleAllows(modules: Record<HouseModuleId, boolean>, path: stri
   if (path === "/produtos" || path.startsWith("/produtos/") || path === "/fornecedores" || path.startsWith("/fornecedores/")) return modules.produtos;
   if (path === "/pacotes" || path.startsWith("/pacotes/")) return modules.pacotes;
   if (path === "/financeiro" || path.startsWith("/financeiro/")) return modules.financeiro;
+  if (path === "/agente" || path.startsWith("/agente/")) return modules.agente;
   return true;
 }

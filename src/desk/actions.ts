@@ -34,6 +34,7 @@ export async function bookSlot(formData: FormData) {
   const user = await requireDesk();
   const day = dayParam(String(formData.get("day") ?? ""));
   return settle(`/agenda?dia=${day}`, async () => {
+    const { bookAppointment } = await import("@/desk/booking");
     const own = await scope(user.id, user.role);
     const professionalId = own ?? idOrNull(String(formData.get("professional") ?? ""));
     const serviceId = idOrNull(String(formData.get("service") ?? ""));
@@ -42,100 +43,89 @@ export async function bookSlot(formData: FormData) {
     const encaixe = formData.get("encaixe") === "1";
     if (!professionalId || !serviceId) throw new FormError("dados");
     if (!TIME.test(start)) throw new FormError("hora");
-
-    const id = await db().begin(async (tx) => {
-      const offer = await tx<{
-        durationMin: number;
-        priceCents: number;
-        commissionPercent: number;
-        name: string;
-      }[]>`
-        SELECT COALESCE(ps.duration_min, s.duration_min) AS "durationMin",
-               COALESCE(ps.price_cents, s.price_cents) AS "priceCents",
-               COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent",
-               s.name
-        FROM services s
-        JOIN professional_services ps ON ps.service_id = s.id AND ps.professional_id = ${professionalId}
-        JOIN professionals p ON p.id = ${professionalId} AND p.account_id = ${user.accountId} AND p.active
-        WHERE s.id = ${serviceId} AND s.account_id = ${user.accountId} AND s.active
-      `;
-      if (!offer[0]) throw new FormError("dados");
-      const end = addMinutes(start, offer[0].durationMin);
-      if (minutes(end) >= 24 * 60) throw new FormError("hora");
-      const startsAt = stamp(day, start);
-      const endsAt = stamp(day, end);
-
-      if (!encaixe) {
-        const hours = await tx<{ weekday: number; period: number; startTime: string; endTime: string; validFrom: string | null; validUntil: string | null }[]>`
-          SELECT weekday, period, start_time AS "startTime", end_time AS "endTime",
-                 to_char(valid_from, 'YYYY-MM-DD') AS "validFrom",
-                 to_char(valid_until, 'YYYY-MM-DD') AS "validUntil"
-          FROM professional_hours WHERE professional_id = ${professionalId}
+    if (!clientId) {
+      const incomplete = await db().begin(async (tx) => {
+        const offer = await tx<{
+          durationMin: number;
+          priceCents: number;
+          commissionPercent: number;
+          name: string;
+        }[]>`
+          SELECT COALESCE(ps.duration_min, s.duration_min) AS "durationMin",
+                 COALESCE(ps.price_cents, s.price_cents) AS "priceCents",
+                 COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent",
+                 s.name
+          FROM services s
+          JOIN professional_services ps ON ps.service_id = s.id AND ps.professional_id = ${professionalId}
+          JOIN professionals p ON p.id = ${professionalId} AND p.account_id = ${user.accountId} AND p.active
+          WHERE s.id = ${serviceId} AND s.account_id = ${user.accountId} AND s.active
         `;
-        const issue = placementIssue(periodsFor(hours, day), start, end);
-        if (issue) throw new FormError(issue);
-        const clash = await tx`
-          SELECT id FROM appointments
-          WHERE professional_id = ${professionalId}
-            AND status <> 'cancelado'
-            AND starts_at < ${endsAt}
-            AND ends_at > ${startsAt}
-        `;
-        if (clash.length) throw new FormError("ocupado");
-      }
-
-      const sheet = offer[0].priceCents;
-      const price = await chargedServicePrice(tx, serviceId, day, start, sheet);
-      const commission = Math.round(price * offer[0].commissionPercent / 100);
-
-      let orderId = "";
-      if (clientId) {
-        const owned = await tx`SELECT id FROM clients WHERE id = ${clientId} AND account_id = ${user.accountId}`;
-        if (!owned.length) throw new FormError("cliente");
-        const existing = await tx<{ id: string; status: string }[]>`
-          SELECT id, status FROM orders
-          WHERE account_id = ${user.accountId} AND client_id = ${clientId} AND day = ${day} AND kind = 'cliente'
-        `;
-        if (existing[0]?.status === "fechada") throw new FormError("fechada");
-        orderId = existing[0]?.id ?? randomUUID();
-        if (!existing[0]) {
-          await tx`
-            INSERT INTO orders (id, account_id, client_id, day, kind, status)
-            VALUES (${orderId}, ${user.accountId}, ${clientId}, ${day}, 'cliente', 'aberta')
+        if (!offer[0]) throw new FormError("dados");
+        const end = addMinutes(start, offer[0].durationMin);
+        if (minutes(end) >= 24 * 60) throw new FormError("hora");
+        const startsAt = stamp(day, start);
+        const endsAt = stamp(day, end);
+        if (!encaixe) {
+          const hours = await tx<{ weekday: number; period: number; startTime: string; endTime: string; validFrom: string | null; validUntil: string | null }[]>`
+            SELECT weekday, period, start_time AS "startTime", end_time AS "endTime",
+                   to_char(valid_from, 'YYYY-MM-DD') AS "validFrom",
+                   to_char(valid_until, 'YYYY-MM-DD') AS "validUntil"
+            FROM professional_hours WHERE professional_id = ${professionalId}
           `;
+          const issue = placementIssue(periodsFor(hours, day), start, end);
+          if (issue) throw new FormError(issue);
+          const clash = await tx`
+            SELECT id FROM appointments
+            WHERE professional_id = ${professionalId}
+              AND status <> 'cancelado'
+              AND starts_at < ${endsAt}
+              AND ends_at > ${startsAt}
+          `;
+          if (clash.length) throw new FormError("ocupado");
         }
-      } else {
-        orderId = randomUUID();
+        const orderId = randomUUID();
         await tx`
           INSERT INTO orders (id, account_id, day, kind, status, incomplete)
           VALUES (${orderId}, ${user.accountId}, ${day}, 'cliente', 'aberta', true)
         `;
-      }
-
-      const appointmentId = randomUUID();
-      const lineId = randomUUID();
-      await tx`
-        INSERT INTO appointments (
-          id, account_id, professional_id, client_id, service_id, order_id,
-          starts_at, ends_at, status, encaixe, kind
-        ) VALUES (
-          ${appointmentId}, ${user.accountId}, ${professionalId}, ${clientId || null}, ${serviceId}, ${orderId},
-          ${startsAt}, ${endsAt}, 'agendado', ${encaixe}, 'horario'
-        )
-      `;
-      await tx`
-        INSERT INTO order_lines (
-          id, account_id, order_id, appointment_id, kind, service_id, professional_id,
-          description, qty, price_cents, list_price_cents, commission_percent, commission_cents
-        ) VALUES (
-          ${lineId}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
-          ${offer[0].name}, 1, ${price}, ${sheet}, ${offer[0].commissionPercent}, ${commission}
-        )
-      `;
-      await stampReferral(tx, user.accountId, orderId, lineId, price);
-      return orderId;
+        const sheet = offer[0].priceCents;
+        const price = await chargedServicePrice(tx, serviceId, day, start, sheet);
+        const commission = Math.round((price * offer[0].commissionPercent) / 100);
+        const appointmentId = randomUUID();
+        const lineId = randomUUID();
+        await tx`
+          INSERT INTO appointments (
+            id, account_id, professional_id, client_id, service_id, order_id,
+            starts_at, ends_at, status, encaixe, kind
+          ) VALUES (
+            ${appointmentId}, ${user.accountId}, ${professionalId}, null, ${serviceId}, ${orderId},
+            ${startsAt}, ${endsAt}, 'agendado', ${encaixe}, 'horario'
+          )
+        `;
+        await tx`
+          INSERT INTO order_lines (
+            id, account_id, order_id, appointment_id, kind, service_id, professional_id,
+            description, qty, price_cents, list_price_cents, commission_percent, commission_cents
+          ) VALUES (
+            ${lineId}, ${user.accountId}, ${orderId}, ${appointmentId}, 'servico', ${serviceId}, ${professionalId},
+            ${offer[0].name}, 1, ${price}, ${sheet}, ${offer[0].commissionPercent}, ${commission}
+          )
+        `;
+        return orderId;
+      });
+      return `/comandas/${incomplete}`;
+    }
+    const booked = await bookAppointment({
+      accountId: user.accountId,
+      actorId: user.id,
+      professionalId,
+      serviceId,
+      clientId,
+      day,
+      start,
+      encaixe,
     });
-    return `/comandas/${id}`;
+    return `/comandas/${booked.orderId}`;
   });
 }
 

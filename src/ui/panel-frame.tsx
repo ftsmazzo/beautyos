@@ -66,6 +66,9 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/financeiro") {
     return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M7 11h4M7 15h10" /></svg>;
   }
+  if (href === "/agente") {
+    return <svg {...common}><path d="M4 6h16v10H8l-4 3z" /><path d="M8 10h8M8 13h5" /></svg>;
+  }
   return <svg {...common}><rect x="6" y="10" width="12" height="9" rx="1.5" /><path d="M8 10V8a4 4 0 0 1 8 0v2" /></svg>;
 }
 
@@ -92,7 +95,14 @@ export function PanelFrame({
   const [open, setOpen] = useState(false);
   const operator = user.role === "administrador" || user.role === "balcao";
   const links = (operator
-    ? [...OPERATION, { href: "/caixa", label: "Caixa" }, { href: "/comissao", label: "Comissão" }, { href: "/logs", label: "Logs" }, ...CATALOG]
+    ? [
+        ...OPERATION,
+        { href: "/caixa", label: "Caixa" },
+        { href: "/comissao", label: "Comissão" },
+        { href: "/logs", label: "Logs" },
+        { href: "/agente", label: "Agente" },
+        ...CATALOG,
+      ]
     : user.role === "profissional"
       ? [...OPERATION, { href: "/comissao", label: "Comissão" }]
       : OPERATION.filter((link) => link.href === "/inicio"))
