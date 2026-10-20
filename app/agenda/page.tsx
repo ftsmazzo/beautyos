@@ -228,22 +228,6 @@ export default async function AgendaPage({
 
         {bookable.length > 0 ? (
           <>
-            {gaps.length > 0 ? (
-              <div className="desk-floor">
-                <span className="label">Livres</span>
-                {gaps.map((gap) => {
-                  const params = new URLSearchParams({ dia: day, profissional: gap.professionalId, inicio: gap.start });
-                  if (bookClient) params.set("cliente", bookClient);
-                  if (bookService) params.set("servico", bookService);
-                  return (
-                    <Link key={`${gap.professionalId}-${gap.start}`} className="btn quiet" href={`/agenda?${params.toString()}`}>
-                      {gap.name} {gap.start}–{gap.end}
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : null}
-
             {onFloor.length > 0 ? (
               <div className="desk-floor">
                 <span className="label">Na casa</span>
@@ -274,17 +258,6 @@ export default async function AgendaPage({
                 })}
               </div>
             ) : null}
-
-            <ul className="legend">
-              {legend.map((item) => (
-                <li key={item.word} style={{ background: item.bg, color: item.fg }}>
-                  {item.word}
-                </li>
-              ))}
-            </ul>
-            <p className="desk-hint">
-              Clique abre a comanda · direito muda estado / fecha · arraste para remarcar · borda de baixo estende
-            </p>
 
             <AgendaDesk
               day={day}
@@ -396,6 +369,33 @@ export default async function AgendaPage({
                 })}
               </div>
             </AgendaDesk>
+
+            {gaps.length > 0 ? (
+              <div className="desk-floor">
+                <span className="label">Livres</span>
+                {gaps.map((gap) => {
+                  const params = new URLSearchParams({ dia: day, profissional: gap.professionalId, inicio: gap.start });
+                  if (bookClient) params.set("cliente", bookClient);
+                  if (bookService) params.set("servico", bookService);
+                  return (
+                    <Link key={`${gap.professionalId}-${gap.start}`} className="btn quiet" href={`/agenda?${params.toString()}`}>
+                      {gap.name} {gap.start}–{gap.end}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <details className="desk-secondary">
+              <summary>Legenda</summary>
+              <ul className="legend">
+                {legend.map((item) => (
+                  <li key={item.word} style={{ background: item.bg, color: item.fg }}>
+                    {item.word}
+                  </li>
+                ))}
+              </ul>
+            </details>
           </>
         ) : null}
 

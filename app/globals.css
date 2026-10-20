@@ -146,7 +146,8 @@ button.btn.menu-btn { display: none; }
 .who strong { color: var(--ink); font-weight: 600; }
 .who span { color: var(--muted); font-size: 0.8rem; font-weight: 500; }
 
-.content { padding: 22px 26px 56px; max-width: 1280px; }
+.content { padding: 14px 20px 48px; max-width: 1280px; }
+.content:has(.board) { max-width: none; }
 .content h2 {
   margin: 20px 0 10px;
   font-size: 1.05rem;
