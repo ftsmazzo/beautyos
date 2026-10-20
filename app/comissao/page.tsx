@@ -80,8 +80,8 @@ export default async function CommissionPage({
 
   return (
     <Panel user={user} current="/comissao" title={own ? "Minha comissão" : "Comissão"}>
-      <p>O valor nasce na linha. Este período só soma. Execução e venda do pacote ficam na comissão. Indicação entra por cima. Abate é consumo e serviço recebido. A metade da taxa do cartão sai à parte e não mexe no percentual.</p>
-      <form className="row" action="/comissao">
+      <div className="desk">
+      <form className="desk-bar" action="/comissao">
         <label>
           De
           <input name="de" type="date" defaultValue={start} required />
@@ -105,59 +105,43 @@ export default async function CommissionPage({
           </label>
         ) : null}
         <button className="btn" type="submit">
-          Ver período
+          Ver
         </button>
-      </form>
-      <div className="row">
         <Link className="btn quiet" href={periodHref(today, today, selected)}>
           Hoje
         </Link>
         <Link className="btn quiet" href={periodHref(week.start, week.end, selected)}>
-          Esta semana
+          Semana
         </Link>
         <Link className="btn quiet" href={periodHref(month.start, month.end, selected)}>
-          Este mês
+          Mês
         </Link>
-      </div>
-      {user.role === "profissional" && !own ? <p>Este acesso ainda não está ligado a um profissional.</p> : null}
-      {tooLong ? <p className="error">O período fica em até {SPAN} dias.</p> : null}
+      </form>
+      {user.role === "profissional" && !own ? (
+        <p className="desk-alert">Este acesso ainda não está ligado a um profissional.</p>
+      ) : null}
+      {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
       {!tooLong && (own || operator) ? (
         <>
-          <div className="tiles">
-            <div className="stat">
-              <strong>{formatReais(commission)}</strong>
-              <span>Comissão</span>
-            </div>
-            <div className="stat">
-              <strong>{formatReais(referral)}</strong>
-              <span>Indicação</span>
-            </div>
-            <div className="stat">
-              <strong>{formatReais(abatement)}</strong>
-              <span>Abate</span>
-            </div>
-            <div className="stat">
-              <strong>{formatReais(fee)}</strong>
-              <span>Metade da taxa</span>
-            </div>
-            <div className="stat">
-              <strong>{formatReais(commission + referral - abatement - fee)}</strong>
-              <span>Líquido</span>
-            </div>
+          <div className="pulse-stats">
+            <span className="chip">Comissão {formatReais(commission)}</span>
+            <span className="chip">Indicação {formatReais(referral)}</span>
+            <span className="chip warn">Abate {formatReais(abatement)}</span>
+            <span className="chip">Taxa {formatReais(fee)}</span>
+            <span className="chip ok">Líquido {formatReais(commission + referral - abatement - fee)}</span>
+            <span className="chip">{formatDay(start)} – {formatDay(end)}</span>
           </div>
-          <div className="card">
-            <h2>Ranking</h2>
-            <p>
-              {formatDay(start)} a {formatDay(end)}. A ordem é o líquido da equipe. Atendimento é execução, sem a venda do pacote. Quem só indicou e é cliente continua nas linhas.
-            </p>
-            {ranking.length === 0 ? <p>Nenhuma linha da equipe neste período.</p> : null}
-            {ranking.length > 0 ? (
+          {ranking.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="queue-head">
+                <h2>Ranking</h2>
+              </div>
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Pessoa</th>
-                    <th>Atendimentos</th>
+                    <th>Atend.</th>
                     <th>Comissão</th>
                     <th>Indicação</th>
                     <th>Abate</th>
@@ -180,42 +164,29 @@ export default async function CommissionPage({
                   ))}
                 </tbody>
               </table>
-            ) : null}
-          </div>
-          {operator && rules.extrasLadder ? (
-            <div className="card">
-              <h2>Meta de extras</h2>
-              <p>
-                {formatDay(start)} a {formatDay(end)}. Só serviço marcado na ficha. Ordinário e cortesia ficam fora. Sem escada de percentual.
-              </p>
-              {extras.length === 0 ? <p>Nenhum extra neste período.</p> : null}
-              {extras.length > 0 ? (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Pessoa</th>
-                      <th>Extras</th>
-                      <th>Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {extras.map((person, index) => (
-                      <tr key={person.id}>
-                        <td>{index + 1}</td>
-                        <td>{person.name}</td>
-                        <td>{person.visits}</td>
-                        <td>{formatReais(person.cents)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : null}
             </div>
           ) : null}
-          <div className="card">
-            <h2>Linhas</h2>
-            {rows.length === 0 ? <p>Nada para detalhar.</p> : null}
+          {operator && rules.extrasLadder && extras.length > 0 ? (
+            <div className="queue">
+              <div className="queue-head">
+                <h2>Extras</h2>
+              </div>
+              {extras.map((person, index) => (
+                <div className="queue-row" key={person.id}>
+                  <strong>#{index + 1}</strong>
+                  <span>{person.name}</span>
+                  <span>{person.visits}</span>
+                  <span>{formatReais(person.cents)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="queue" style={{ overflowX: "auto" }}>
+            <div className="queue-head">
+              <h2>Linhas</h2>
+              <span className="meta">{rows.length}</span>
+            </div>
+            {rows.length === 0 ? <p className="queue-empty">Nada neste período.</p> : null}
             {rows.length > 0 ? (
               <table>
                 <thead>
@@ -254,6 +225,7 @@ export default async function CommissionPage({
           </div>
         </>
       ) : null}
+      </div>
     </Panel>
   );
 }

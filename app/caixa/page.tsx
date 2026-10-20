@@ -6,6 +6,7 @@ import { dayParam, daysBetween, monthBounds, shiftDay, weekBounds } from "@/desk
 import { cashBook, dayCash } from "@/desk/queries";
 import { PAYMENT_METHODS, paymentMethodLabel } from "@/desk/statuses";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -54,11 +55,8 @@ export default async function CashPage({
     const week = weekBounds(today);
     return (
       <Panel user={user} current="/caixa" title="Histórico do caixa">
-        <p>
-          A gaveta fica separada do banco. O banco é o que entrou no extrato neste período. Sangria e suprimento ajustam a gaveta. A taxa de cartão e o
-          estorno aparecem à parte. Consumo interno entra com valor zero.
-        </p>
-        <form className="row" action="/caixa">
+        <div className="desk">
+        <form className="desk-bar" action="/caixa">
           <label>
             De
             <input name="de" type="date" defaultValue={start} required />
@@ -68,24 +66,22 @@ export default async function CashPage({
             <input name="ate" type="date" defaultValue={end} required />
           </label>
           <button className="btn" type="submit">
-            Ver período
+            Ver
           </button>
-        </form>
-        <div className="row">
           <Link className="btn quiet" href={`/caixa?de=${week.start}&ate=${week.end}`}>
-            Esta semana
+            Semana
           </Link>
           <Link className="btn quiet" href={`/caixa?de=${month.start}&ate=${month.end}`}>
-            Este mês
+            Mês
           </Link>
           <Link className="btn quiet" href={`/caixa?dia=${end}`}>
-            Voltar ao dia
+            Dia
           </Link>
-        </div>
-        {tooLong ? <p className="error">O período fica em até {SPAN} dias.</p> : null}
-        {!tooLong && days.length === 0 ? <p>Nada na gaveta nem no banco neste período.</p> : null}
+        </form>
+        {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
+        {!tooLong && days.length === 0 ? <p className="queue-empty">Nada neste período.</p> : null}
         {!tooLong && days.length > 0 ? (
-          <div className="card">
+          <div className="queue" style={{ overflowX: "auto" }}>
             <table>
               <thead>
                 <tr>
@@ -145,6 +141,7 @@ export default async function CashPage({
             </table>
           </div>
         ) : null}
+        </div>
       </Panel>
     );
   }
@@ -161,100 +158,79 @@ export default async function CashPage({
 
   return (
     <Panel user={user} current="/caixa" title="Caixa do dia">
+      <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn quiet" href={`/caixa?dia=${shiftDay(day, -1)}`}>
-          Dia anterior
+          ←
         </Link>
-        <strong>{formatDay(day)}</strong>
+        <span className="day-label">{formatDay(day)}</span>
         <Link className="btn quiet" href={`/caixa?dia=${shiftDay(day, 1)}`}>
-          Próximo dia
+          →
         </Link>
         <Link className="btn quiet" href={`/caixa?dia=${todaySaoPaulo()}`}>
           Hoje
         </Link>
         <Link className="btn quiet" href={`/comissao?de=${day}&ate=${day}`}>
-          Comissão deste dia
+          Comissão
         </Link>
         <Link className="btn quiet" href={`/caixa?de=${monthBounds(day).start}&ate=${day}`}>
-          Histórico do mês
+          Mês
         </Link>
-      </div>
-      <div className="tiles">
-        <div className="stat">
-          <strong>{formatReais(received)}</strong>
-          <span>Recebido</span>
-        </div>
-        <div className="stat">
-          <strong>{formatReais(drawerNet)}</strong>
-          <span>Gaveta</span>
-        </div>
-        <div className="stat">
-          <strong>{formatReais(banked)}</strong>
-          <span>Banco</span>
-        </div>
-        <div className="stat">
-          <strong>{formatReais(netCommission)}</strong>
-          <span>Comissão líquida</span>
-        </div>
-        <div className="stat">
-          <strong>{formatReais(openDue)}</strong>
-          <span>Ainda em aberto</span>
-        </div>
-      </div>
-      <div className="card">
-        <h2>Sangria e suprimento</h2>
-        <p>Sangria tira da gaveta. Suprimento reforça. Não passam pelo banco nem pela comanda.</p>
-        <form action={registerDrawerMove}>
-          <input type="hidden" name="day" value={day} />
-          <div className="split">
+        <Modal label="Sangria / suprimento" title="Gaveta" tone="navy">
+          <form action={registerDrawerMove}>
+            <input type="hidden" name="day" value={day} />
+            <div className="split">
+              <label>
+                Tipo
+                <select name="kind" required defaultValue="sangria">
+                  <option value="sangria">Sangria</option>
+                  <option value="suprimento">Suprimento</option>
+                </select>
+              </label>
+              <label>
+                Valor
+                <input name="amount" required placeholder="0,00" />
+              </label>
+            </div>
             <label>
-              Tipo
-              <select name="kind" required defaultValue="sangria">
-                <option value="sangria">Sangria</option>
-                <option value="suprimento">Suprimento</option>
-              </select>
+              Motivo
+              <input name="note" required minLength={2} placeholder="Troco, depósito, reforço…" />
             </label>
-            <label>
-              Valor
-              <input name="amount" required placeholder="0,00" />
-            </label>
-          </div>
-          <label>
-            Motivo
-            <input name="note" required minLength={2} placeholder="Troco, depósito, reforço…" />
-          </label>
-          <SubmitButton label="Lançar na gaveta" pendingLabel="Lançando…" />
-        </form>
+            <SubmitButton label="Lançar" pendingLabel="Lançando…" />
+          </form>
+        </Modal>
       </div>
-      <div className="card">
-        <h2>Por forma</h2>
-        <p>O que entrou na gaveta pelas comandas. Recebimento no banco fica no extrato.</p>
-        {cash.byMethod.length === 0 ? <p>Nenhum pagamento na gaveta neste dia.</p> : null}
-        {cash.byMethod.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Forma</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cash.byMethod.map((row) => (
-                <tr key={row.method}>
-                  <td>{methodLabel(row.method)}</td>
-                  <td>{formatReais(row.amountCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
+      <div className="pulse-stats">
+        <span className="chip ok">Recebido {formatReais(received)}</span>
+        <span className="chip">Gaveta {formatReais(drawerNet)}</span>
+        <span className="chip">Banco {formatReais(banked)}</span>
+        <span className="chip">Comissão {formatReais(netCommission)}</span>
+        {openDue > 0 ? (
+          <Link className="chip hot" href="/comandas?lista=abertas&filtro=falta">
+            Em aberto {formatReais(openDue)}
+          </Link>
+        ) : (
+          <span className="chip">Em aberto {formatReais(0)}</span>
+        )}
       </div>
-      <div className="card">
-        <h2>Recebimentos</h2>
-        <p>Cada lançamento na gaveta, com a comanda. Conta do cliente e banco ficam de fora.</p>
-        {cash.receipts.length === 0 ? <p>Nenhum recebimento na gaveta neste dia.</p> : null}
+      {cash.openGaps.length > 0 ? (
+        <div className="desk-floor">
+          <span className="label">Falta hoje</span>
+          {cash.openGaps.map((row) => (
+            <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
+              {row.who} · {formatReais(row.gapCents)}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="queue-head">
+          <h2>Recebimentos</h2>
+          <span className="meta">{cash.receipts.length}</span>
+        </div>
+        {cash.receipts.length === 0 ? <p className="queue-empty">Nenhum recebimento na gaveta.</p> : null}
         {cash.receipts.length > 0 ? (
           <table>
             <thead>
@@ -285,11 +261,24 @@ export default async function CashPage({
           </table>
         ) : null}
       </div>
-      <div className="card">
-        <h2>Banco</h2>
-        <p>Recebimento que entrou no extrato. Não soma na gaveta. A taxa continua no movimento do caixa.</p>
-        {cash.banks.length === 0 ? <p>Nenhum recebimento no banco neste dia.</p> : null}
-        {cash.banks.length > 0 ? (
+      {cash.byMethod.length > 0 ? (
+        <div className="queue">
+          <div className="queue-head">
+            <h2>Por forma</h2>
+          </div>
+          {cash.byMethod.map((row) => (
+            <div className="queue-row" key={row.method}>
+              <strong>{methodLabel(row.method)}</strong>
+              <span>{formatReais(row.amountCents)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {cash.banks.length > 0 ? (
+        <div className="queue" style={{ overflowX: "auto" }}>
+          <div className="queue-head">
+            <h2>Banco</h2>
+          </div>
           <table>
             <thead>
               <tr>
@@ -310,53 +299,29 @@ export default async function CashPage({
               ))}
             </tbody>
           </table>
-        ) : null}
-      </div>
-      <div className="card">
-        <h2>Ainda em aberto</h2>
-        <p>
-          Comanda deste dia que ainda não cobriu o total.{" "}
-          <Link href="/comandas?lista=abertas&filtro=falta">Fila a receber</Link>
-        </p>
-        {cash.openGaps.length === 0 ? <p>Nenhuma falta neste dia.</p> : null}
-        {cash.openGaps.map((row) => (
-          <p key={row.id}>
-            <Link href={`/comandas/${row.id}`}>{row.who}</Link>
-            {` · falta ${formatReais(row.gapCents)}`}
-          </p>
-        ))}
-      </div>
-      <div className="card">
-        <h2>Movimentos</h2>
-        <p>Sangria, suprimento, taxa de cartão, estorno e consumo interno. Metade da taxa sai da comissão de quem executou.</p>
-        {cash.movements.length === 0 ? <p>Nada lançado neste dia.</p> : null}
-        {cash.movements.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Origem</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cash.movements.map((row) => (
-                <tr key={row.id}>
-                  <td>{moveWord(row.origin, row.label)}</td>
-                  <td>{formatReais(row.amountCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </div>
-      <div className="card">
-        <h2>Comissão do dia</h2>
-        <p>
-          Nasce na linha. Cortesia continua comissionando o valor de tabela. Consumo abate, sem comissão de produto. Indicação soma na pessoa que trouxe, por
-          cima de quem executou. No serviço entre profissionais, a comissão fica com quem executou e o valor com desconto abate quem recebeu.
-        </p>
-        {cash.commissions.length === 0 ? <p>Nenhuma linha com profissional neste dia.</p> : null}
-        {cash.commissions.length > 0 ? (
+        </div>
+      ) : null}
+      {cash.movements.length > 0 ? (
+        <div className="queue">
+          <div className="queue-head">
+            <h2>Movimentos</h2>
+          </div>
+          {cash.movements.map((row) => (
+            <div className="queue-row" key={row.id}>
+              <span>{moveWord(row.origin, row.label)}</span>
+              <strong>{formatReais(row.amountCents)}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {cash.commissions.length > 0 ? (
+        <div className="queue" style={{ overflowX: "auto" }}>
+          <div className="queue-head">
+            <h2>Comissão</h2>
+            <Link className="meta" href={`/comissao?de=${day}&ate=${day}`}>
+              Abrir
+            </Link>
+          </div>
           <table>
             <thead>
               <tr>
@@ -377,7 +342,8 @@ export default async function CashPage({
               ))}
             </tbody>
           </table>
-        ) : null}
+        </div>
+      ) : null}
       </div>
     </Panel>
   );
