@@ -129,6 +129,12 @@ export default async function AgendaPage({
         <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, 7)}`}>
           Próxima semana
         </Link>
+        <Link className="btn quiet" href={`/espera?dia=${day}`}>
+          Espera
+        </Link>
+        <Link className="btn quiet" href={`/lembretes?dia=${day}`}>
+          Lembretes
+        </Link>
       </div>
       <div className="row week-strip">
         {weekDays.map((item) => (
