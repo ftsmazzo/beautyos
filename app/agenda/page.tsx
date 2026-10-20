@@ -106,159 +106,131 @@ export default async function AgendaPage({
       end: gap.end,
     }));
   });
-  const listed = visible
-    .filter((item) => item.kind === "horario" && item.status !== "cancelado")
-    .sort((a, b) => a.start.localeCompare(b.start) || (a.clientName ?? "").localeCompare(b.clientName ?? ""));
+  const onFloor = visible
+    .filter((item) => item.kind === "horario" && (item.status === "chegou" || item.status === "em_atendimento"))
+    .sort((a, b) => a.start.localeCompare(b.start));
 
   return (
     <Panel user={user} current="/agenda" title="Agenda">
-      <div className="row">
-        <Link className="btn quiet" href={`/agenda?dia=${shiftDay(day, -1)}`}>
-          Dia anterior
-        </Link>
-        <strong>{formatDay(day)}</strong>
-        <Link className="btn quiet" href={`/agenda?dia=${shiftDay(day, 1)}`}>
-          Próximo dia
-        </Link>
-        <Link className="btn quiet" href="/agenda">
-          Hoje
-        </Link>
-        <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, -7)}`}>
-          Semana anterior
-        </Link>
-        <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, 7)}`}>
-          Próxima semana
-        </Link>
-        <Link className="btn quiet" href={`/espera?dia=${day}`}>
-          Espera
-        </Link>
-        <Link className="btn quiet" href={`/lembretes?dia=${day}`}>
-          Lembretes
-        </Link>
-      </div>
-      <div className="row week-strip">
-        {weekDays.map((item) => (
-          <Link
-            key={item.day}
-            className={item.day === day ? "btn" : "btn quiet"}
-            href={`/agenda?dia=${item.day}`}
-          >
-            {item.label} {item.day.slice(8, 10)}
-            {item.qty > 0 ? ` · ${item.qty}` : ""}
+      <div className="desk">
+        <div className="desk-bar">
+          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(day, -1)}`}>
+            ←
           </Link>
-        ))}
-      </div>
-      <div className="row">
-        {bookable.length > 0 ? (
-          <Modal label="Novo horário" title="Novo horário" tone="blue" startOpen={Boolean((bookClient && bookService) || (bookProfessional && bookStart))}>
-            <BookForm
-              day={day}
-              lockedProfessional={own}
-              initialProfessional={bookProfessional || undefined}
-              initialClient={bookClient}
-              initialService={bookService}
-              initialStart={bookStart || "09:00"}
-              professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
-              services={services}
-              clients={people.map((person) => ({ id: person.id, name: person.name }))}
-            />
-          </Modal>
-        ) : null}
-        {bookable.length > 0 ? (
-          <Modal label="Bloquear" title="Bloquear horário" tone="navy">
-            <form action={blockSlot}>
-              <input type="hidden" name="day" value={day} />
-              {own ? <input type="hidden" name="professional" value={own} /> : (
-                <label>
-                  Profissional
-                  <select name="professional" required defaultValue={bookable[0]?.id}>
-                    {bookable.map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.nickname || person.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <div className="split">
-                <label>
-                  Início
-                  <input name="start" type="time" required defaultValue="12:00" />
-                </label>
-                <label>
-                  Fim
-                  <input name="end" type="time" required defaultValue="13:00" />
-                </label>
-              </div>
-              <SubmitButton label="Bloquear" pendingLabel="Bloqueando…" />
-            </form>
-          </Modal>
-        ) : null}
-        {roster.length > 0 ? (
-          <Modal label="Consumo" title="Comanda de consumo" tone="teal">
-            <form action={openConsumption}>
-              <input type="hidden" name="day" value={day} />
-              {own ? <input type="hidden" name="professional" value={own} /> : (
-                <label>
-                  Profissional
-                  <select name="professional" required defaultValue={roster[0]?.id}>
-                    {roster.map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <p>Uma por profissional neste dia. Não entra na grade e fecha sem dinheiro.</p>
-              <SubmitButton label="Abrir consumo" pendingLabel="Abrindo…" className="teal" />
-            </form>
-          </Modal>
-        ) : null}
-      </div>
-      <ErrorNote code={query.erro} />
-      <div className="card">
-        <h2>Aniversário</h2>
-        <p>Quem faz anos neste dia. Na grade, o horário e a coluna também levam a marca.</p>
-        {birthdays.clients.length === 0 && birthdays.professionals.length === 0 ? (
-          <p>Ninguém faz anos neste dia.</p>
-        ) : null}
-        {birthdays.clients.map((person) => (
-          <p key={`cli-${person.id}`}>
-            Cliente ·{" "}
-            {operator ? <Link href={`/clientes/${person.id}`}>{person.name}</Link> : person.name}
-            {operator ? (
-              <>
-                {" · "}
-                <Link href={`/agenda?dia=${day}&cliente=${person.id}`}>Agendar</Link>
-              </>
-            ) : null}
-          </p>
-        ))}
-        {birthdays.professionals.map((person) => (
-          <p key={`pro-${person.id}`}>
-            Equipe ·{" "}
-            {operator ? <Link href={`/profissionais/${person.id}`}>{person.name}</Link> : person.name}
-          </p>
-        ))}
-      </div>
-      {user.role === "profissional" && !own ? (
-        <div className="card">
-          <p>Este acesso ainda não está ligado a um profissional.</p>
+          <span className="day-label">{formatDay(day)}</span>
+          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(day, 1)}`}>
+            →
+          </Link>
+          <Link className="btn quiet" href="/agenda">
+            Hoje
+          </Link>
+          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, -7)}`}>
+            Sem. ant.
+          </Link>
+          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, 7)}`}>
+            Próx. sem.
+          </Link>
+          {bookable.length > 0 ? (
+            <Modal label="Novo horário" title="Novo horário" tone="blue" startOpen={Boolean((bookClient && bookService) || (bookProfessional && bookStart))}>
+              <BookForm
+                day={day}
+                lockedProfessional={own}
+                initialProfessional={bookProfessional || undefined}
+                initialClient={bookClient}
+                initialService={bookService}
+                initialStart={bookStart || "09:00"}
+                professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+                services={services}
+                clients={people.map((person) => ({ id: person.id, name: person.name }))}
+              />
+            </Modal>
+          ) : null}
+          {bookable.length > 0 ? (
+            <Modal label="Bloquear" title="Bloquear horário" tone="navy">
+              <form action={blockSlot}>
+                <input type="hidden" name="day" value={day} />
+                {own ? <input type="hidden" name="professional" value={own} /> : (
+                  <label>
+                    Profissional
+                    <select name="professional" required defaultValue={bookable[0]?.id}>
+                      {bookable.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.nickname || person.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <div className="split">
+                  <label>
+                    Início
+                    <input name="start" type="time" required defaultValue="12:00" />
+                  </label>
+                  <label>
+                    Fim
+                    <input name="end" type="time" required defaultValue="13:00" />
+                  </label>
+                </div>
+                <SubmitButton label="Bloquear" pendingLabel="Bloqueando…" />
+              </form>
+            </Modal>
+          ) : null}
+          {roster.length > 0 ? (
+            <Modal label="Consumo" title="Comanda de consumo" tone="teal">
+              <form action={openConsumption}>
+                <input type="hidden" name="day" value={day} />
+                {own ? <input type="hidden" name="professional" value={own} /> : (
+                  <label>
+                    Profissional
+                    <select name="professional" required defaultValue={roster[0]?.id}>
+                      {roster.map((person) => (
+                        <option key={person.id} value={person.id}>
+                          {person.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <p>Uma por profissional neste dia. Não entra na grade e fecha sem dinheiro.</p>
+                <SubmitButton label="Abrir consumo" pendingLabel="Abrindo…" className="teal" />
+              </form>
+            </Modal>
+          ) : null}
+          <Link className="btn quiet" href={`/espera?dia=${day}`}>
+            Espera
+          </Link>
+          <Link className="btn quiet" href={`/lembretes?dia=${day}`}>
+            Lembretes
+          </Link>
         </div>
-      ) : null}
-      {bookable.length === 0 && user.role !== "profissional" ? (
-        <div className="card">
-          <p>Cadastre um profissional que atende para abrir a grade.</p>
+
+        <div className="desk-bar week-strip">
+          {weekDays.map((item) => (
+            <Link
+              key={item.day}
+              className={item.day === day ? "btn" : "btn quiet"}
+              href={`/agenda?dia=${item.day}`}
+            >
+              {item.label} {item.day.slice(8, 10)}
+              {item.qty > 0 ? ` · ${item.qty}` : ""}
+            </Link>
+          ))}
         </div>
-      ) : null}
-      {bookable.length > 0 ? (
-        <>
-          <div className="card">
-            <h2>Horários livres</h2>
-            <p>O que ainda cabe num atendimento normal. Almoço, bloqueio e horário marcado não entram.</p>
-            {gaps.length === 0 ? <p>Nenhum horário livre neste dia.</p> : (
-              <div className="row">
+
+        <ErrorNote code={query.erro} />
+
+        {user.role === "profissional" && !own ? (
+          <p className="desk-alert">Este acesso ainda não está ligado a um profissional.</p>
+        ) : null}
+        {bookable.length === 0 && user.role !== "profissional" ? (
+          <p className="desk-alert">Cadastre um profissional que atende para abrir a grade.</p>
+        ) : null}
+
+        {bookable.length > 0 ? (
+          <>
+            {gaps.length > 0 ? (
+              <div className="desk-floor">
+                <span className="label">Livres</span>
                 {gaps.map((gap) => {
                   const params = new URLSearchParams({ dia: day, profissional: gap.professionalId, inicio: gap.start });
                   if (bookClient) params.set("cliente", bookClient);
@@ -270,240 +242,212 @@ export default async function AgendaPage({
                   );
                 })}
               </div>
-            )}
-          </div>
-          <ul className="legend">
-            {legend.map((item) => (
-              <li key={item.word} style={{ background: item.bg, color: item.fg }}>
-                {item.word}
-              </li>
-            ))}
-          </ul>
-          <p>Passe o mouse para ver nome, telefone, serviço e status. Clique no horário abre a comanda. Clique direito abre o menu: dali sai fechar e reabrir, além do estado. Arraste o horário de minuto em minuto para mudar a hora ou a coluna. Arraste a borda de baixo para estender. Um horário normal para na borda do que já está ocupado. Encaixe pode cobrir.</p>
-          <AgendaDesk
-            day={day}
-            startMin={startMin}
-            hourPx={HOUR}
-            lockedProfessional={own}
-            operator={operator}
-            professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
-            services={services}
-            clients={people.map((person) => ({ id: person.id, name: person.name }))}
-          >
-          <div className="board">
-            <div className="board-hours" style={{ height }}>
-              {marks.map((mark) => (
-                <span key={mark} style={{ top: ((mark - startMin) / 60) * HOUR }}>
-                  {fromMinutes(mark)}
-                </span>
+            ) : null}
+
+            {onFloor.length > 0 ? (
+              <div className="desk-floor">
+                <span className="label">Na casa</span>
+                {onFloor.map((item) => {
+                  const who = bookable.find((person) => person.id === item.professionalId);
+                  const label = [
+                    item.status === "chegou" ? "Chegou" : "Em atendimento",
+                    item.start,
+                    item.clientName ?? "Sem nome",
+                    who ? who.nickname || who.name : "",
+                    item.waitMin != null
+                      ? item.status === "chegou"
+                        ? `há ${item.waitMin} min`
+                        : `esperou ${item.waitMin} min`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return item.orderId ? (
+                    <Link key={item.id} className="chip ok" href={`/comandas/${item.orderId}`}>
+                      {label}
+                    </Link>
+                  ) : (
+                    <span key={item.id} className="chip ok">
+                      {label}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <ul className="legend">
+              {legend.map((item) => (
+                <li key={item.word} style={{ background: item.bg, color: item.fg }}>
+                  {item.word}
+                </li>
               ))}
-            </div>
-            {bookable.map((person) => {
-              const periods = periodsFor(hours.filter((row) => row.professionalId === person.id), day);
-              const spans = periods
-                .map((period) => ({ start: minutes(period.start), end: minutes(period.end) }))
-                .sort((a, b) => a.start - b.start);
-              const shades: { start: number; end: number; lunch: boolean }[] = [];
-              if (spans.length === 0) shades.push({ start: startMin, end: endMin, lunch: false });
-              let cursor = startMin;
-              spans.forEach((span, index) => {
-                if (span.start > cursor) shades.push({ start: cursor, end: span.start, lunch: index > 0 });
-                cursor = Math.max(cursor, span.end);
-              });
-              if (spans.length > 0 && cursor < endMin) shades.push({ start: cursor, end: endMin, lunch: false });
-              const columnItems = appointments.filter((item) => item.professionalId === person.id);
-              return (
-                <section className="board-col" key={person.id}>
-                  <header style={{ borderTopColor: person.columnColor }}>
-                    <strong>
-                      {person.nickname || person.name}
-                      {birthdayPros.has(person.id) ? " · aniversário" : ""}
-                    </strong>
-                  </header>
-                  <div className="board-grid" data-pro={person.id} style={{ height }}>
-                    {marks.map((mark) => (
-                      <i key={mark} style={{ top: ((mark - startMin) / 60) * HOUR }} />
-                    ))}
-                    {shades.map((shade) => {
-                      const paint = shade.lunch ? LUNCH : CLOSED;
-                      return (
-                        <div
-                          key={`${shade.start}-${shade.lunch}`}
-                          className="shade"
-                          style={{
-                            top: ((shade.start - startMin) / 60) * HOUR,
-                            height: ((shade.end - shade.start) / 60) * HOUR,
+            </ul>
+            <p className="desk-hint">
+              Clique abre a comanda · direito muda estado / fecha · arraste para remarcar · borda de baixo estende
+            </p>
+
+            <AgendaDesk
+              day={day}
+              startMin={startMin}
+              hourPx={HOUR}
+              lockedProfessional={own}
+              operator={operator}
+              professionals={bookable.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+              services={services}
+              clients={people.map((person) => ({ id: person.id, name: person.name }))}
+            >
+              <div className="board">
+                <div className="board-hours" style={{ height }}>
+                  {marks.map((mark) => (
+                    <span key={mark} style={{ top: ((mark - startMin) / 60) * HOUR }}>
+                      {fromMinutes(mark)}
+                    </span>
+                  ))}
+                </div>
+                {bookable.map((person) => {
+                  const periods = periodsFor(hours.filter((row) => row.professionalId === person.id), day);
+                  const spans = periods
+                    .map((period) => ({ start: minutes(period.start), end: minutes(period.end) }))
+                    .sort((a, b) => a.start - b.start);
+                  const shades: { start: number; end: number; lunch: boolean }[] = [];
+                  if (spans.length === 0) shades.push({ start: startMin, end: endMin, lunch: false });
+                  let cursor = startMin;
+                  spans.forEach((span, index) => {
+                    if (span.start > cursor) shades.push({ start: cursor, end: span.start, lunch: index > 0 });
+                    cursor = Math.max(cursor, span.end);
+                  });
+                  if (spans.length > 0 && cursor < endMin) shades.push({ start: cursor, end: endMin, lunch: false });
+                  const columnItems = appointments.filter((item) => item.professionalId === person.id);
+                  return (
+                    <section className="board-col" key={person.id}>
+                      <header style={{ borderTopColor: person.columnColor }}>
+                        <strong>
+                          {person.nickname || person.name}
+                          {birthdayPros.has(person.id) ? " · aniversário" : ""}
+                        </strong>
+                      </header>
+                      <div className="board-grid" data-pro={person.id} style={{ height }}>
+                        {marks.map((mark) => (
+                          <i key={mark} style={{ top: ((mark - startMin) / 60) * HOUR }} />
+                        ))}
+                        {shades.map((shade) => {
+                          const paint = shade.lunch ? LUNCH : CLOSED;
+                          return (
+                            <div
+                              key={`${shade.start}-${shade.lunch}`}
+                              className="shade"
+                              style={{
+                                top: ((shade.start - startMin) / 60) * HOUR,
+                                height: ((shade.end - shade.start) / 60) * HOUR,
+                                background: paint.bg,
+                                color: paint.fg,
+                              }}
+                            >
+                              {paint.word}
+                            </div>
+                          );
+                        })}
+                        {columnItems.map((item) => {
+                          const paint = blockPaint(item);
+                          const moved = item.status === "chegou" || item.status === "em_atendimento" || item.status === "realizado";
+                          const birthday = item.clientId && birthdayClients.has(item.clientId) ? " · aniversário" : "";
+                          const name = item.kind === "bloqueio" ? "Bloqueado" : `${item.clientName ?? "Sem nome"}${birthday}`;
+                          const marks = [item.status === "cancelado" ? "Cancelado" : "", item.encaixe ? "Encaixe" : ""].filter(Boolean);
+                          const title = marks.length ? `${marks.join(" · ")} · ${name}` : name;
+                          const phone = item.phone ? formatPhone(item.phone) : "";
+                          const when = `${item.start}–${item.end}`;
+                          const extra = moved && item.fromOutside ? "De fora" : "";
+                          const style = {
+                            top: ((minutes(item.start) - startMin) / 60) * HOUR,
+                            height: ((minutes(item.end) - minutes(item.start)) / 60) * HOUR,
                             background: paint.bg,
                             color: paint.fg,
-                          }}
-                        >
-                          {paint.word}
-                        </div>
-                      );
-                    })}
-                    {columnItems.map((item) => {
-                      const paint = blockPaint(item);
-                      const moved = item.status === "chegou" || item.status === "em_atendimento" || item.status === "realizado";
-                      const birthday = item.clientId && birthdayClients.has(item.clientId) ? " · aniversário" : "";
-                      const name = item.kind === "bloqueio" ? "Bloqueado" : `${item.clientName ?? "Sem nome"}${birthday}`;
-                      const marks = [item.status === "cancelado" ? "Cancelado" : "", item.encaixe ? "Encaixe" : ""].filter(Boolean);
-                      const title = marks.length ? `${marks.join(" · ")} · ${name}` : name;
-                      const phone = item.phone ? formatPhone(item.phone) : "";
-                      const when = `${item.start}–${item.end}`;
-                      const extra = moved && item.fromOutside ? "De fora" : "";
-                      const style = {
-                        top: ((minutes(item.start) - startMin) / 60) * HOUR,
-                        height: ((minutes(item.end) - minutes(item.start)) / 60) * HOUR,
-                        background: paint.bg,
-                        color: paint.fg,
-                      };
-                      return (
-                        <div
-                          key={item.id}
-                          className={item.encaixe ? "slot fit" : "slot"}
-                          data-slot={item.id}
-                          data-kind={item.kind}
-                          data-status={item.status}
-                          data-encaixe={item.encaixe ? "1" : "0"}
-                          data-order={item.orderId ?? ""}
-                          data-order-status={item.orderStatus ?? ""}
-                          data-name={title}
-                          data-phone={phone}
-                          data-service={item.serviceName ?? ""}
-                          data-when={when}
-                          data-word={item.kind === "horario" ? paint.word : "Bloqueado"}
-                          data-extra={extra}
-                          style={style}
-                        >
-                          <strong>{title}</strong>
-                          <span className="slot-meta">
-                            {[phone, when, item.waitMin == null ? "" : item.status === "chegou" ? `há ${item.waitMin} min` : `esperou ${item.waitMin} min`].filter(Boolean).join(" · ")}
-                          </span>
-                          {item.serviceName ? <span className="slot-service">{item.serviceName}</span> : null}
-                          {item.status === "cancelado" ? null : <span className="resize" data-resize="1" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-          </AgendaDesk>
-          <div className="card">
-            <h2>Na casa</h2>
-            <p>Quem já chegou e quem está em atendimento. Chegou não cobra. A espera corre até a partida.</p>
-            {listed.filter((item) => item.status === "chegou" || item.status === "em_atendimento").length === 0 ? <p>Ninguém na casa neste dia.</p> : null}
-            {listed
-              .filter((item) => item.status === "chegou" || item.status === "em_atendimento")
-              .map((item) => {
-                const who = bookable.find((person) => person.id === item.professionalId);
-                return (
-                  <p key={item.id}>
-                    {item.status === "chegou" ? "Chegou" : "Em atendimento"}
-                    {` · ${item.start} · ${item.clientName ?? "Sem nome"}`}
-                    {item.phone ? ` · ${formatPhone(item.phone)}` : ""}
-                    {` · ${item.serviceName ?? "Horário"} · ${who ? who.nickname || who.name : "—"}`}
-                    {item.waitMin != null ? (item.status === "chegou" ? ` · há ${item.waitMin} min` : ` · esperou ${item.waitMin} min`) : ""}
-                    {item.orderId ? (
-                      <>
-                        {" · "}
-                        <Link href={`/comandas/${item.orderId}`}>Comanda</Link>
-                      </>
-                    ) : null}
-                  </p>
-                );
-              })}
-          </div>
-          <div className="card">
-            <h2>Agendamentos do dia</h2>
-            {listed.length === 0 ? <p>Nenhum agendamento neste dia.</p> : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Horário</th>
-                    <th>Cliente</th>
-                    <th>Telefone</th>
-                    <th>Serviço</th>
-                    <th>Profissional</th>
-                    <th>Estado</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listed.map((item) => {
-                    const paint = blockPaint(item);
-                    const words = [paint.word];
-                    if (item.encaixe && paint.word !== "Encaixe") words.push("Encaixe");
-                    if (item.fromOutside && paint.word !== "De fora") words.push("De fora");
-                    const who = bookable.find((person) => person.id === item.professionalId);
-                    return (
+                          };
+                          return (
+                            <div
+                              key={item.id}
+                              className={item.encaixe ? "slot fit" : "slot"}
+                              data-slot={item.id}
+                              data-kind={item.kind}
+                              data-status={item.status}
+                              data-encaixe={item.encaixe ? "1" : "0"}
+                              data-order={item.orderId ?? ""}
+                              data-order-status={item.orderStatus ?? ""}
+                              data-name={title}
+                              data-phone={phone}
+                              data-service={item.serviceName ?? ""}
+                              data-when={when}
+                              data-word={item.kind === "horario" ? paint.word : "Bloqueado"}
+                              data-extra={extra}
+                              style={style}
+                            >
+                              <strong>{title}</strong>
+                              <span className="slot-meta">
+                                {[phone, when, item.waitMin == null ? "" : item.status === "chegou" ? `há ${item.waitMin} min` : `esperou ${item.waitMin} min`].filter(Boolean).join(" · ")}
+                              </span>
+                              {item.serviceName ? <span className="slot-service">{item.serviceName}</span> : null}
+                              {item.status === "cancelado" ? null : <span className="resize" data-resize="1" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </AgendaDesk>
+          </>
+        ) : null}
+
+        {cancellations.length > 0 ? (
+          <div className="desk-secondary">
+            <details>
+              <summary>Cancelados do dia ({cancellations.length})</summary>
+              <div className="card">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Horário</th>
+                      <th>Cliente</th>
+                      <th>Profissional</th>
+                      <th>Serviço</th>
+                      <th>Valor</th>
+                      <th>Quem</th>
+                      <th>Quando</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cancellations.map((item) => (
                       <tr key={item.id}>
-                        <td>{item.start}–{item.end}</td>
+                        <td>
+                          {item.start}–{item.end}
+                        </td>
                         <td>
                           {item.clientName ?? "Sem nome"}
                           {item.clientId && birthdayClients.has(item.clientId) ? " · aniversário" : ""}
                         </td>
-                        <td>{item.phone ? formatPhone(item.phone) : "—"}</td>
+                        <td>{item.professionalName ?? "—"}</td>
                         <td>{item.serviceName ?? "—"}</td>
-                        <td>{who ? who.nickname || who.name : "—"}</td>
-                        <td>{words.join(" · ")}</td>
+                        <td>{item.priceCents == null ? "—" : formatReais(item.priceCents)}</td>
+                        <td>{item.actorName ?? "—"}</td>
+                        <td>{item.at ?? "—"}</td>
                         <td>
-                          {item.orderId ? <Link href={`/comandas/${item.orderId}`}>Comanda</Link> : null}
+                          {item.orderId ? (
+                            <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
+                              Comanda
+                            </Link>
+                          ) : null}
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </div>
-        </>
-      ) : null}
-      {cancellations.length > 0 ? (
-        <div className="card">
-          <h2>Cancelados do dia</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Horário</th>
-                <th>Cliente</th>
-                <th>Profissional</th>
-                <th>Serviço</th>
-                <th>Valor</th>
-                <th>Quem</th>
-                <th>Quando</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {cancellations.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    {item.start}–{item.end}
-                  </td>
-                  <td>
-                    {item.clientName ?? "Sem nome"}
-                    {item.clientId && birthdayClients.has(item.clientId) ? " · aniversário" : ""}
-                  </td>
-                  <td>{item.professionalName ?? "—"}</td>
-                  <td>{item.serviceName ?? "—"}</td>
-                  <td>{item.priceCents == null ? "—" : formatReais(item.priceCents)}</td>
-                  <td>{item.actorName ?? "—"}</td>
-                  <td>{item.at ?? "—"}</td>
-                  <td>
-                    {item.orderId ? (
-                      <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
-                        Comanda
-                      </Link>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </Panel>
   );
 }

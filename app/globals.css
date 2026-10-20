@@ -345,6 +345,130 @@ th {
 tbody tr:hover td { background: #f7fafb; }
 .card { overflow-x: auto; }
 
+/* —— Mesa operacional (agenda / início) —— */
+.desk { display: grid; gap: 10px; }
+.desk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.desk-bar .day-label {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-right: 4px;
+}
+.desk-hint {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  max-width: 72ch;
+  line-height: 1.4;
+}
+.desk-alert {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-weight: 600;
+}
+.desk-floor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0 4px;
+}
+.desk-floor .label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.desk-secondary {
+  margin-top: 4px;
+}
+.desk-secondary details {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.desk-secondary summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink);
+  list-style: none;
+}
+.desk-secondary summary::-webkit-details-marker { display: none; }
+.desk-secondary .card {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+.queue {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.queue-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #f4f7f8;
+}
+.queue-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+.queue-head .meta { color: var(--muted); font-size: 0.85rem; font-weight: 500; }
+.queue-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: baseline;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+.queue-row:last-child { border-bottom: 0; }
+.queue-empty { padding: 12px 14px; color: var(--muted); margin: 0; }
+.pulse-hero {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+}
+.pulse-hero > h2 { margin: 0; }
+.pulse-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.pulse-link {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* —— Comanda / superfícies densas —— */
 .order-desk { display: grid; gap: 14px; }
 .order-hero {
