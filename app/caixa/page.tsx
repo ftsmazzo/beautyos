@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatDay, formatReais, todaySaoPaulo } from "@/catalog/format";
+import { registerDrawerMove } from "@/desk/actions";
 import { dayParam, daysBetween, monthBounds, shiftDay, weekBounds } from "@/desk/clock";
 import { cashBook, dayCash } from "@/desk/queries";
-import { PAYMENT_METHODS } from "@/desk/statuses";
+import { PAYMENT_METHODS, paymentMethodLabel } from "@/desk/statuses";
+import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
+import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +18,17 @@ function methodLabel(method: string) {
   return PAYMENT_METHODS.find((item) => item.value === method)?.label ?? method;
 }
 
+function moveWord(origin: string, label: string) {
+  if (origin === "consumo_interno") return "Consumo interno";
+  if (origin === "sangria") return label.startsWith("Sangria") ? label : `Sangria · ${label}`;
+  if (origin === "suprimento") return label.startsWith("Suprimento") ? label : `Suprimento · ${label}`;
+  return label;
+}
+
 export default async function CashPage({
   searchParams,
 }: {
-  searchParams: Promise<{ dia?: string; de?: string; ate?: string }>;
+  searchParams: Promise<{ dia?: string; de?: string; ate?: string; ok?: string; erro?: string }>;
 }) {
   const user = await requireOperator();
   const query = await searchParams;
@@ -34,12 +44,20 @@ export default async function CashPage({
       book.methods.find((row) => row.day === day && row.method === method)?.amountCents ?? 0;
     const move = (day: string, origin: string) => book.movements.find((row) => row.day === day && row.origin === origin);
     const drawer = (day: string) => METHODS.reduce((sum, method) => sum + of(day, method), 0);
+    const adjusted = (day: string) =>
+      drawer(day) +
+      (move(day, "suprimento")?.amountCents ?? 0) +
+      (move(day, "sangria")?.amountCents ?? 0) +
+      (move(day, "estorno")?.amountCents ?? 0);
     const bank = (day: string) => book.banks.find((row) => row.day === day)?.amountCents ?? 0;
     const month = monthBounds(today);
     const week = weekBounds(today);
     return (
       <Panel user={user} current="/caixa" title="Histórico do caixa">
-        <p>A gaveta fica separada do banco. O banco é o que entrou no extrato neste período. A taxa de cartão e o estorno aparecem à parte. Consumo interno entra com valor zero.</p>
+        <p>
+          A gaveta fica separada do banco. O banco é o que entrou no extrato neste período. Sangria e suprimento ajustam a gaveta. A taxa de cartão e o
+          estorno aparecem à parte. Consumo interno entra com valor zero.
+        </p>
         <form className="row" action="/caixa">
           <label>
             De
@@ -75,6 +93,9 @@ export default async function CashPage({
                   {METHODS.map((method) => (
                     <th key={method}>{methodLabel(method)}</th>
                   ))}
+                  <th>Recebido</th>
+                  <th>Sangria</th>
+                  <th>Suprimento</th>
                   <th>Gaveta</th>
                   <th>Banco</th>
                   <th>Taxa</th>
@@ -91,6 +112,9 @@ export default async function CashPage({
                       <td key={method}>{formatReais(of(day, method))}</td>
                     ))}
                     <td>{formatReais(drawer(day))}</td>
+                    <td>{formatReais(move(day, "sangria")?.amountCents ?? 0)}</td>
+                    <td>{formatReais(move(day, "suprimento")?.amountCents ?? 0)}</td>
+                    <td>{formatReais(adjusted(day))}</td>
                     <td>{formatReais(bank(day))}</td>
                     <td>{formatReais(move(day, "taxa_cartao")?.amountCents ?? 0)}</td>
                     <td>{formatReais(move(day, "estorno")?.amountCents ?? 0)}</td>
@@ -108,6 +132,9 @@ export default async function CashPage({
                     <td key={method}>{formatReais(days.reduce((sum, day) => sum + of(day, method), 0))}</td>
                   ))}
                   <td>{formatReais(days.reduce((sum, day) => sum + drawer(day), 0))}</td>
+                  <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "sangria")?.amountCents ?? 0), 0))}</td>
+                  <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "suprimento")?.amountCents ?? 0), 0))}</td>
+                  <td>{formatReais(days.reduce((sum, day) => sum + adjusted(day), 0))}</td>
                   <td>{formatReais(days.reduce((sum, day) => sum + bank(day), 0))}</td>
                   <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "taxa_cartao")?.amountCents ?? 0), 0))}</td>
                   <td>{formatReais(days.reduce((sum, day) => sum + (move(day, "estorno")?.amountCents ?? 0), 0))}</td>
@@ -124,12 +151,18 @@ export default async function CashPage({
   const day = dayParam(query.dia);
   const cash = await dayCash(user.accountId, day);
   const received = cash.byMethod.reduce((sum, row) => sum + row.amountCents, 0);
+  const drawerAdjust = cash.movements
+    .filter((row) => row.origin === "sangria" || row.origin === "suprimento" || row.origin === "estorno")
+    .reduce((sum, row) => sum + row.amountCents, 0);
+  const drawerNet = received + drawerAdjust;
   const banked = cash.banks.reduce((sum, row) => sum + row.amountCents, 0);
   const netCommission = cash.commissions.reduce((sum, row) => sum + row.amountCents - row.abatementCents, 0);
   const openDue = cash.openGaps.reduce((sum, row) => sum + row.gapCents, 0);
 
   return (
     <Panel user={user} current="/caixa" title="Caixa do dia">
+      <SavedNote code={query.ok} />
+      <ErrorNote code={query.erro} />
       <div className="row">
         <Link className="btn quiet" href={`/caixa?dia=${shiftDay(day, -1)}`}>
           Dia anterior
@@ -151,6 +184,10 @@ export default async function CashPage({
       <div className="tiles">
         <div className="stat">
           <strong>{formatReais(received)}</strong>
+          <span>Recebido</span>
+        </div>
+        <div className="stat">
+          <strong>{formatReais(drawerNet)}</strong>
           <span>Gaveta</span>
         </div>
         <div className="stat">
@@ -167,8 +204,33 @@ export default async function CashPage({
         </div>
       </div>
       <div className="card">
+        <h2>Sangria e suprimento</h2>
+        <p>Sangria tira da gaveta. Suprimento reforça. Não passam pelo banco nem pela comanda.</p>
+        <form action={registerDrawerMove}>
+          <input type="hidden" name="day" value={day} />
+          <div className="split">
+            <label>
+              Tipo
+              <select name="kind" required defaultValue="sangria">
+                <option value="sangria">Sangria</option>
+                <option value="suprimento">Suprimento</option>
+              </select>
+            </label>
+            <label>
+              Valor
+              <input name="amount" required placeholder="0,00" />
+            </label>
+          </div>
+          <label>
+            Motivo
+            <input name="note" required minLength={2} placeholder="Troco, depósito, reforço…" />
+          </label>
+          <SubmitButton label="Lançar na gaveta" pendingLabel="Lançando…" />
+        </form>
+      </div>
+      <div className="card">
         <h2>Por forma</h2>
-        <p>O que entrou na gaveta. Recebimento no banco fica no extrato.</p>
+        <p>O que entrou na gaveta pelas comandas. Recebimento no banco fica no extrato.</p>
         {cash.byMethod.length === 0 ? <p>Nenhum pagamento na gaveta neste dia.</p> : null}
         {cash.byMethod.length > 0 ? (
           <table>
@@ -181,8 +243,42 @@ export default async function CashPage({
             <tbody>
               {cash.byMethod.map((row) => (
                 <tr key={row.method}>
-                  <td>{PAYMENT_METHODS.find((method) => method.value === row.method)?.label ?? row.method}</td>
+                  <td>{methodLabel(row.method)}</td>
                   <td>{formatReais(row.amountCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </div>
+      <div className="card">
+        <h2>Recebimentos</h2>
+        <p>Cada lançamento na gaveta, com a comanda. Conta do cliente e banco ficam de fora.</p>
+        {cash.receipts.length === 0 ? <p>Nenhum recebimento na gaveta neste dia.</p> : null}
+        {cash.receipts.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Cliente</th>
+                <th>Forma</th>
+                <th>Valor</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {cash.receipts.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.at}</td>
+                  <td>{row.who}</td>
+                  <td>
+                    {paymentMethodLabel(row.method)}
+                    {row.feeCents > 0 ? ` · taxa ${formatReais(row.feeCents)}` : ""}
+                  </td>
+                  <td>{formatReais(row.amountCents)}</td>
+                  <td>
+                    <Link href={`/comandas/${row.orderId}`}>Comanda</Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -232,7 +328,7 @@ export default async function CashPage({
       </div>
       <div className="card">
         <h2>Movimentos</h2>
-        <p>A taxa de cartão aparece aqui, separada. Metade sai da comissão de quem executou.</p>
+        <p>Sangria, suprimento, taxa de cartão, estorno e consumo interno. Metade da taxa sai da comissão de quem executou.</p>
         {cash.movements.length === 0 ? <p>Nada lançado neste dia.</p> : null}
         {cash.movements.length > 0 ? (
           <table>
@@ -243,9 +339,9 @@ export default async function CashPage({
               </tr>
             </thead>
             <tbody>
-              {cash.movements.map((row, index) => (
-                <tr key={`${row.label}-${index}`}>
-                  <td>{row.origin === "consumo_interno" ? "Consumo interno" : row.label}</td>
+              {cash.movements.map((row) => (
+                <tr key={row.id}>
+                  <td>{moveWord(row.origin, row.label)}</td>
                   <td>{formatReais(row.amountCents)}</td>
                 </tr>
               ))}
@@ -255,7 +351,10 @@ export default async function CashPage({
       </div>
       <div className="card">
         <h2>Comissão do dia</h2>
-        <p>Nasce na linha. Cortesia continua comissionando o valor de tabela. Consumo abate, sem comissão de produto. Indicação soma na pessoa que trouxe, por cima de quem executou. No serviço entre profissionais, a comissão fica com quem executou e o valor com desconto abate quem recebeu.</p>
+        <p>
+          Nasce na linha. Cortesia continua comissionando o valor de tabela. Consumo abate, sem comissão de produto. Indicação soma na pessoa que trouxe, por
+          cima de quem executou. No serviço entre profissionais, a comissão fica com quem executou e o valor com desconto abate quem recebeu.
+        </p>
         {cash.commissions.length === 0 ? <p>Nenhuma linha com profissional neste dia.</p> : null}
         {cash.commissions.length > 0 ? (
           <table>

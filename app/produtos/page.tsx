@@ -12,16 +12,29 @@ export const dynamic = "force-dynamic";
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; erro?: string; modo?: string; filtro?: string }>;
+  searchParams: Promise<{ ok?: string; erro?: string; modo?: string; filtro?: string; q?: string }>;
 }) {
   const user = await requireOperator();
   const query = await searchParams;
   const counting = query.modo === "conferencia";
   const onlyMin = query.filtro === "minimo";
+  const needle = (query.q ?? "").trim().toLowerCase();
   const products = (await listProducts(user.accountId)).filter((product) => {
-    if (!onlyMin) return true;
-    return product.active && product.minQty > 0 && product.balance <= product.minQty;
+    if (onlyMin && !(product.active && product.minQty > 0 && product.balance <= product.minQty)) return false;
+    if (!needle) return true;
+    const hay = [product.name, product.brand ?? "", product.category ?? "", product.barcode ?? ""].join(" ").toLowerCase();
+    return hay.includes(needle);
   });
+  function listHref(opts: { modo?: boolean; minimo?: boolean } = {}) {
+    const params = new URLSearchParams();
+    const useModo = opts.modo ?? counting;
+    const useMin = opts.minimo ?? onlyMin;
+    if (useModo) params.set("modo", "conferencia");
+    if (useMin) params.set("filtro", "minimo");
+    if (needle) params.set("q", needle);
+    const text = params.toString();
+    return text ? `/produtos?${text}` : "/produtos";
+  }
   return (
     <Panel user={user} current="/produtos" title="Produtos">
       <SavedNote code={query.ok} />
@@ -36,13 +49,19 @@ export default async function ProductsPage({
         <Link className="btn quiet" href="/produtos/compra">
           Compra por nota
         </Link>
-        <Link className="btn quiet" href={counting ? "/produtos" : "/produtos?modo=conferencia"}>
+        <Link className="btn quiet" href={listHref({ modo: !counting })}>
           {counting ? "Voltar à lista" : "Conferência"}
         </Link>
-        <Link className={onlyMin ? "btn" : "btn quiet"} href={onlyMin ? "/produtos" : "/produtos?filtro=minimo"}>
+        <Link className={onlyMin ? "btn" : "btn quiet"} href={listHref({ minimo: !onlyMin })}>
           {onlyMin ? "Ver todos" : "No mínimo"}
         </Link>
       </div>
+      <form className="filters" method="get" action="/produtos">
+        {counting ? <input type="hidden" name="modo" value="conferencia" /> : null}
+        {onlyMin ? <input type="hidden" name="filtro" value="minimo" /> : null}
+        <input name="q" defaultValue={query.q ?? ""} placeholder="Nome, categoria ou código de barras" />
+        <button type="submit">Buscar</button>
+      </form>
       {counting ? <p>Conte cada produto. A diferença entra no estoque quando você confirma, com a data e quem contou.</p> : null}
       {onlyMin ? <p>Só quem chegou no mínimo da ficha. Zero no mínimo não avisa.</p> : null}
       <div className="card">
@@ -71,6 +90,7 @@ export default async function ProductsPage({
                   <tr key={product.id}>
                     <td>
                       {product.name}
+                      {product.barcode ? ` · ${product.barcode}` : ""}
                       {product.active ? "" : " · inativo"}
                       {low ? " · no mínimo" : ""}
                     </td>

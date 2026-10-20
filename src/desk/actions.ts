@@ -1937,6 +1937,29 @@ export async function removePayment(formData: FormData) {
   redirect(`/comandas/${orderId}`);
 }
 
+export async function registerDrawerMove(formData: FormData) {
+  const user = await requireOperator();
+  const day = dayParam(String(formData.get("day") ?? ""));
+  return settle(`/caixa?dia=${day}`, async () => {
+    const kind = String(formData.get("kind") ?? "");
+    const note = String(formData.get("note") ?? "").trim();
+    const amount = parseReais(String(formData.get("amount") ?? ""));
+    if ((kind !== "sangria" && kind !== "suprimento") || amount == null || amount <= 0 || note.length < 2) {
+      throw new FormError("dados");
+    }
+    const signed = kind === "sangria" ? -amount : amount;
+    const word = kind === "sangria" ? "Sangria" : "Suprimento";
+    await db()`
+      INSERT INTO cash_movements (id, account_id, day, amount_cents, origin, label)
+      VALUES (
+        ${randomUUID()}, ${user.accountId}, ${day}::date, ${signed}, ${kind},
+        ${`${word} · ${note}`}
+      )
+    `;
+    return `/caixa?dia=${day}&ok=gaveta`;
+  });
+}
+
 export async function closeOrder(formData: FormData) {
   const user = await requireDesk();
   const orderId = String(formData.get("order") ?? "");

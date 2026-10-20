@@ -1003,8 +1003,8 @@ export async function dayCancellations(accountId: string, day: string, professio
 }
 
 export async function dayCash(accountId: string, day: string) {
-  const movements = await db()<{ label: string; amountCents: number; origin: string }[]>`
-    SELECT label, amount_cents AS "amountCents", origin
+  const movements = await db()<{ id: string; label: string; amountCents: number; origin: string }[]>`
+    SELECT id, label, amount_cents AS "amountCents", origin
     FROM cash_movements
     WHERE account_id = ${accountId} AND day = ${day}
     ORDER BY created_at
@@ -1017,6 +1017,27 @@ export async function dayCash(accountId: string, day: string) {
       AND pay.bank_account_id IS NULL AND pay.method <> 'conta'
     GROUP BY pay.method
     ORDER BY pay.method
+  `;
+  const receipts = await db()<
+    {
+      id: string;
+      orderId: string;
+      who: string;
+      method: string;
+      amountCents: number;
+      feeCents: number;
+      at: string;
+    }[]
+  >`
+    SELECT pay.id, o.id AS "orderId", COALESCE(c.name, 'Sem nome') AS who, pay.method,
+           pay.amount_cents AS "amountCents", pay.fee_cents AS "feeCents",
+           to_char(pay.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS at
+    FROM payments pay
+    JOIN orders o ON o.id = pay.order_id
+    LEFT JOIN clients c ON c.id = o.client_id
+    WHERE pay.account_id = ${accountId} AND o.day = ${day}::date
+      AND pay.bank_account_id IS NULL AND pay.method <> 'conta'
+    ORDER BY pay.created_at, c.name NULLS LAST
   `;
   const banks = await db()<{ bank: string; method: string; amountCents: number; feeCents: number }[]>`
     SELECT b.name AS bank, pay.method,
@@ -1082,7 +1103,7 @@ export async function dayCash(accountId: string, day: string) {
     GROUP BY name
     ORDER BY name
   `;
-  return { movements, byMethod, banks, openGaps, commissions };
+  return { movements, byMethod, receipts, banks, openGaps, commissions };
 }
 
 export async function ownCommission(accountId: string, professionalId: string, day: string) {

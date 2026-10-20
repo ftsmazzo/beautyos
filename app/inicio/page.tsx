@@ -2,7 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
 import { saveHouseRules } from "@/catalog/house-actions";
-import { applyDuePrices, birthdaysAhead, catalogCounts, houseRules, listProfessionals, openPriceNotices, productsAtMinimum } from "@/catalog/queries";
+import {
+  applyDuePrices,
+  birthdaysAhead,
+  catalogCounts,
+  houseRules,
+  listPayables,
+  listProfessionals,
+  openPriceNotices,
+  productsAtMinimum,
+} from "@/catalog/queries";
 import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import {
   clientsWithCredit,
@@ -60,6 +69,12 @@ export default async function StartPage({
   const lowStock = operator ? await productsAtMinimum(user.accountId) : [];
   const wallets = operator ? await clientsWithCredit(user.accountId) : [];
   const unpaidPackages = operator ? await unpaidPackageSales(user.accountId) : [];
+  const duePayables =
+    user.role === "administrador"
+      ? (await listPayables(user.accountId))
+          .filter((row) => !row.paid && row.dueIso <= shiftDay(today, 7))
+          .slice(0, 12)
+      : [];
   const nameless =
     operator || own
       ? await openIncompleteOrders(user.accountId, operator ? null : own)
@@ -198,6 +213,21 @@ export default async function StartPage({
               <Link href="/comandas?lista=abertas&filtro=falta">Ver as {receivables.length}</Link>
             </p>
           ) : null}
+        </div>
+      ) : null}
+      {user.role === "administrador" && duePayables.length > 0 ? (
+        <div className="card">
+          <h2>Contas a pagar</h2>
+          <p>
+            Vencidas e as que caem nos próximos 7 dias. Baixa continua no financeiro.{" "}
+            <Link href="/financeiro?filtro=atrasado">Abrir a fila</Link>
+          </p>
+          {duePayables.map((row) => (
+            <p key={row.id}>
+              {row.due} · {row.partyName} · {row.description} · {formatReais(row.amountCents)}
+              {row.dueIso < today ? " · atrasada" : row.dueIso === today ? " · hoje" : " · a vencer"}
+            </p>
+          ))}
         </div>
       ) : null}
       {operator && unpaidPackages.length > 0 ? (

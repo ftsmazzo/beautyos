@@ -6,26 +6,42 @@ export function ErrorNote({ code }: { code?: string }) {
 }
 
 export function SavedNote({ code }: { code?: string }) {
-  if (code !== "salvo" && code !== "movimento" && code !== "compra" && code !== "banco" && code !== "baixa" && code !== "cartao" && code !== "fatura" && code !== "titulo" && code !== "encerra" && code !== "avaliacao") return null;
+  if (
+    code !== "salvo" &&
+    code !== "movimento" &&
+    code !== "compra" &&
+    code !== "banco" &&
+    code !== "baixa" &&
+    code !== "cartao" &&
+    code !== "fatura" &&
+    code !== "titulo" &&
+    code !== "encerra" &&
+    code !== "avaliacao" &&
+    code !== "gaveta"
+  ) {
+    return null;
+  }
   const text =
     code === "compra"
       ? "Compra lançada no estoque."
       : code === "movimento"
         ? "Movimento lançado no estoque."
-        : code === "banco"
-          ? "Banco salvo."
-          : code === "baixa"
-            ? "Baixa lançada no banco."
-            : code === "cartao"
-              ? "Lançamento entrou na fatura."
-              : code === "fatura"
-                ? "Fatura paga pelo banco."
-                : code === "titulo"
-                  ? "Conta lançada."
-                  : code === "encerra"
-                    ? "A repetição parou."
-                    : code === "avaliacao"
-                      ? "Avaliação registrada."
-                      : "Cadastro salvo.";
+        : code === "gaveta"
+          ? "Movimento lançado na gaveta."
+          : code === "banco"
+            ? "Banco salvo."
+            : code === "baixa"
+              ? "Baixa lançada no banco."
+              : code === "cartao"
+                ? "Lançamento entrou na fatura."
+                : code === "fatura"
+                  ? "Fatura paga pelo banco."
+                  : code === "titulo"
+                    ? "Conta lançada."
+                    : code === "encerra"
+                      ? "A repetição parou."
+                      : code === "avaliacao"
+                        ? "Avaliação registrada."
+                        : "Cadastro salvo.";
   return <p className="ok banner">{text}</p>;
 }
