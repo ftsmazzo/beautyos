@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import type { TransactionSql } from "postgres";
 import { requireDesk, requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { digits, formatDay, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents, todaySaoPaulo } from "@/catalog/format";
+import { checked, digits, formatDay, formatReais, parseIntField, parsePercent, parseReais, staffPriceCents, todaySaoPaulo } from "@/catalog/format";
 import { CHANNELS, FORM_ERRORS } from "@/catalog/labels";
 import { settle } from "@/catalog/settle";
 import { db } from "@/db/client";
@@ -2038,6 +2038,7 @@ export async function attachClient(formData: FormData) {
     const existingId = String(formData.get("client") ?? "");
     const name = String(formData.get("name") ?? "").trim();
     const phone = digits(String(formData.get("phone") ?? ""));
+    const fromOutside = checked(formData, "from_outside");
     const next = await db().begin(async (tx) => {
       const order = await tx<{ day: string; status: string }[]>`
         SELECT to_char(day, 'YYYY-MM-DD') AS day, status
@@ -2049,12 +2050,18 @@ export async function attachClient(formData: FormData) {
         if (name.length < 2 || phone.length < 8) throw new FormError("dados");
         clientId = randomUUID();
         await tx`
-          INSERT INTO clients (id, account_id, name, phone, channel)
-          VALUES (${clientId}, ${user.accountId}, ${name}, ${phone}, 'nao_informado')
+          INSERT INTO clients (id, account_id, name, phone, channel, from_outside)
+          VALUES (${clientId}, ${user.accountId}, ${name}, ${phone}, 'nao_informado', ${fromOutside})
         `;
       } else {
         const owned = await tx`SELECT id FROM clients WHERE id = ${clientId} AND account_id = ${user.accountId}`;
         if (!owned.length) throw new FormError("cliente");
+        if (fromOutside) {
+          await tx`
+            UPDATE clients SET from_outside = true
+            WHERE id = ${clientId} AND account_id = ${user.accountId}
+          `;
+        }
       }
       const other = await tx<{ id: string; status: string }[]>`
         SELECT id, status FROM orders

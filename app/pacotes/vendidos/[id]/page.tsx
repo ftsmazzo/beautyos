@@ -11,6 +11,7 @@ import {
   usePackageVisitNow,
 } from "@/desk/actions";
 import { dayRoster, serviceOptions, soldPackage, soldPackageVisits } from "@/desk/queries";
+import { paymentMethodsLabel } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -47,6 +48,7 @@ export default async function SoldPackagePage({
     expired: item.expired,
     late: item.late,
   });
+  const methods = paymentMethodsLabel(item.payMethods);
 
   return (
     <Panel user={user} current="/pacotes/vendidos" title="Pacote vendido">
@@ -65,7 +67,13 @@ export default async function SoldPackagePage({
         <strong>{item.clientName}</strong>
         {item.phone ? <p>{formatPhone(item.phone)}</p> : null}
         <p>
-          {item.name} · {item.used} de {item.total} usadas · {formatReais(item.priceCents)}
+          {item.name} · {item.used} de {item.total} usadas
+        </p>
+        <p>
+          Pago {formatReais(item.paidCents)}
+          {methods ? ` · ${methods}` : ""}
+          {item.paidCents !== item.priceCents ? ` · pacote ${formatReais(item.priceCents)}` : ""}
+          {item.paidCents < item.priceCents ? ` · falta ${formatReais(item.priceCents - item.paidCents)}` : ""}
         </p>
         <p>
           {deadline}

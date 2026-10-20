@@ -709,6 +709,8 @@ export type SoldPackage = {
   phone: string | null;
   name: string;
   priceCents: number;
+  paidCents: number;
+  payMethods: string | null;
   status: string;
   validUntil: string | null;
   started: boolean;
@@ -801,6 +803,19 @@ export async function overdueReturns(accountId: string, day: string) {
 export async function soldPackages(accountId: string, day: string) {
   return db()<SoldPackage[]>`
     SELECT cp.id, c.name AS "clientName", c.phone, cp.name, cp.price_cents AS "priceCents", cp.status,
+           COALESCE((
+             SELECT SUM(pay.amount_cents)::int
+             FROM payments pay
+             WHERE pay.order_id = cp.order_id
+           ), 0) AS "paidCents",
+           (
+             SELECT string_agg(method, ',' ORDER BY method)
+             FROM (
+               SELECT DISTINCT pay.method
+               FROM payments pay
+               WHERE pay.order_id = cp.order_id
+             ) methods
+           ) AS "payMethods",
            to_char(cp.valid_until, 'YYYY-MM-DD') AS "validUntil",
            cp.first_used_on IS NOT NULL AS started,
            (cp.valid_until IS NOT NULL AND cp.valid_until < ${day}::date) AS expired,

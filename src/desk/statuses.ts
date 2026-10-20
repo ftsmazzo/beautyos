@@ -22,6 +22,21 @@ export const PAYMENT_METHODS = [
   { value: "outros", label: "Outros" },
 ] as const;
 
+export function paymentMethodLabel(value: string) {
+  if (value === "conta") return "Conta do cliente";
+  return PAYMENT_METHODS.find((method) => method.value === value)?.label ?? value;
+}
+
+export function paymentMethodsLabel(raw: string | null | undefined) {
+  if (!raw) return "";
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map(paymentMethodLabel)
+    .join(" + ");
+}
+
 const MOVED = new Set(["chegou", "em_atendimento", "realizado"]);
 
 export function blockPaint(input: {

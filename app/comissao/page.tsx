@@ -182,7 +182,7 @@ export default async function CommissionPage({
               </table>
             ) : null}
           </div>
-          {rules.extrasLadder ? (
+          {operator && rules.extrasLadder ? (
             <div className="card">
               <h2>Meta de extras</h2>
               <p>

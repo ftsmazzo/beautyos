@@ -225,6 +225,10 @@ export default async function OrderPage({
                 <input name="phone" inputMode="numeric" />
               </label>
             </div>
+            <label className="check">
+              <input type="checkbox" name="from_outside" value="1" />
+              De fora. Conta no caixa e fica fora da análise de volta.
+            </label>
             <p>Se essa pessoa já tiver comanda neste dia, as linhas entram nela. Continua o mesmo atendimento.</p>
             <SubmitButton label="Completar" pendingLabel="Salvando…" />
           </form>

@@ -3,11 +3,20 @@ import { requireOperator } from "@/catalog/access";
 import { formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
 import { sellPackageOnDay } from "@/desk/actions";
 import { clientOptions, dayRoster, packagesForSale, soldPackages, type SoldPackage } from "@/desk/queries";
+import { paymentMethodsLabel } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SoldColumns } from "@/ui/sold-columns";
 import { SubmitButton } from "@/ui/submit-button";
+
+function paidLabel(row: SoldPackage) {
+  const parts = [formatReais(row.paidCents)];
+  const methods = paymentMethodsLabel(row.payMethods);
+  if (methods) parts.push(methods);
+  if (row.paidCents < row.priceCents) parts.push(`falta ${formatReais(row.priceCents - row.paidCents)}`);
+  return parts.join(" · ");
+}
 
 export const dynamic = "force-dynamic";
 
@@ -133,7 +142,7 @@ export default async function SoldPackagesPage({
               visits: `${row.used} de ${row.total}`,
               nextVisit: row.nextVisit ?? "—",
               situation: situation(row),
-              price: formatReais(row.priceCents),
+              paid: paidLabel(row),
             }))}
           />
         ) : null}

@@ -9,7 +9,7 @@ const COLUMNS = [
   { id: "idas", label: "Idas" },
   { id: "proxima", label: "Próxima" },
   { id: "prazo", label: "Prazo" },
-  { id: "venda", label: "Venda" },
+  { id: "pago", label: "Pago" },
 ] as const;
 
 type ColumnId = (typeof COLUMNS)[number]["id"];
@@ -24,7 +24,7 @@ export type SoldColumnRow = {
   visits: string;
   nextVisit: string;
   situation: string;
-  price: string;
+  paid: string;
 };
 
 function storedHidden(): ColumnId[] {
@@ -82,7 +82,7 @@ export function SoldColumns({ rows }: { rows: SoldColumnRow[] }) {
             {shown("idas") ? <th>Idas</th> : null}
             {shown("proxima") ? <th>Próxima</th> : null}
             {shown("prazo") ? <th>Prazo</th> : null}
-            {shown("venda") ? <th>Venda</th> : null}
+            {shown("pago") ? <th>Pago</th> : null}
             <th></th>
           </tr>
         </thead>
@@ -95,7 +95,7 @@ export function SoldColumns({ rows }: { rows: SoldColumnRow[] }) {
               {shown("idas") ? <td>{row.visits}</td> : null}
               {shown("proxima") ? <td>{row.nextVisit}</td> : null}
               {shown("prazo") ? <td>{row.situation}</td> : null}
-              {shown("venda") ? <td>{row.price}</td> : null}
+              {shown("pago") ? <td>{row.paid}</td> : null}
               <td>
                 <Link href={`/pacotes/vendidos/${row.id}`}>Ver</Link>
               </td>
