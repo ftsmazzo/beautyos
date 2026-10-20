@@ -122,6 +122,7 @@ function OrdersTable({
               <td data-label="Quem">
                 <strong>{who(order)}</strong>
                 {order.phone ? <div>{formatPhone(order.phone)}</div> : null}
+                {order.kind === "cliente" && order.professionalName ? <div>{order.professionalName}</div> : null}
                 {order.packageNote ? <div>{order.packageNote}</div> : null}
                 {order.incomplete ? <div>Cadastro pendente</div> : null}
                 {empty && !showSituation ? <div>Vazia</div> : null}
@@ -179,6 +180,22 @@ export default async function OrdersPage({
         ? listedOrders(user.accountId, "fechada", own, today, start, end, q || null)
         : Promise.resolve([]),
   ]);
+  const dayRows =
+    lista !== "dia"
+      ? []
+      : !q
+        ? orders
+        : orders.filter((order) => {
+            const text = q.toLowerCase();
+            const digits = q.replace(/\D/g, "");
+            const phone = (order.phone ?? "").replace(/\D/g, "");
+            if (digits.length >= 3 && phone.includes(digits)) return true;
+            return (
+              (order.clientName ?? "").toLowerCase().includes(text) ||
+              (order.professionalName ?? "").toLowerCase().includes(text) ||
+              who(order).toLowerCase().includes(text)
+            );
+          });
   const openRows =
     lista === "abertas"
       ? listed
@@ -263,13 +280,23 @@ export default async function OrdersPage({
               <SubmitButton label="Abrir comanda" pendingLabel="Abrindo…" />
             </form>
           ) : null}
+          <form className="row" action="/comandas">
+            <input type="hidden" name="dia" value={day} />
+            <label>
+              Busca
+              <input name="q" defaultValue={q} placeholder="Nome, celular ou profissional" />
+            </label>
+            <button className="btn" type="submit">
+              Buscar
+            </button>
+          </form>
           <div className="card">
-            {orders.length === 0 ? <p>Nenhuma comanda neste dia.</p> : null}
+            {dayRows.length === 0 ? <p>{q ? "Nenhuma comanda neste filtro." : "Nenhuma comanda neste dia."}</p> : null}
             <OrdersTable
-              orders={orders}
+              orders={dayRows}
               showDay={false}
               canClearEmpty={operator}
-              emptyBack={`/comandas?dia=${day}`}
+              emptyBack={q ? `/comandas?dia=${day}&q=${encodeURIComponent(q)}` : `/comandas?dia=${day}`}
             />
           </div>
         </>
