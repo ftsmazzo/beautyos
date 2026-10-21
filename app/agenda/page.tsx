@@ -191,7 +191,6 @@ export default async function AgendaPage({
                     </select>
                   </label>
                 )}
-                <p>Uma por profissional neste dia. Não entra na grade e fecha sem dinheiro.</p>
                 <SubmitButton label="Abrir consumo" pendingLabel="Abrindo…" className="teal" />
               </form>
             </Modal>

@@ -53,60 +53,44 @@ export default async function SoldPackagePage({
   return (
     <Panel user={user} current="/pacotes/vendidos" title="Pacote vendido">
       <ErrorNote code={query.erro} />
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
         <Link className="btn quiet" href="/pacotes/vendidos">
-          Pacotes vendidos
+          Vendidos
         </Link>
-        {item.orderId ? (
-          <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
-            Comanda da venda
-          </Link>
-        ) : null}
-      </div>
-      <div className="card">
-        <strong>{item.clientName}</strong>
-        {item.phone ? <p>{formatPhone(item.phone)}</p> : null}
-        <p>
-          {item.name} · {item.used} de {item.total} usadas
-        </p>
-        <p>
+        <span className="day-label">{item.clientName}</span>
+        {item.phone ? <span className="chip">{formatPhone(item.phone)}</span> : null}
+        <span className="chip">{item.name} · {item.used}/{item.total}</span>
+        <span className="chip">
           Pago {formatReais(item.paidCents)}
           {methods ? ` · ${methods}` : ""}
-          {item.paidCents !== item.priceCents ? ` · pacote ${formatReais(item.priceCents)}` : ""}
           {item.paidCents < item.priceCents ? ` · falta ${formatReais(item.priceCents - item.paidCents)}` : ""}
-        </p>
-        {item.paidCents < item.priceCents && item.orderId ? (
-          <p>
-            Receber continua na{" "}
-            <Link href={`/comandas/${item.orderId}`}>comanda da venda</Link>
-            .
-          </p>
-        ) : null}
-        <p>
+        </span>
+        <span className="chip">
           {deadline}
-          {item.pardons > 0 ? " · já houve perdão" : ""}
-          {item.nextVisit ? ` · próxima ${item.nextVisit}` : ""}
-        </p>
-        {item.status === "cancelado" ? <p>Cancelado.{item.cancelReason ? ` ${item.cancelReason}` : ""}</p> : null}
-        {item.status === "encerrado" ? <p>Encerrado após cobrar a diferença.</p> : null}
+          {item.pardons > 0 ? " · perdão" : ""}
+          {item.nextVisit ? ` · ${item.nextVisit}` : ""}
+        </span>
+        {item.orderId ? (
+          <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
+            Comanda
+          </Link>
+        ) : null}
+        {item.status === "cancelado" ? <span className="chip">{item.cancelReason || "Cancelado"}</span> : null}
+        {item.status === "encerrado" ? <span className="chip">Encerrado</span> : null}
         {warned ? (
-          <>
-            <p className="warn">
-              Pacote vencido.
-              {item.pardons > 0 ? ` Já houve perdão. Esta é a ${item.pardons + 1}ª vez.` : ""}
-            </p>
-            <p>Perdoar renova o prazo e alcança a última ida já marcada. Cobrar a diferença põe o avulso na comanda daquela ida e encerra o pacote.</p>
-            <form action={pardonPackage}>
-              <input type="hidden" name="package" value={item.id} />
-              <SubmitButton label="Perdoar" pendingLabel="Perdoando…" className="quiet" />
-            </form>
-          </>
+          <form action={pardonPackage}>
+            <input type="hidden" name="package" value={item.id} />
+            <SubmitButton
+              label={item.pardons > 0 ? `Perdoar · ${item.pardons + 1}ª` : "Perdoar"}
+              pendingLabel="Perdoando…"
+              className="quiet"
+            />
+          </form>
         ) : null}
       </div>
-      <div className="card">
-        <h2>Idas</h2>
-        {item.status === "ativo" ? <p>Falta agendar entra na comanda de hoje ou ganha um horário. Ida marcada pode mudar de dia. Ida depois do prazo cobra a diferença ou espera o perdão.</p> : null}
-        {visits.length === 0 ? <p>Nenhuma ida neste pacote.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {visits.length === 0 ? <p className="queue-empty">Nenhuma ida neste pacote.</p> : null}
         {visits.length > 0 ? (
           <table className="sheet">
             <thead>
@@ -223,7 +207,6 @@ export default async function SoldPackagePage({
         <form action={cancelPackageSale}>
           <input type="hidden" name="package" value={item.id} />
           <h2>Cancelar venda</h2>
-          <p>O que já foi usado permanece. O que não foi usado sai. Se o valor já entrou no caixa, o estorno sai hoje.</p>
           <label>
             Motivo
             <textarea name="reason" required minLength={3} maxLength={300} />
@@ -231,6 +214,7 @@ export default async function SoldPackagePage({
           <SubmitButton label="Cancelar venda" pendingLabel="Cancelando…" className="rose" />
         </form>
       ) : null}
+      </div>
     </Panel>
   );
 }

@@ -43,143 +43,173 @@ export default async function ClientFormPage({
     <Panel user={user} current="/clientes" title={person ? person.name : "Novo cliente"}>
       <ErrorNote code={query.erro} />
       {person && brief ? (
-        <div className="card">
-          <h2>Resumo</h2>
-          {brief.last ? (
-            <p>
-              Última visita {formatDay(brief.last.day)} {brief.last.time} · {brief.last.service} · {brief.last.professional}
-              {" · "}
-              {daysAbsent(brief.last.day, today)}
-              {brief.last.orderId ? (
-                <>
-                  {" · "}
-                  <Link href={`/comandas/${brief.last.orderId}`}>Comanda</Link>
-                </>
-              ) : null}
-            </p>
-          ) : (
-            <p>Sem visita realizada.</p>
-          )}
-          {brief.returns.length === 0 ? <p>Volta: sem visita realizada.</p> : null}
-          {brief.returns.map((row) => (
-            <p key={row.serviceId}>
-              Volta de {row.service}: {row.word}
-              {row.returnOn ? ` · ${formatDay(row.returnOn)}` : ""}
-              {` · última ${formatDay(row.day)}`}
-            </p>
-          ))}
-          <p>
-            Serviço que mais faz: {brief.topService ? `${brief.topService.name} · ${brief.topService.qty === 1 ? "1 vez" : `${brief.topService.qty} vezes`}` : "—"}
-          </p>
-          <p>
-            Produto que mais leva: {brief.topProduct ? `${brief.topProduct.name} · ${brief.topProduct.qty}` : "—"}
-          </p>
-          <h2>Conta</h2>
-          <p>
-            Gastou {formatReais(brief.money.spentCents)}
-            {brief.money.orderCount > 0
-              ? ` em ${brief.money.orderCount} ${brief.money.orderCount === 1 ? "comanda" : "comandas"}`
-              : ""}
-            .
-            {brief.money.dueCents > 0 ? ` A receber ${formatReais(brief.money.dueCents)}.` : ""}
-            {ledger && ledger.creditCents > 0
-              ? ` Crédito ${formatReais(ledger.creditCents)}. Pode usar na comanda aberta.`
-              : ""}
-            {brief.money.dueCents === 0 && (!ledger || ledger.creditCents === 0) ? " Conta em dia." : ""}
-            {" "}
-            O recebimento continua na comanda.{" "}
-            {brief.money.dueCents > 0 ? <Link href="/comandas?lista=abertas&filtro=falta">Fila a receber</Link> : null}
-          </p>
-          {brief.orders
-            .filter((order) => order.paidCents !== order.totalCents)
-            .map((order) => (
-              <p key={`conta-${order.id}`}>
-                <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
-                {" · "}
-                {formatReais(order.totalCents)}
-                {order.paidCents > order.totalCents
-                  ? ` · pago a mais ${formatReais(order.paidCents - order.totalCents)}`
-                  : ` · em aberto ${formatReais(order.totalCents - order.paidCents)}`}
-                {" · "}
-                {order.status === "fechada" ? "fechada" : "aberta"}
-              </p>
-            ))}
-          {ledger ? (
-            <>
-              <h2>Movimento da conta</h2>
-              <p>O que foi pago a mais vira crédito. Usar na comanda aberta tira daqui e não volta para a gaveta.</p>
-              {ledger.sources.length === 0 ? <p>Nada pago a mais.</p> : null}
-              {ledger.sources.map((row) => (
-                <p key={`origem-${row.orderId}`}>
-                  Entrou · <Link href={`/comandas/${row.orderId}`}>{formatDay(row.day)}</Link>
-                  {` · ${formatReais(row.cents)}`}
-                </p>
-              ))}
-              {ledger.uses.length === 0 ? <p>Nenhum uso ainda.</p> : null}
-              {ledger.uses.map((row, index) => (
-                <p key={`uso-${row.orderId}-${index}`}>
-                  Usado · <Link href={`/comandas/${row.orderId}`}>{formatDay(row.day)}</Link>
-                  {` · ${formatReais(row.cents)}`}
-                </p>
-              ))}
-            </>
+        <div className="desk">
+          <div className="desk-bar">
+            {brief.last ? (
+              <span className="chip">
+                {formatDay(brief.last.day)} {brief.last.time} · {brief.last.service} · {brief.last.professional} · {daysAbsent(brief.last.day, today)}
+              </span>
+            ) : (
+              <span className="chip">Sem visita</span>
+            )}
+            {brief.last?.orderId ? (
+              <Link className="btn quiet" href={`/comandas/${brief.last.orderId}`}>
+                Última comanda
+              </Link>
+            ) : null}
+            <span className="chip">
+              Gastou {formatReais(brief.money.spentCents)}
+              {brief.money.orderCount > 0 ? ` · ${brief.money.orderCount}` : ""}
+            </span>
+            {brief.money.dueCents > 0 ? (
+              <Link className="chip" href="/comandas?lista=abertas&filtro=falta">
+                A receber {formatReais(brief.money.dueCents)}
+              </Link>
+            ) : null}
+            {ledger && ledger.creditCents > 0 ? <span className="chip">Crédito {formatReais(ledger.creditCents)}</span> : null}
+            <span className="chip">{brief.topService ? `${brief.topService.name} · ${brief.topService.qty}` : "Sem serviço"}</span>
+            <span className="chip">{brief.topProduct ? `${brief.topProduct.name} · ${brief.topProduct.qty}` : "Sem produto"}</span>
+            <form action={openDayOrder}>
+              <input type="hidden" name="from" value="cliente" />
+              <input type="hidden" name="client" value={person.id} />
+              <input type="hidden" name="day" value={today} />
+              <SubmitButton label="Comanda de hoje" pendingLabel="Abrindo…" />
+            </form>
+          </div>
+          {brief.returns.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Volta</span></div>
+              <table>
+                <tbody>
+                  {brief.returns.map((row) => (
+                    <tr key={row.serviceId}>
+                      <td>{row.service}</td>
+                      <td>{row.word}{row.returnOn ? ` · ${formatDay(row.returnOn)}` : ""}</td>
+                      <td>{formatDay(row.day)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : null}
-          {brief.packages.length === 0 ? <p>Nenhum pacote ativo.</p> : null}
-          {brief.packages.map((item) => (
-            <p key={item.id}>
-              <Link href={`/pacotes/vendidos/${item.id}`}>{item.name}</Link>
-              {` · ${item.used} de ${item.total} · ${packageDeadline(item)}`}
-            </p>
-          ))}
-          <h2>Comandas</h2>
-          {brief.orders.length === 0 ? <p>Nenhuma comanda ainda.</p> : null}
-          {brief.orders.map((order) => (
-            <p key={order.id}>
-              <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
-              {" · "}
-              {formatReais(order.totalCents)}
-              {order.paidCents > order.totalCents ? ` · pago a mais ${formatReais(order.paidCents - order.totalCents)}` : ""}
-              {order.paidCents < order.totalCents ? ` · em aberto ${formatReais(order.totalCents - order.paidCents)}` : ""}
-              {" · "}
-              {order.status === "fechada" ? "fechada" : "aberta"}
-            </p>
-          ))}
-          <h2>Agenda</h2>
-          {brief.agenda.length === 0 ? <p>Nenhum horário nesta pessoa.</p> : null}
-          {brief.agenda.map((visit) => (
-            <p key={visit.id}>
-              {formatDay(visit.day)} {visit.time} · {visit.service} · {visit.professional}
-              {" · "}
-              {APPOINTMENT_STATUS[visit.status as keyof typeof APPOINTMENT_STATUS]?.word ?? visit.status}
-              {visit.orderId ? (
-                <>
-                  {" · "}
-                  <Link href={`/comandas/${visit.orderId}`}>Comanda</Link>
-                </>
-              ) : null}
-            </p>
-          ))}
-          <h2>Avaliações</h2>
-          <p>Texto da visita, quem escreveu e quando. Sai da avaliação na comanda.</p>
-          {brief.notes.length === 0 ? <p>Nenhuma avaliação ainda.</p> : null}
-          {brief.notes.map((note) => (
-            <p key={note.id}>
-              {formatDay(note.day)} {note.time} · {note.service}
-              {note.orderId ? (
-                <>
-                  {" · "}
-                  <Link href={`/comandas/${note.orderId}`}>Comanda</Link>
-                </>
-              ) : null}
-              {` · ${note.author} · ${note.at} · ${note.body}`}
-            </p>
-          ))}
-          <form action={openDayOrder}>
-            <input type="hidden" name="from" value="cliente" />
-            <input type="hidden" name="client" value={person.id} />
-            <input type="hidden" name="day" value={today} />
-            <SubmitButton label="Abrir comanda de hoje" pendingLabel="Abrindo…" />
-          </form>
+          {brief.orders.some((order) => order.paidCents !== order.totalCents) ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Conta</span></div>
+              <table>
+                <tbody>
+                  {brief.orders
+                    .filter((order) => order.paidCents !== order.totalCents)
+                    .map((order) => (
+                      <tr key={`conta-${order.id}`}>
+                        <td><Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link></td>
+                        <td>{formatReais(order.totalCents)}</td>
+                        <td>
+                          {order.paidCents > order.totalCents
+                            ? `pago a mais ${formatReais(order.paidCents - order.totalCents)}`
+                            : `em aberto ${formatReais(order.totalCents - order.paidCents)}`}
+                        </td>
+                        <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {ledger && (ledger.sources.length > 0 || ledger.uses.length > 0) ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Crédito</span></div>
+              <table>
+                <tbody>
+                  {ledger.sources.map((row) => (
+                    <tr key={`origem-${row.orderId}`}>
+                      <td>Entrou</td>
+                      <td><Link href={`/comandas/${row.orderId}`}>{formatDay(row.day)}</Link></td>
+                      <td>{formatReais(row.cents)}</td>
+                    </tr>
+                  ))}
+                  {ledger.uses.map((row, index) => (
+                    <tr key={`uso-${row.orderId}-${index}`}>
+                      <td>Usado</td>
+                      <td><Link href={`/comandas/${row.orderId}`}>{formatDay(row.day)}</Link></td>
+                      <td>{formatReais(row.cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {brief.packages.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Pacotes</span></div>
+              <table>
+                <tbody>
+                  {brief.packages.map((item) => (
+                    <tr key={item.id}>
+                      <td><Link href={`/pacotes/vendidos/${item.id}`}>{item.name}</Link></td>
+                      <td>{item.used} de {item.total}</td>
+                      <td>{packageDeadline(item)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {brief.orders.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Comandas</span></div>
+              <table>
+                <tbody>
+                  {brief.orders.map((order) => (
+                    <tr key={order.id}>
+                      <td><Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link></td>
+                      <td>{formatReais(order.totalCents)}</td>
+                      <td>
+                        {order.paidCents > order.totalCents ? `pago a mais ${formatReais(order.paidCents - order.totalCents)}` : ""}
+                        {order.paidCents < order.totalCents ? `em aberto ${formatReais(order.totalCents - order.paidCents)}` : ""}
+                      </td>
+                      <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {brief.agenda.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Agenda</span></div>
+              <table>
+                <tbody>
+                  {brief.agenda.map((visit) => (
+                    <tr key={visit.id}>
+                      <td>{formatDay(visit.day)} {visit.time}</td>
+                      <td>{visit.service}</td>
+                      <td>{visit.professional}</td>
+                      <td>{APPOINTMENT_STATUS[visit.status as keyof typeof APPOINTMENT_STATUS]?.word ?? visit.status}</td>
+                      <td>{visit.orderId ? <Link href={`/comandas/${visit.orderId}`}>Comanda</Link> : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {brief.notes.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Avaliações</span></div>
+              <table>
+                <tbody>
+                  {brief.notes.map((note) => (
+                    <tr key={note.id}>
+                      <td>{formatDay(note.day)} {note.time}</td>
+                      <td>{note.service}</td>
+                      <td>{note.author}</td>
+                      <td>{note.body}</td>
+                      <td>{note.orderId ? <Link href={`/comandas/${note.orderId}`}>Comanda</Link> : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       ) : null}
       <form action={saveClient}>
@@ -233,7 +263,6 @@ export default async function ClientFormPage({
           </label>
         </div>
         <h2>Indicação</h2>
-        <p>Vale quando o canal é indicação. A comissão é de quem trouxe, por cima de quem executou. Em branco usa {rules.referral}% da casa.</p>
         <div className="split">
           <label>
             Profissional que indicou

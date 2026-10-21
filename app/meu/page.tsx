@@ -15,9 +15,7 @@ export default async function MeuPortalPage() {
   if (!user.clientId) {
     return (
       <Panel user={user} current="/meu" title="Minha conta">
-        <div className="card">
-          <p>Este login ainda não está ligado à sua ficha. Peça ao balcão para vincular em Acesso.</p>
-        </div>
+        <p className="queue-empty">Este login ainda não está ligado à ficha. O balcão vincula em Acesso.</p>
       </Panel>
     );
   }
@@ -48,53 +46,60 @@ export default async function MeuPortalPage() {
 
   return (
     <Panel user={user} current="/meu" title="Minha conta">
-      <p>
-        {client?.name ?? user.name}
-        {client?.phone ? ` · ${formatPhone(client.phone)}` : ""} · {user.accountName}
-      </p>
-
-      <div className="card stack">
-        <strong>Próximos horários</strong>
-        {appointments.length === 0 ? <p className="muted">Nenhum horário marcado.</p> : null}
-        {appointments.map((row) => (
-          <div key={row.id}>
-            <strong>
-              {formatDay(row.day)} {row.start}–{row.end}
-            </strong>
-            <div className="muted">
-              {row.serviceName} · {row.professionalName} · {row.status}
-            </div>
-          </div>
-        ))}
-        <p className="muted" style={{ margin: 0 }}>
-          Para remarcar ou cancelar, fale no WhatsApp da casa ou no balcão.
-        </p>
+      <div className="desk">
+      <div className="desk-bar">
+        <span className="day-label">{client?.name ?? user.name}</span>
+        {client?.phone ? <span className="chip">{formatPhone(client.phone)}</span> : null}
+        <span className="chip">{user.accountName}</span>
+        <Link className="btn quiet" href="/inicio">Início</Link>
       </div>
-
-      <div className="card stack">
-        <strong>Pacotes e créditos</strong>
-        {packages.length === 0 ? <p className="muted">Nenhum pacote ativo.</p> : null}
-        {packages.map((row) => {
-          const left = row.total - row.used;
-          return (
-            <div key={row.id}>
-              <strong>{row.name}</strong>
-              <div className="muted">
-                {left} de {row.total} créditos
-                {row.validUntil
-                  ? row.started
-                    ? ` · válido até ${formatDay(row.validUntil)}`
-                    : ` · prazo começa na 1ª ida`
-                  : ""}
-              </div>
-            </div>
-          );
-        })}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="desk-bar"><span className="day-label">Horários</span></div>
+        {appointments.length === 0 ? <p className="queue-empty">Nenhum horário marcado.</p> : null}
+        {appointments.length > 0 ? (
+          <table>
+            <tbody>
+              {appointments.map((row) => (
+                <tr key={row.id}>
+                  <td>{formatDay(row.day)} {row.start}–{row.end}</td>
+                  <td>{row.serviceName}</td>
+                  <td>{row.professionalName}</td>
+                  <td>{row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
       </div>
-
-      <div className="card stack">
-        <strong>Histórico recente</strong>
-        {history.length === 0 ? <p className="muted">Nenhuma visita fechada ainda.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="desk-bar"><span className="day-label">Pacotes</span></div>
+        {packages.length === 0 ? <p className="queue-empty">Nenhum pacote ativo.</p> : null}
+        {packages.length > 0 ? (
+          <table>
+            <tbody>
+              {packages.map((row) => {
+                const left = row.total - row.used;
+                return (
+                  <tr key={row.id}>
+                    <td>{row.name}</td>
+                    <td>{left} de {row.total}</td>
+                    <td>
+                      {row.validUntil
+                        ? row.started
+                          ? formatDay(row.validUntil)
+                          : "prazo na 1ª ida"
+                        : ""}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : null}
+      </div>
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="desk-bar"><span className="day-label">Histórico</span></div>
+        {history.length === 0 ? <p className="queue-empty">Nenhuma visita fechada ainda.</p> : null}
         {history.length > 0 ? (
           <table>
             <thead>
@@ -118,10 +123,7 @@ export default async function MeuPortalPage() {
           </table>
         ) : null}
       </div>
-
-      <p className="muted">
-        <Link href="/inicio">Início</Link>
-      </p>
+      </div>
     </Panel>
   );
 }

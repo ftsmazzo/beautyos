@@ -124,11 +124,9 @@ export default async function ProfessionalFormPage({
             ))}
           </select>
         </label>
-        <p>Sem login a ficha continua. Ligar usa um acesso de profissional que já existe. Desativar o login não apaga a ficha.</p>
         {user.role === "administrador" && !person?.userId ? (
           <>
             <h2>Criar login</h2>
-            <p>Nasce com papel de profissional. Se ficar em branco, a ficha continua sem acesso.</p>
             <div className="split">
               <label>
                 E-mail do acesso
@@ -142,7 +140,6 @@ export default async function ProfessionalFormPage({
           </>
         ) : null}
         <h2>Serviços</h2>
-        <p>A célula mostra o número que vale. Padrão segue o serviço e acompanha o catálogo. Mudar grava o ajuste. Limpar volta ao padrão. No pacote, o preço interno manda e esta comissão continua.</p>
         <RosterShortcut checkName="does" />
         {visible.length === 0 ? <p>Cadastre um serviço para montar esta tabela.</p> : null}
         {visible.length > 0 ? (
@@ -199,10 +196,8 @@ export default async function ProfessionalFormPage({
           </table>
         ) : null}
         <h2>Horário fixo</h2>
-        <p>O intervalo entre os dois períodos é o almoço. Fora deles a coluna fica fechada.</p>
         <HoursGrid prefix="f" values={hourValues(hours, false)} />
         <h2>Horário por período</h2>
-        <p>Vale só entre as datas. O horário fixo continua guardado.</p>
         <div className="split">
           <label>
             De
@@ -217,11 +212,12 @@ export default async function ProfessionalFormPage({
         <SubmitButton label="Salvar profissional" />
       </form>
       {user.role === "administrador" && person?.userId && linkedLogin ? (
-        <div className="card">
-          <h2>Login desta ficha</h2>
-          <p>
-            {linkedLogin.email} · {linkedLogin.role === "profissional" ? "Profissional" : linkedLogin.role} · {linkedLogin.active ? "ativo" : "desativado"}
-          </p>
+        <div className="desk">
+          <div className="desk-bar">
+            <span className="day-label">{linkedLogin.email}</span>
+            <span className="chip">{linkedLogin.role === "profissional" ? "Profissional" : linkedLogin.role}</span>
+            <span className="chip">{linkedLogin.active ? "ativo" : "desativado"}</span>
+          </div>
           <form action={setAccessPassword} className="row">
             <input type="hidden" name="id" value={person.userId} />
             <input type="hidden" name="back" value="ficha" />
@@ -232,7 +228,7 @@ export default async function ProfessionalFormPage({
             </label>
             <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
           </form>
-          {person.userId === user.id ? <p>O próprio acesso não se desativa por aqui.</p> : (
+          {person.userId === user.id ? <span className="chip">Seu acesso</span> : (
             <form action={setAccessActive}>
               <input type="hidden" name="id" value={person.userId} />
               <input type="hidden" name="back" value="ficha" />

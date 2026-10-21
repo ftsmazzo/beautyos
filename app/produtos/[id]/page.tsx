@@ -60,14 +60,11 @@ export default async function ProductFormPage({
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       {product ? (
-        <div className="card">
-          <p>
-            Saldo {product.balance}
-            {product.minQty > 0 ? ` · mínimo ${product.minQty}` : ""}
-            {" · margem "}
-            {formatReais(product.salePriceCents - product.costCents)}
-            {staffNow != null ? ` · consumo do profissional ${formatReais(staffNow)}` : ""}
-          </p>
+        <div className="desk-bar">
+          <span className="chip">Saldo {product.balance}</span>
+          {product.minQty > 0 ? <span className="chip">Mínimo {product.minQty}</span> : null}
+          <span className="chip">Margem {formatReais(product.salePriceCents - product.costCents)}</span>
+          {staffNow != null ? <span className="chip">Consumo {formatReais(staffNow)}</span> : null}
         </div>
       ) : null}
       <form action={saveProduct}>
@@ -131,10 +128,6 @@ export default async function ProductFormPage({
             <input name="min" type="number" min={0} defaultValue={product?.minQty ?? 0} />
           </label>
         </div>
-        <p>
-          Zero no mínimo não avisa. A margem é o preço menos o custo
-          {product ? `: ${formatReais(product.salePriceCents - product.costCents)}` : ""}.
-        </p>
         <label>
           Preço para o profissional
           {product ? (
@@ -149,7 +142,6 @@ export default async function ProductFormPage({
             <input name="staff_price" placeholder="segue a casa" />
           )}
         </label>
-        <p>O campo mostra o valor que vale. Padrão é {rules.consumption}% do preço de venda e acompanha a casa. Um número diferente fica neste produto. Limpar volta ao padrão.</p>
         <h2>Fornecedor de costume</h2>
         <label>
           Já cadastrado
@@ -182,7 +174,6 @@ export default async function ProductFormPage({
           </label>
         </div>
         <h2>Comissão de quem vende</h2>
-        <p>A célula mostra o percentual que vale. Padrão é o deste produto e acompanha quando ele muda. Limpar volta ao padrão.</p>
         {sellers.length === 0 ? <p>Nenhum profissional ativo.</p> : null}
         {sellers.map((person) => (
           <label key={person.id}>
@@ -197,7 +188,6 @@ export default async function ProductFormPage({
           </label>
         ))}
         <h2>Combo</h2>
-        <p>Na venda, saem os componentes. O preço e a comissão são os deste produto.</p>
         {components.map((component) => (
           <label className="check" key={component.componentId}>
             <input type="checkbox" name="drop_component" value={component.componentId} />
@@ -236,7 +226,6 @@ export default async function ProductFormPage({
               <form action={moveStock}>
                 <input type="hidden" name="id" value={product.id} />
                 <input type="hidden" name="reason" value="compra" />
-                <p>Entra no estoque e passa a ser o custo.</p>
                 <label>
                   Quantidade
                   <input name="qty" type="number" min={1} required />
@@ -256,7 +245,6 @@ export default async function ProductFormPage({
               <form action={moveStock}>
                 <input type="hidden" name="id" value={product.id} />
                 <input type="hidden" name="reason" value="ajuste" />
-                <p>Quantidade negativa tira do estoque.</p>
                 <label>
                   Quantidade
                   <input name="qty" type="number" required />
@@ -272,7 +260,6 @@ export default async function ProductFormPage({
               <form action={moveStock}>
                 <input type="hidden" name="id" value={product.id} />
                 <input type="hidden" name="reason" value="conferencia" />
-                <p>Informe a quantidade contada. A diferença vira o movimento.</p>
                 <label>
                   Quantidade contada
                   <input name="qty" type="number" min={0} required />
@@ -285,9 +272,8 @@ export default async function ProductFormPage({
               </form>
             </Modal>
           </div>
-          <div className="card">
-            <h2>Últimos movimentos</h2>
-            {movements.length === 0 ? <p>Nenhum movimento ainda.</p> : null}
+          <div className="queue" style={{ overflowX: "auto" }}>
+            {movements.length === 0 ? <p className="queue-empty">Nenhum movimento ainda.</p> : null}
             {movements.length > 0 ? (
               <table>
                 <thead>

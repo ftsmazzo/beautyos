@@ -100,7 +100,6 @@ export default async function ServiceFormPage({
           </label>
         </div>
         <h2>Quem executa</h2>
-        <p>A célula mostra o número que vale. Padrão segue este serviço e acompanha quando o catálogo muda. Mudar grava o ajuste. Limpar volta ao padrão. Tirar a pessoa tira dos dois lados.</p>
         <RosterShortcut checkName="does" />
         {roster.length === 0 ? <p>Cadastre um profissional para montar esta tabela.</p> : null}
         {roster.length > 0 ? (
@@ -161,7 +160,6 @@ export default async function ServiceFormPage({
           </table>
         ) : null}
         <h2>Próxima troca de preço</h2>
-        <p>Na data, o avulso troca. Comissão, tempo, pacote e valor próprio de quem não está no padrão ficam.</p>
         {service?.priceChangedOn ? <p>Preço avulso em vigor desde {formatDay(service.priceChangedOn)}.</p> : null}
         <div className="split">
           <label>
@@ -174,7 +172,6 @@ export default async function ServiceFormPage({
           </label>
         </div>
         <h2>Desconto de dia</h2>
-        <p>Vale no avulso. Horário já marcado e pacote ficam de fora.</p>
         {discounts.map((discount) => (
           <label className="check" key={discount.id}>
             <input type="checkbox" name="drop_discount" value={discount.id} />
@@ -217,7 +214,6 @@ export default async function ServiceFormPage({
           </label>
         </div>
         <h2>Insumo</h2>
-        <p>Na realização, esta quantidade sai do estoque. Não cobra, não gera comissão e não desconta o profissional.</p>
         {supplies.map((supply) => (
           <label className="check" key={supply.productId}>
             <input type="checkbox" name="drop_supply" value={supply.productId} />

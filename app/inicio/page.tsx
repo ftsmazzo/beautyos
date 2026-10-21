@@ -451,22 +451,18 @@ export default async function StartPage({
               Comissão de quem indicou (%)
               <input name="referral" type="number" min={0} max={100} required defaultValue={rules.referral} />
             </label>
-            <p>Vale por cima de quem executou. Cada cliente pode ter um número diferente.</p>
             <label>
               Consumo do profissional (% do preço de venda)
               <input name="consumption" type="number" min={0} max={100} required defaultValue={rules.consumption} />
             </label>
-            <p>O preço de consumo de cada produto segue este percentual, até alguém gravar um valor próprio.</p>
             <label>
               Desconto do serviço entre profissionais (%)
               <input name="service_discount" type="number" min={0} max={100} required defaultValue={rules.serviceDiscount} />
             </label>
-            <p>Zero não desconta. O valor da ficha, já com esse desconto, vira a comissão de quem executou e o abate de quem recebeu. Não entra na agenda nem no caixa.</p>
             <label className="check">
               <input type="checkbox" name="extras_ladder" value="1" defaultChecked={rules.extrasLadder} />
               Mostrar meta de extras
             </label>
-            <p>Conta só o serviço marcado na ficha. Ordinário e cortesia ficam fora. Sem percentual inventado.</p>
             <SubmitButton label="Salvar regras" />
           </form>
           <h2>Máquinas de cartão</h2>

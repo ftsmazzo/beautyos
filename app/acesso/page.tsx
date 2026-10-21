@@ -50,94 +50,104 @@ export default async function AccessPage({
 
   return (
     <Panel user={user} current="/acesso" title="Equipe de acesso">
-      <p>Quem entra nesta casa, e com qual papel. Desativar tira o acesso e as sessões. A ficha do profissional continua.</p>
+      <div className="desk">
       {params.erro === "email" ? <p className="error">Esse e-mail já existe nesta casa.</p> : null}
       {params.erro === "dados" ? <p className="error">Revise nome, e-mail, senha e papel.</p> : null}
       {params.erro === "proprio" ? <p className="error">Você não desativa o próprio acesso.</p> : null}
       {params.erro === "ultimo" ? <p className="error">A casa precisa de um administrador ativo.</p> : null}
-      {params.ok === "modulos" ? <p className="ok">Módulos salvos. O que ficou desligado sai do menu e da rota.</p> : null}
-      <form action={saveHouseModules} className="card">
-        <h2>Módulos</h2>
-        <p>Início, agenda, comandas, serviços, profissionais, clientes e acesso ficam sempre ligados. O resto a casa liga ou desliga.</p>
-        {HOUSE_MODULES.map((item) => (
-          <label className="check" key={item.id}>
-            <input type="checkbox" name={item.id} value="1" defaultChecked={modules[item.id]} />
-            {item.label}
-          </label>
-        ))}
-        <SubmitButton label="Salvar módulos" pendingLabel="Salvando…" />
-      </form>
-      {people.map((person) => (
-        <div className="card" key={person.id}>
-          <p>
-            <strong>{person.name}</strong>
-            {` · ${person.email} · ${person.active ? "ativo" : "desativado"}`}
-          </p>
-          <p>
-            {person.professionalId ? (
-              <>
-                Ficha · <Link href={`/profissionais/${person.professionalId}`}>{person.professionalName}</Link>
-              </>
-            ) : (
-              "Sem ficha de profissional."
-            )}
-          </p>
-          <form action={setAccessRole} className="row">
-            <input type="hidden" name="id" value={person.id} />
-            <label>
-              Papel
-              <select name="role" defaultValue={person.role}>
-                <option value="balcao">Balcão</option>
-                <option value="administrador">Administrador</option>
-                <option value="profissional">Profissional</option>
-                <option value="cliente">Cliente</option>
-              </select>
+      {params.ok === "modulos" ? <p className="ok">Módulos salvos.</p> : null}
+      <div className="desk-bar">
+        <span className="chip">{people.length}</span>
+      </div>
+      <details className="desk-secondary">
+        <summary>Módulos</summary>
+        <form action={saveHouseModules}>
+          {HOUSE_MODULES.map((item) => (
+            <label className="check" key={item.id}>
+              <input type="checkbox" name={item.id} value="1" defaultChecked={modules[item.id]} />
+              {item.label}
             </label>
-            <SubmitButton label="Salvar papel" pendingLabel="Salvando…" />
-          </form>
-          <form action={setAccessPassword} className="row">
-            <input type="hidden" name="id" value={person.id} />
-            <label>
-              Nova senha
-              <input name="password" type="password" required minLength={8} autoComplete="new-password" />
-            </label>
-            <SubmitButton label="Trocar senha" pendingLabel="Trocando…" className="quiet" />
-          </form>
-          {person.role === "cliente" ? (
-            <form action={setAccessClient} className="row">
-              <input type="hidden" name="id" value={person.id} />
-              <label>
-                Ficha do cliente
-                <select name="client" defaultValue={person.clientId ?? ""}>
-                  <option value="">Sem vínculo</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name} · {formatPhone(client.phone)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <SubmitButton label="Vincular ficha" pendingLabel="Salvando…" />
-            </form>
-          ) : null}
-          {person.role === "cliente" && person.clientName ? (
-            <p>
-              Portal · <Link href="/meu">{person.clientName}</Link>
-            </p>
-          ) : null}
-          {person.id === user.id ? <p>Este é o seu acesso.</p> : (
-            <form action={setAccessActive}>
-              <input type="hidden" name="id" value={person.id} />
-              <input type="hidden" name="active" value={person.active ? "0" : "1"} />
-              <SubmitButton
-                label={person.active ? "Desativar login" : "Reativar login"}
-                pendingLabel="Salvando…"
-                className="quiet"
-              />
-            </form>
-          )}
-        </div>
-      ))}
+          ))}
+          <SubmitButton label="Salvar módulos" pendingLabel="Salvando…" />
+        </form>
+      </details>
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Papel</th>
+              <th>Senha</th>
+              <th>Vínculo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {people.map((person) => (
+              <tr key={person.id}>
+                <td>
+                  <strong>{person.name}</strong>
+                  <div>{person.email}</div>
+                  <div>{person.active ? "ativo" : "desativado"}</div>
+                </td>
+                <td>
+                  <form action={setAccessRole}>
+                    <input type="hidden" name="id" value={person.id} />
+                    <select name="role" defaultValue={person.role} aria-label={`Papel de ${person.name}`}>
+                      <option value="balcao">Balcão</option>
+                      <option value="administrador">Administrador</option>
+                      <option value="profissional">Profissional</option>
+                      <option value="cliente">Cliente</option>
+                    </select>
+                    <SubmitButton label="Salvar" pendingLabel="Salvando…" />
+                  </form>
+                </td>
+                <td>
+                  <form action={setAccessPassword}>
+                    <input type="hidden" name="id" value={person.id} />
+                    <input name="password" type="password" required minLength={8} autoComplete="new-password" aria-label={`Senha de ${person.name}`} placeholder="Nova senha" />
+                    <SubmitButton label="Trocar" pendingLabel="Trocando…" className="quiet" />
+                  </form>
+                </td>
+                <td>
+                  {person.professionalId ? (
+                    <Link href={`/profissionais/${person.professionalId}`}>{person.professionalName}</Link>
+                  ) : null}
+                  {person.role === "cliente" ? (
+                    <form action={setAccessClient}>
+                      <input type="hidden" name="id" value={person.id} />
+                      <select name="client" defaultValue={person.clientId ?? ""} aria-label={`Ficha de ${person.name}`}>
+                        <option value="">Sem vínculo</option>
+                        {clients.map((client) => (
+                          <option key={client.id} value={client.id}>
+                            {client.name} · {formatPhone(client.phone)}
+                          </option>
+                        ))}
+                      </select>
+                      <SubmitButton label="Vincular" pendingLabel="Salvando…" />
+                    </form>
+                  ) : null}
+                </td>
+                <td>
+                  {person.id === user.id ? (
+                    <span className="chip">Você</span>
+                  ) : (
+                    <form action={setAccessActive}>
+                      <input type="hidden" name="id" value={person.id} />
+                      <input type="hidden" name="active" value={person.active ? "0" : "1"} />
+                      <SubmitButton
+                        label={person.active ? "Desativar" : "Reativar"}
+                        pendingLabel="Salvando…"
+                        className="quiet"
+                      />
+                    </form>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <form action={createAccess}>
         <label>
           Nome
@@ -162,6 +172,7 @@ export default async function AccessPage({
         </label>
         <SubmitButton label="Incluir" />
       </form>
+      </div>
     </Panel>
   );
 }
