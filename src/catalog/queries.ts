@@ -178,12 +178,29 @@ export async function houseModules(accountId: string) {
 }
 
 export async function listCardAcquirers(accountId: string) {
-  return db()<{ id: string; name: string; debitBps: number; creditBps: number; active: boolean }[]>`
+  const machines = await db()<{ id: string; name: string; debitBps: number; creditBps: number; active: boolean }[]>`
     SELECT id, name, debit_bps AS "debitBps", credit_bps AS "creditBps", active
     FROM card_acquirers
     WHERE account_id = ${accountId}
     ORDER BY active DESC, name
   `;
+  const brands = await db()<{
+    id: string;
+    acquirerId: string;
+    name: string;
+    debitBps: number;
+    creditBps: number;
+    active: boolean;
+  }[]>`
+    SELECT id, acquirer_id AS "acquirerId", name, debit_bps AS "debitBps", credit_bps AS "creditBps", active
+    FROM card_brands
+    WHERE account_id = ${accountId}
+    ORDER BY name
+  `;
+  return machines.map((machine) => ({
+    ...machine,
+    brands: brands.filter((brand) => brand.acquirerId === machine.id),
+  }));
 }
 
 export async function houseRules(accountId: string) {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
-import { saveCardAcquirer, saveHouseRules, stopCardAcquirer } from "@/catalog/house-actions";
+import { saveCardAcquirer, saveCardBrand, saveHouseRules, stopCardAcquirer, stopCardBrand } from "@/catalog/house-actions";
 import {
   applyDuePrices,
   birthdaysAhead,
@@ -486,9 +486,10 @@ export default async function StartPage({
             <SubmitButton label="Salvar regras" />
           </form>
           <h2>Máquinas de cartão</h2>
-          <p className="desk-hint">Cada maquininha tem débito e crédito. Na comanda, o pagamento escolhe qual.</p>
+          <p className="desk-hint">A máquina guarda a taxa base. Cada bandeira pode ter débito e crédito diferentes. Sem bandeira, vale a base.</p>
           {acquirers.filter((machine) => machine.active).map((machine) => (
-            <form key={machine.id} action={saveCardAcquirer}>
+            <div key={machine.id} className="stack">
+            <form action={saveCardAcquirer}>
               <input type="hidden" name="id" value={machine.id} />
               <div className="split">
                 <label>
@@ -496,29 +497,77 @@ export default async function StartPage({
                   <input name="name" required defaultValue={machine.name} />
                 </label>
                 <label>
-                  Débito (%)
+                  Débito base (%)
                   <input name="debit" required defaultValue={(machine.debitBps / 100).toFixed(2).replace(".", ",")} />
                 </label>
                 <label>
-                  Crédito (%)
+                  Crédito base (%)
                   <input name="credit" required defaultValue={(machine.creditBps / 100).toFixed(2).replace(".", ",")} />
                 </label>
               </div>
               <div className="row">
-                <SubmitButton label="Salvar" pendingLabel="Salvando…" />
+                <SubmitButton label="Salvar máquina" pendingLabel="Salvando…" />
                 <span className="chip">
-                  débito {formatRate(machine.debitBps)} · crédito {formatRate(machine.creditBps)}
+                  base {formatRate(machine.debitBps)} / {formatRate(machine.creditBps)}
                 </span>
               </div>
             </form>
+            {machine.brands.filter((brand) => brand.active).map((brand) => (
+              <form key={brand.id} action={saveCardBrand}>
+                <input type="hidden" name="id" value={brand.id} />
+                <input type="hidden" name="acquirer" value={machine.id} />
+                <div className="split">
+                  <label>
+                    Bandeira
+                    <input name="name" required defaultValue={brand.name} />
+                  </label>
+                  <label>
+                    Débito (%)
+                    <input name="debit" required defaultValue={(brand.debitBps / 100).toFixed(2).replace(".", ",")} />
+                  </label>
+                  <label>
+                    Crédito (%)
+                    <input name="credit" required defaultValue={(brand.creditBps / 100).toFixed(2).replace(".", ",")} />
+                  </label>
+                </div>
+                <SubmitButton label="Salvar bandeira" pendingLabel="Salvando…" className="quiet" />
+              </form>
+            ))}
+            <form action={saveCardBrand}>
+              <input type="hidden" name="acquirer" value={machine.id} />
+              <div className="split">
+                <label>
+                  Nova bandeira
+                  <input name="name" required placeholder="Visa, Mastercard, Elo" />
+                </label>
+                <label>
+                  Débito (%)
+                  <input name="debit" required placeholder="1,19" />
+                </label>
+                <label>
+                  Crédito (%)
+                  <input name="credit" required placeholder="2,49" />
+                </label>
+              </div>
+              <SubmitButton label={`Incluir em ${machine.name}`} pendingLabel="Salvando…" className="quiet" />
+            </form>
+            </div>
           ))}
           {acquirers
             .filter((machine) => machine.active)
             .map((machine) => (
-              <form key={`off-${machine.id}`} action={stopCardAcquirer}>
-                <input type="hidden" name="id" value={machine.id} />
-                <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="quiet" />
-              </form>
+              <div key={`off-${machine.id}`} className="row">
+                <form action={stopCardAcquirer}>
+                  <input type="hidden" name="id" value={machine.id} />
+                  <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="quiet" />
+                </form>
+                {machine.brands.filter((brand) => brand.active).map((brand) => (
+                  <form key={`off-brand-${brand.id}`} action={stopCardBrand}>
+                    <input type="hidden" name="id" value={brand.id} />
+                    <SubmitButton label={`Desativar ${brand.name}`} pendingLabel="Desativando…" className="quiet" />
+                  </form>
+                ))}
+              </div>
             ))}
           <form action={saveCardAcquirer}>
             <div className="split">

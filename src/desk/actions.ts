@@ -1771,7 +1771,13 @@ export async function adjustLineCommission(formData: FormData) {
   });
 }
 
-async function cardRate(tx: TransactionSql, accountId: string, method: string, acquirerId: string | null) {
+async function cardRate(
+  tx: TransactionSql,
+  accountId: string,
+  method: string,
+  acquirerId: string | null,
+  brandId: string | null,
+) {
   if (method !== "debito" && method !== "credito") return { bps: 0, name: null as string | null };
   if (acquirerId) {
     const rows = await tx<{ name: string; debitBps: number; creditBps: number }[]>`
@@ -1780,10 +1786,18 @@ async function cardRate(tx: TransactionSql, accountId: string, method: string, a
       WHERE id = ${acquirerId} AND account_id = ${accountId} AND active
     `;
     if (!rows[0]) throw new FormError("maquina");
-    return {
-      bps: method === "debito" ? rows[0].debitBps : rows[0].creditBps,
-      name: rows[0].name,
-    };
+    const brands = await tx<{ id: string; name: string; debitBps: number; creditBps: number }[]>`
+      SELECT id, name, debit_bps AS "debitBps", credit_bps AS "creditBps"
+      FROM card_brands
+      WHERE acquirer_id = ${acquirerId} AND account_id = ${accountId} AND active
+    `;
+    if (brands.length && !brandId) throw new FormError("bandeira");
+    const brand = brandId ? brands.find((row) => row.id === brandId) : null;
+    if (brandId && !brand) throw new FormError("bandeira");
+    const bps = brand
+      ? method === "debito" ? brand.debitBps : brand.creditBps
+      : method === "debito" ? rows[0].debitBps : rows[0].creditBps;
+    return { bps, name: brand ? `${rows[0].name} · ${brand.name}` : rows[0].name };
   }
   const machines = await tx<{ id: string }[]>`
     SELECT id FROM card_acquirers WHERE account_id = ${accountId} AND active LIMIT 1
@@ -1827,8 +1841,11 @@ export async function addPayment(formData: FormData) {
       const paymentId = randomUUID();
       const acquirerRaw = String(formData.get("acquirer") ?? "");
       const acquirerId = acquirerRaw && UUID.test(acquirerRaw) ? acquirerRaw : null;
+      const brandRaw = String(formData.get("brand") ?? "");
+      const brandId = brandRaw && UUID.test(brandRaw) ? brandRaw : null;
       if ((method === "debito" || method === "credito") && acquirerRaw && !acquirerId) throw new FormError("maquina");
-      const rate = await cardRate(tx, user.accountId, method, acquirerId);
+      if ((method === "debito" || method === "credito") && brandRaw && !brandId) throw new FormError("bandeira");
+      const rate = await cardRate(tx, user.accountId, method, acquirerId, brandId);
       const lines = rate.bps > 0
         ? await tx<{ id: string; priceCents: number; commissionCents: number; abatementCents: number }[]>`
             SELECT id, price_cents AS "priceCents", commission_cents AS "commissionCents",
@@ -1840,10 +1857,10 @@ export async function addPayment(formData: FormData) {
         : [];
       const fee = cardFeeShares(amount, rate.bps, lines);
       await tx`
-        INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on, fee_cents, acquirer_id)
+        INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on, fee_cents, acquirer_id, brand_id)
         VALUES (
           ${paymentId}, ${user.accountId}, ${orderId}, ${method}, ${amount},
-          ${bankId}, ${bankId ? todaySaoPaulo() : null}::date, ${fee.feeCents}, ${acquirerId}
+          ${bankId}, ${bankId ? todaySaoPaulo() : null}::date, ${fee.feeCents}, ${acquirerId}, ${brandId}
         )
       `;
       if (!bankId) {

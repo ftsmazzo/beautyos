@@ -762,6 +762,20 @@ async function ensureSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS card_acquirers_account_idx ON card_acquirers (account_id, active, name)`;
   await sql`ALTER TABLE payments ADD COLUMN IF NOT EXISTS acquirer_id uuid REFERENCES card_acquirers(id) ON DELETE SET NULL`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS card_brands (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      acquirer_id uuid NOT NULL REFERENCES card_acquirers(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      debit_bps integer NOT NULL DEFAULT 0 CHECK (debit_bps >= 0 AND debit_bps <= 10000),
+      credit_bps integer NOT NULL DEFAULT 0 CHECK (credit_bps >= 0 AND credit_bps <= 10000),
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS card_brands_acquirer_idx ON card_brands (acquirer_id, active, name)`;
+  await sql`ALTER TABLE payments ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES card_brands(id) ON DELETE SET NULL`;
   const legacyFees = await sql<{ id: string; debit: number; credit: number }[]>`
     SELECT a.id, a.card_debit_percent AS debit, a.card_credit_percent AS credit
     FROM accounts a

@@ -6,6 +6,9 @@ import { addPayment } from "@/desk/actions";
 import { PAYMENT_METHODS } from "@/desk/statuses";
 import { SubmitButton } from "@/ui/submit-button";
 
+type Brand = { id: string; name: string; debitBps: number; creditBps: number };
+type Machine = { id: string; name: string; debitBps: number; creditBps: number; brands: Brand[] };
+
 export function PaymentForm({
   orderId,
   banks,
@@ -13,10 +16,17 @@ export function PaymentForm({
 }: {
   orderId: string;
   banks: { id: string; name: string }[];
-  acquirers: { id: string; name: string; debitBps: number; creditBps: number }[];
+  acquirers: Machine[];
 }) {
   const [method, setMethod] = useState("pix");
+  const [acquirerId, setAcquirerId] = useState(acquirers[0]?.id ?? "");
+  const machine = acquirers.find((item) => item.id === acquirerId) ?? acquirers[0];
+  const brands = machine?.brands ?? [];
+  const [brandId, setBrandId] = useState(brands[0]?.id ?? "");
   const card = method === "debito" || method === "credito";
+  const brand = brands.find((item) => item.id === brandId) ?? brands[0];
+  const rateOf = (row: { debitBps: number; creditBps: number }) =>
+    formatRate(method === "debito" ? row.debitBps : row.creditBps);
 
   return (
     <form action={addPayment}>
@@ -39,10 +49,32 @@ export function PaymentForm({
         {card && acquirers.length > 0 ? (
           <label>
             Máquina
-            <select name="acquirer" required defaultValue={acquirers[0]?.id}>
-              {acquirers.map((machine) => (
-                <option key={machine.id} value={machine.id}>
-                  {machine.name} · {formatRate(method === "debito" ? machine.debitBps : machine.creditBps)}
+            <select
+              name="acquirer"
+              required
+              value={machine?.id ?? ""}
+              onChange={(event) => {
+                const next = acquirers.find((item) => item.id === event.target.value);
+                setAcquirerId(event.target.value);
+                setBrandId(next?.brands[0]?.id ?? "");
+              }}
+            >
+              {acquirers.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                  {item.brands.length === 0 ? ` · ${rateOf(item)}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {card && brands.length > 0 ? (
+          <label>
+            Bandeira
+            <select name="brand" required value={brand?.id ?? ""} onChange={(event) => setBrandId(event.target.value)}>
+              {brands.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} · {rateOf(item)}
                 </option>
               ))}
             </select>

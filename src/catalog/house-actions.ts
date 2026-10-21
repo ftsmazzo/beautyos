@@ -59,6 +59,56 @@ export async function saveCardAcquirer(formData: FormData) {
   redirect("/inicio?ok=regras");
 }
 
+export async function saveCardBrand(formData: FormData) {
+  const user = await currentUser();
+  if (!user || user.role !== "administrador") redirect("/inicio");
+  const acquirerId = textOrNull(formData.get("acquirer"));
+  const name = textOrNull(formData.get("name"));
+  const debit = parseRateBps(formData.get("debit"));
+  const credit = parseRateBps(formData.get("credit"));
+  const id = textOrNull(formData.get("id"));
+  if (!acquirerId || !name || name.length < 2 || debit == null || credit == null) redirect("/inicio?erro=taxa");
+  const sql = db();
+  const machine = await sql<{ id: string }[]>`
+    SELECT id FROM card_acquirers WHERE id = ${acquirerId} AND account_id = ${user.accountId} AND active
+  `;
+  if (!machine.length) redirect("/inicio?erro=taxa");
+  const clash = await sql<{ id: string; active: boolean }[]>`
+    SELECT id, active FROM card_brands
+    WHERE account_id = ${user.accountId} AND acquirer_id = ${acquirerId} AND lower(name) = lower(${name})
+  `;
+  const other = clash.find((row) => row.id !== id);
+  if (other?.active) redirect("/inicio?erro=taxa");
+  const target = id ?? other?.id ?? null;
+  if (target) {
+    const updated = await sql<{ id: string }[]>`
+      UPDATE card_brands
+      SET name = ${name}, debit_bps = ${debit}, credit_bps = ${credit}, active = true
+      WHERE id = ${target} AND account_id = ${user.accountId} AND acquirer_id = ${acquirerId}
+      RETURNING id
+    `;
+    if (!updated.length) redirect("/inicio?erro=taxa");
+  } else {
+    await sql`
+      INSERT INTO card_brands (id, account_id, acquirer_id, name, debit_bps, credit_bps)
+      VALUES (${randomUUID()}, ${user.accountId}, ${acquirerId}, ${name}, ${debit}, ${credit})
+    `;
+  }
+  redirect("/inicio?ok=regras");
+}
+
+export async function stopCardBrand(formData: FormData) {
+  const user = await currentUser();
+  if (!user || user.role !== "administrador") redirect("/inicio");
+  const id = textOrNull(formData.get("id"));
+  if (!id) redirect("/inicio?erro=taxa");
+  await db()`
+    UPDATE card_brands SET active = false
+    WHERE id = ${id} AND account_id = ${user.accountId}
+  `;
+  redirect("/inicio?ok=regras");
+}
+
 export async function stopCardAcquirer(formData: FormData) {
   const user = await currentUser();
   if (!user || user.role !== "administrador") redirect("/inicio");

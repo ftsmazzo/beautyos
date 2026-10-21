@@ -74,7 +74,9 @@ export default async function OrderPage({
   const banks = operator && open && order.kind === "cliente" ? await listBanks(user.accountId) : [];
   const acquirers =
     operator && open && order.kind === "cliente"
-      ? (await listCardAcquirers(user.accountId)).filter((machine) => machine.active)
+      ? (await listCardAcquirers(user.accountId))
+          .filter((machine) => machine.active)
+          .map((machine) => ({ ...machine, brands: machine.brands.filter((brand) => brand.active) }))
       : [];
   const ledger =
     operator && open && order.kind === "cliente" && order.clientId
@@ -654,6 +656,7 @@ export default async function OrderPage({
                         ? "Conta do cliente"
                         : PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}
                       {payment.acquirerName ? ` · ${payment.acquirerName}` : ""}
+                      {payment.brandName ? ` · ${payment.brandName}` : ""}
                       {payment.bankName ? ` · ${payment.bankName}` : ""}
                     </td>
                     <td data-label="Valor">

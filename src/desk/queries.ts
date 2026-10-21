@@ -558,12 +558,13 @@ export async function getOrder(accountId: string, id: string) {
     WHERE l.order_id = ${id}
     ORDER BY l.created_at
   `;
-  const payments = await db()<{ id: string; method: string; amountCents: number; feeCents: number; bankName: string | null; acquirerName: string | null }[]>`
+  const payments = await db()<{ id: string; method: string; amountCents: number; feeCents: number; bankName: string | null; acquirerName: string | null; brandName: string | null }[]>`
     SELECT pay.id, pay.method, pay.amount_cents AS "amountCents", pay.fee_cents AS "feeCents",
-           b.name AS "bankName", m.name AS "acquirerName"
+           b.name AS "bankName", m.name AS "acquirerName", br.name AS "brandName"
     FROM payments pay
     LEFT JOIN bank_accounts b ON b.id = pay.bank_account_id
     LEFT JOIN card_acquirers m ON m.id = pay.acquirer_id
+    LEFT JOIN card_brands br ON br.id = pay.brand_id
     WHERE pay.order_id = ${id}
     ORDER BY pay.created_at
   `;
