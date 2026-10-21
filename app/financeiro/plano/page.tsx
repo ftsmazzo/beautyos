@@ -25,7 +25,6 @@ export default async function ChartPage({
     <Panel user={user} current="/financeiro" title="Plano de contas">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>Código, nome analítico, grupo sintético e os grupos do fluxo e do resultado.</p>
       <FinanceNav current="plano" />
       <form action={saveChart}>
         <div className="split">

@@ -25,7 +25,6 @@ export default async function CardsPage({
     <Panel user={user} current="/financeiro" title="Cartões">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>A compra no crédito fica nesta fatura. O banco só sai quando a fatura é paga.</p>
       <FinanceNav current="cartoes" />
       <form action={saveCard}>
         <div className="split">

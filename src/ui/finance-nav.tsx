@@ -11,7 +11,7 @@ const LINKS = [
 
 export function FinanceNav({ current }: { current: (typeof LINKS)[number]["id"] }) {
   return (
-    <div className="row">
+    <div className="desk-bar">
       {LINKS.map((link) => (
         <Link key={link.id} className={link.id === current ? "btn" : "btn quiet"} href={link.href}>
           {link.label}

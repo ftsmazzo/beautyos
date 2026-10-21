@@ -29,18 +29,17 @@ export default async function ReturnPage({
 
   return (
     <Panel user={user} current="/volta" title="Volta">
-      <p>
-        De fora fica só neste registro. O primeiro pacote ativo continua na ficha. Renovou é um pacote ativo depois de outro que já acabou. Não renovou e veio avulso é a visita paga depois que o pacote acabou. Não renovou e não veio é o prazo do pacote que passou sem outra visita. Voltou no prazo é a volta dentro dos dias do serviço, com a janela ainda aberta. Passou e não voltou é a data que já venceu, sem horário marcado.
-      </p>
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={item.id === "todas" ? "/volta" : `/volta?filtro=${item.id}`}>
             {item.label}
           </Link>
         ))}
+        <span className="chip">{visible.length}</span>
       </div>
-      <div className="card">
-        {visible.length === 0 ? <p>Ninguém neste filtro.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {visible.length === 0 ? <p className="queue-empty">Ninguém neste filtro.</p> : null}
         {visible.length > 0 ? (
           <table>
             <thead>
@@ -73,6 +72,7 @@ export default async function ReturnPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

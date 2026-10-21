@@ -32,7 +32,6 @@ export default async function BanksPage({
     <Panel user={user} current="/financeiro" title="Bancos">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>O saldo daqui é do banco. O caixa do balcão continua na gaveta.</p>
       <FinanceNav current="bancos" />
       <form action={saveBank}>
         <div className="split">

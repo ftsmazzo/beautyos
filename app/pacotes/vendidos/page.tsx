@@ -80,7 +80,9 @@ export default async function SoldPackagesPage({
 
   return (
     <Panel user={user} current="/pacotes/vendidos" title="Pacotes vendidos">
+      <div className="desk">
       <ErrorNote code={query.erro} />
+      <div className="desk-bar">
       {catalog.length > 0 && people.length > 0 ? (
         <Modal label="Vender" title="Vender pacote" tone="teal">
           <form action={sellPackageOnDay}>
@@ -117,12 +119,10 @@ export default async function SoldPackagesPage({
                 ))}
               </select>
             </label>
-            <p>Entra na comanda de hoje desse cliente. O recebimento continua lá.</p>
             <SubmitButton label="Vender" pendingLabel="Vendendo…" className="teal" />
           </form>
         </Modal>
       ) : null}
-      <div className="row">
         <Link className="btn quiet" href="/pacotes/relatorio">
           Relatório
         </Link>
@@ -131,9 +131,10 @@ export default async function SoldPackagesPage({
             {item.label}
           </Link>
         ))}
+        <span className="chip">{visible.length}</span>
       </div>
-      <div className="card">
-        {visible.length === 0 ? <p>Nenhum pacote neste filtro.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {visible.length === 0 ? <p className="queue-empty">Nenhum pacote neste filtro.</p> : null}
         {visible.length > 0 ? (
           <SoldColumns
             rows={visible.map((row) => ({
@@ -148,6 +149,7 @@ export default async function SoldPackagesPage({
             }))}
           />
         ) : null}
+      </div>
       </div>
     </Panel>
   );

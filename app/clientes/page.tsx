@@ -20,23 +20,29 @@ export default async function ClientsPage({
   const today = todaySaoPaulo();
   return (
     <Panel user={user} current="/clientes" title="Clientes">
+      <div className="desk">
       <SavedNote code={query.ok} />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn" href="/clientes/novo">
           Novo cliente
         </Link>
         <Link className="btn quiet" href="/clientes/origem">
           Origem
         </Link>
-        <Link href={removed ? "/clientes" : "/clientes?estado=removidos"}>{removed ? "Ver ativos" : "Ver removidos"}</Link>
+        <Link className="btn quiet" href={removed ? "/clientes" : "/clientes?estado=removidos"}>
+          {removed ? "Ativos" : "Removidos"}
+        </Link>
+        <form className="desk-bar" method="get" style={{ margin: 0, flex: "1 1 220px" }}>
+          {removed ? <input type="hidden" name="estado" value="removidos" /> : null}
+          <input name="q" defaultValue={query.q ?? ""} placeholder="Nome ou celular" aria-label="Busca" />
+          <button className="btn quiet" type="submit">
+            Buscar
+          </button>
+        </form>
+        <span className="chip">{people.length}</span>
       </div>
-      <form className="filters" method="get">
-        {removed ? <input type="hidden" name="estado" value="removidos" /> : null}
-        <input name="q" defaultValue={query.q ?? ""} placeholder="Nome ou celular" />
-        <button type="submit">Buscar</button>
-      </form>
-      <div className="card">
-        {people.length === 0 ? <p>{removed ? "Nenhuma pessoa removida." : "Nenhum cliente ainda."}</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {people.length === 0 ? <p className="queue-empty">{removed ? "Nenhuma pessoa removida." : "Nenhum cliente ainda."}</p> : null}
         {people.length > 0 ? (
           <table>
             <thead>
@@ -67,6 +73,7 @@ export default async function ClientsPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

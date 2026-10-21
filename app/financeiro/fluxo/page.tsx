@@ -196,26 +196,34 @@ export default async function FluxoPage({
 
   return (
     <Panel user={user} current="/financeiro" title="Fluxo e resultado">
+      <div className="desk">
       <FinanceNav current="fluxo" />
-      <p className="muted">
-        {monthLabel(month)}. A entrada é o recebimento do cliente no banco. A saída é o que saiu do banco. Os doze meses terminam neste mês. O grupo do plano continua só com a saída. O caixa do balcão continua separado.
-      </p>
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn quiet" href={`/financeiro/fluxo?mes=${previous}`}>
-          Mês anterior
+          ←
         </Link>
+        <span className="day-label">{monthLabel(month)}</span>
         <Link className="btn quiet" href={`/financeiro/fluxo?mes=${following}`}>
-          Mês seguinte
+          →
         </Link>
       </div>
-      <h2>Doze meses</h2>
-      <MonthTable rows={months} />
-      <h2>Dia a dia</h2>
-      <DayTable rows={days} />
-      <h2>Fluxo</h2>
-      <GroupTable rows={flow} />
-      <h2>Resultado</h2>
-      <GroupTable rows={result} />
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="queue-head"><h2>Doze meses</h2></div>
+        <MonthTable rows={months} />
+      </div>
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="queue-head"><h2>Dia a dia</h2></div>
+        <DayTable rows={days} />
+      </div>
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="queue-head"><h2>Fluxo</h2></div>
+        <GroupTable rows={flow} />
+      </div>
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="queue-head"><h2>Resultado</h2></div>
+        <GroupTable rows={result} />
+      </div>
+      </div>
     </Panel>
   );
 }

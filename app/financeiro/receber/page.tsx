@@ -51,20 +51,20 @@ export default async function ReceivablesPage({
 
   return (
     <Panel user={user} current="/financeiro" title="Contas a receber">
-      <p>O que o cliente ainda deve. O recebimento continua na comanda. Sem banco, entra na gaveta. Com banco, entra no extrato.</p>
+      <div className="desk">
       <FinanceNav current="receber" />
-      <div className="row">
+      <div className="desk-bar">
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro/receber?filtro=${item.id}`}>
             {item.label}
           </Link>
         ))}
+        <span className="chip">
+          {rows.length} · {formatReais(total)}
+        </span>
       </div>
-      <div className="card">
-        <p>
-          {rows.length} {rows.length === 1 ? "título" : "títulos"} · {formatReais(total)}
-        </p>
-        {rows.length === 0 ? <p>Nenhuma conta neste filtro.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {rows.length === 0 ? <p className="queue-empty">Nenhuma conta neste filtro.</p> : null}
         {rows.length > 0 ? (
           <table>
             <thead>
@@ -99,6 +99,7 @@ export default async function ReceivablesPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

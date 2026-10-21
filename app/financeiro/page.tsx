@@ -8,6 +8,7 @@ import { materializeRecurrences } from "@/finance/recurrence";
 import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { PayableForm } from "@/ui/payable-form";
 import { PayableSettle } from "@/ui/payable-settle";
@@ -75,23 +76,25 @@ export default async function FinancePage({
 
   return (
     <Panel user={user} current="/financeiro" title="Contas a pagar">
+      <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <p>Aluguel e luz entram aqui, sem compra de produto. Repetir todo mês lança o mesmo valor de novo, e o mês que chega entra no dia, com a tela fechada ou aberta. Estas contas não entram no caixa do balcão. No crédito, o título fica na fatura. O banco sai quando a fatura é paga.</p>
       <FinanceNav current="pagar" />
-      <PayableForm banks={banks} cards={cards} charts={charts} today={today} />
-      <div className="row">
+      <div className="desk-bar">
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro?filtro=${item.id}`}>
             {item.label}
           </Link>
         ))}
+        <span className="chip">
+          {rows.length} · {formatReais(total)}
+        </span>
+        <Modal label="Novo título" title="Conta a pagar" tone="navy">
+          <PayableForm banks={banks} cards={cards} charts={charts} today={today} />
+        </Modal>
       </div>
-      <div className="card">
-        <p>
-          {rows.length} {rows.length === 1 ? "título" : "títulos"} · {formatReais(total)}
-        </p>
-        {rows.length === 0 ? <p>Nenhuma conta neste filtro.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {rows.length === 0 ? <p className="queue-empty">Nenhuma conta neste filtro.</p> : null}
         {rows.length > 0 ? (
           <table>
             <thead>
@@ -156,6 +159,7 @@ export default async function FinancePage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );
