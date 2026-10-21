@@ -2,10 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireDesk } from "@/catalog/access";
 import { centsToInput, formatDay, formatPhone, formatReais, packageDeadline } from "@/catalog/format";
-import { birthdaysOn, houseRules } from "@/catalog/queries";
+import { birthdaysOn, houseRules, listCardAcquirers } from "@/catalog/queries";
 import {
   addConsumption,
-  addPayment,
   applyClientCredit,
   addProduct,
   addServiceToOrder,
@@ -38,6 +37,7 @@ import { OrderServiceForm } from "@/ui/order-service-form";
 import { StaffServiceForm } from "@/ui/staff-service-form";
 import { PackageVisitForm } from "@/ui/package-visit-form";
 import { ChannelForm } from "@/ui/channel-form";
+import { PaymentForm } from "@/ui/payment-form";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -72,6 +72,10 @@ export default async function OrderPage({
       : [];
   const products = order.kind === "cliente" && open ? await productOptions(user.accountId) : [];
   const banks = operator && open && order.kind === "cliente" ? await listBanks(user.accountId) : [];
+  const acquirers =
+    operator && open && order.kind === "cliente"
+      ? (await listCardAcquirers(user.accountId)).filter((machine) => machine.active)
+      : [];
   const ledger =
     operator && open && order.kind === "cliente" && order.clientId
       ? await clientLedger(user.accountId, order.clientId)
@@ -649,6 +653,7 @@ export default async function OrderPage({
                       {payment.method === "conta"
                         ? "Conta do cliente"
                         : PAYMENT_METHODS.find((method) => method.value === payment.method)?.label ?? payment.method}
+                      {payment.acquirerName ? ` · ${payment.acquirerName}` : ""}
                       {payment.bankName ? ` · ${payment.bankName}` : ""}
                     </td>
                     <td data-label="Valor">
@@ -670,39 +675,11 @@ export default async function OrderPage({
             </table>
           ) : null}
           {operator && open ? (
-            <form action={addPayment}>
-              <input type="hidden" name="order" value={order.id} />
-              <div className="split">
-                <label>
-                  Forma
-                  <select name="method" defaultValue="pix">
-                    {PAYMENT_METHODS.map((method) => (
-                      <option key={method.value} value={method.value}>
-                        {method.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Valor
-                  <input name="amount" inputMode="decimal" placeholder="0,00" required />
-                </label>
-                {banks.length > 0 ? (
-                  <label>
-                    Destino
-                    <select name="bank" defaultValue="">
-                      <option value="">Caixa do balcão</option>
-                      {banks.map((bank) => (
-                        <option key={bank.id} value={bank.id}>
-                          {bank.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-              </div>
-              <SubmitButton label="Lançar pagamento" pendingLabel="Lançando…" />
-            </form>
+            <PaymentForm
+              orderId={order.id}
+              banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
+              acquirers={acquirers}
+            />
           ) : null}
           {operator && open && order.clientId && credit > 0 && gap > 0 ? (
             <form action={applyClientCredit}>

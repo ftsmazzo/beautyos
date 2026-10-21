@@ -749,4 +749,29 @@ async function ensureSchema() {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS reminders_account_day_idx ON reminders (account_id, day, status)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS card_acquirers (
+      id uuid PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      debit_bps integer NOT NULL DEFAULT 0 CHECK (debit_bps >= 0 AND debit_bps <= 10000),
+      credit_bps integer NOT NULL DEFAULT 0 CHECK (credit_bps >= 0 AND credit_bps <= 10000),
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS card_acquirers_account_idx ON card_acquirers (account_id, active, name)`;
+  await sql`ALTER TABLE payments ADD COLUMN IF NOT EXISTS acquirer_id uuid REFERENCES card_acquirers(id) ON DELETE SET NULL`;
+  const legacyFees = await sql<{ id: string; debit: number; credit: number }[]>`
+    SELECT a.id, a.card_debit_percent AS debit, a.card_credit_percent AS credit
+    FROM accounts a
+    WHERE (a.card_debit_percent > 0 OR a.card_credit_percent > 0)
+      AND NOT EXISTS (SELECT 1 FROM card_acquirers c WHERE c.account_id = a.id)
+  `;
+  for (const house of legacyFees) {
+    await sql`
+      INSERT INTO card_acquirers (id, account_id, name, debit_bps, credit_bps)
+      VALUES (${crypto.randomUUID()}, ${house.id}, 'Padrão', ${house.debit * 100}, ${house.credit * 100})
+    `;
+  }
 }

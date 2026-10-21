@@ -177,6 +177,15 @@ export async function houseModules(accountId: string) {
   return on;
 }
 
+export async function listCardAcquirers(accountId: string) {
+  return db()<{ id: string; name: string; debitBps: number; creditBps: number; active: boolean }[]>`
+    SELECT id, name, debit_bps AS "debitBps", credit_bps AS "creditBps", active
+    FROM card_acquirers
+    WHERE account_id = ${accountId}
+    ORDER BY active DESC, name
+  `;
+}
+
 export async function houseRules(accountId: string) {
   const rows = await db()<{
     referral: number;

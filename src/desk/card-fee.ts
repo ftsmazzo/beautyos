@@ -1,9 +1,9 @@
 export function cardFeeShares(
   amountCents: number,
-  ratePercent: number,
+  rateBps: number,
   lines: { id: string; priceCents: number; commissionCents: number; abatementCents: number }[],
 ) {
-  const feeCents = Math.round((amountCents * ratePercent) / 100);
+  const feeCents = Math.round((amountCents * rateBps) / 10_000);
   const half = Math.floor(feeCents / 2);
   const eligible = lines.filter((line) => line.priceCents > 0 && line.commissionCents - line.abatementCents > 0);
   const base = eligible.reduce((sum, line) => sum + line.priceCents, 0);

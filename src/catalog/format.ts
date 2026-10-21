@@ -15,6 +15,18 @@ export function centsToInput(cents: number) {
   return (cents / 100).toFixed(2).replace(".", ",");
 }
 
+export function formatRate(bps: number) {
+  return `${(bps / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+}
+
+export function parseRateBps(value: FormDataEntryValue | null): number | null {
+  const raw = String(value ?? "").trim().replace("%", "").replace(",", ".");
+  if (!raw) return null;
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount < 0 || amount > 100) return null;
+  return Math.round(amount * 100);
+}
+
 export function parsePercent(value: FormDataEntryValue | null): number | null {
   const raw = String(value ?? "").trim().replace("%", "").replace(",", ".");
   if (!raw) return null;

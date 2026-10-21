@@ -45,6 +45,8 @@ export const FORM_ERRORS: Record<string, string> = {
   avaliacao: "Escreva a avaliação da visita.",
   linha: "A mesma nota não repete o produto.",
   bandeira: "No cartão, informe a bandeira.",
+  maquina: "No cartão, escolha a máquina.",
+  taxa: "Informe o nome da máquina e as taxas de débito e crédito.",
   banco: "Já existe um banco com esse nome.",
   pago: "Essa conta já foi lançada.",
   uso: "Esse banco já tem lançamento.",

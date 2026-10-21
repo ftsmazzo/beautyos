@@ -1771,13 +1771,30 @@ export async function adjustLineCommission(formData: FormData) {
   });
 }
 
-async function cardRate(tx: TransactionSql, accountId: string, method: string) {
-  if (method !== "debito" && method !== "credito") return 0;
+async function cardRate(tx: TransactionSql, accountId: string, method: string, acquirerId: string | null) {
+  if (method !== "debito" && method !== "credito") return { bps: 0, name: null as string | null };
+  if (acquirerId) {
+    const rows = await tx<{ name: string; debitBps: number; creditBps: number }[]>`
+      SELECT name, debit_bps AS "debitBps", credit_bps AS "creditBps"
+      FROM card_acquirers
+      WHERE id = ${acquirerId} AND account_id = ${accountId} AND active
+    `;
+    if (!rows[0]) throw new FormError("maquina");
+    return {
+      bps: method === "debito" ? rows[0].debitBps : rows[0].creditBps,
+      name: rows[0].name,
+    };
+  }
+  const machines = await tx<{ id: string }[]>`
+    SELECT id FROM card_acquirers WHERE account_id = ${accountId} AND active LIMIT 1
+  `;
+  if (machines.length) throw new FormError("maquina");
   const rows = await tx<{ debit: number; credit: number }[]>`
     SELECT card_debit_percent AS debit, card_credit_percent AS credit
     FROM accounts WHERE id = ${accountId}
   `;
-  return method === "debito" ? rows[0]?.debit ?? 0 : rows[0]?.credit ?? 0;
+  const percent = method === "debito" ? rows[0]?.debit ?? 0 : rows[0]?.credit ?? 0;
+  return { bps: percent * 100, name: null as string | null };
 }
 
 export async function addPayment(formData: FormData) {
@@ -1808,8 +1825,11 @@ export async function addPayment(formData: FormData) {
         bankId = bankRaw;
       }
       const paymentId = randomUUID();
-      const rate = await cardRate(tx, user.accountId, method);
-      const lines = rate > 0
+      const acquirerRaw = String(formData.get("acquirer") ?? "");
+      const acquirerId = acquirerRaw && UUID.test(acquirerRaw) ? acquirerRaw : null;
+      if ((method === "debito" || method === "credito") && acquirerRaw && !acquirerId) throw new FormError("maquina");
+      const rate = await cardRate(tx, user.accountId, method, acquirerId);
+      const lines = rate.bps > 0
         ? await tx<{ id: string; priceCents: number; commissionCents: number; abatementCents: number }[]>`
             SELECT id, price_cents AS "priceCents", commission_cents AS "commissionCents",
                    abatement_cents AS "abatementCents"
@@ -1818,12 +1838,12 @@ export async function addPayment(formData: FormData) {
             ORDER BY created_at, id
           `
         : [];
-      const fee = cardFeeShares(amount, rate, lines);
+      const fee = cardFeeShares(amount, rate.bps, lines);
       await tx`
-        INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on, fee_cents)
+        INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on, fee_cents, acquirer_id)
         VALUES (
           ${paymentId}, ${user.accountId}, ${orderId}, ${method}, ${amount},
-          ${bankId}, ${bankId ? todaySaoPaulo() : null}::date, ${fee.feeCents}
+          ${bankId}, ${bankId ? todaySaoPaulo() : null}::date, ${fee.feeCents}, ${acquirerId}
         )
       `;
       if (!bankId) {
@@ -1840,7 +1860,7 @@ export async function addPayment(formData: FormData) {
           INSERT INTO cash_movements (id, account_id, day, amount_cents, origin, label, payment_id, order_id)
           VALUES (
             ${randomUUID()}, ${user.accountId}, ${bankId ? todaySaoPaulo() : order[0].day}, ${-fee.feeCents},
-            'taxa_cartao', ${"Taxa de cartão"}, ${paymentId}, ${orderId}
+            'taxa_cartao', ${rate.name ? `Taxa · ${rate.name}` : "Taxa de cartão"}, ${paymentId}, ${orderId}
           )
         `;
       }

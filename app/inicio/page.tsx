@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/auth/session";
-import { saveHouseRules } from "@/catalog/house-actions";
+import { saveCardAcquirer, saveHouseRules, stopCardAcquirer } from "@/catalog/house-actions";
 import {
   applyDuePrices,
   birthdaysAhead,
   catalogCounts,
   houseRules,
+  listCardAcquirers,
   listPayables,
   listProfessionals,
   openPriceNotices,
   productsAtMinimum,
 } from "@/catalog/queries";
-import { formatDay, formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
+import { formatDay, formatPhone, formatRate, formatReais, todaySaoPaulo } from "@/catalog/format";
 import {
   clientsWithCredit,
   deskPulse,
@@ -51,6 +52,7 @@ export default async function StartPage({
   const notices = operator ? await openPriceNotices(user.accountId) : [];
   const counts = operator ? await catalogCounts(user.accountId) : null;
   const rules = operator || user.role === "administrador" ? await houseRules(user.accountId) : null;
+  const acquirers = user.role === "administrador" ? await listCardAcquirers(user.accountId) : [];
   const today = todaySaoPaulo();
   const tomorrow = shiftDay(today, 1);
   const birthdays = user.role === "cliente" ? null : await birthdaysAhead(user.accountId, today);
@@ -476,21 +478,64 @@ export default async function StartPage({
               <input name="service_discount" type="number" min={0} max={100} required defaultValue={rules.serviceDiscount} />
             </label>
             <p>Zero não desconta. O valor da ficha, já com esse desconto, vira a comissão de quem executou e o abate de quem recebeu. Não entra na agenda nem no caixa.</p>
-            <label>
-              Taxa do débito (%)
-              <input name="debit" type="number" min={0} max={100} required defaultValue={rules.debit} />
-            </label>
-            <label>
-              Taxa do crédito (%)
-              <input name="credit" type="number" min={0} max={100} required defaultValue={rules.credit} />
-            </label>
-            <p>Zero não cobra. A taxa entra no caixa, separada. Metade fica com a casa e metade sai da comissão de quem executou o que foi pago no cartão.</p>
             <label className="check">
               <input type="checkbox" name="extras_ladder" value="1" defaultChecked={rules.extrasLadder} />
               Mostrar meta de extras
             </label>
             <p>Conta só o serviço marcado na ficha. Ordinário e cortesia ficam fora. Sem percentual inventado.</p>
             <SubmitButton label="Salvar regras" />
+          </form>
+          <h2>Máquinas de cartão</h2>
+          <p className="desk-hint">Cada maquininha tem débito e crédito. Na comanda, o pagamento escolhe qual.</p>
+          {acquirers.filter((machine) => machine.active).map((machine) => (
+            <form key={machine.id} action={saveCardAcquirer}>
+              <input type="hidden" name="id" value={machine.id} />
+              <div className="split">
+                <label>
+                  Máquina
+                  <input name="name" required defaultValue={machine.name} />
+                </label>
+                <label>
+                  Débito (%)
+                  <input name="debit" required defaultValue={(machine.debitBps / 100).toFixed(2).replace(".", ",")} />
+                </label>
+                <label>
+                  Crédito (%)
+                  <input name="credit" required defaultValue={(machine.creditBps / 100).toFixed(2).replace(".", ",")} />
+                </label>
+              </div>
+              <div className="row">
+                <SubmitButton label="Salvar" pendingLabel="Salvando…" />
+                <span className="chip">
+                  débito {formatRate(machine.debitBps)} · crédito {formatRate(machine.creditBps)}
+                </span>
+              </div>
+            </form>
+          ))}
+          {acquirers
+            .filter((machine) => machine.active)
+            .map((machine) => (
+              <form key={`off-${machine.id}`} action={stopCardAcquirer}>
+                <input type="hidden" name="id" value={machine.id} />
+                <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="quiet" />
+              </form>
+            ))}
+          <form action={saveCardAcquirer}>
+            <div className="split">
+              <label>
+                Nova máquina
+                <input name="name" required placeholder="Rede, InfinityPay" />
+              </label>
+              <label>
+                Débito (%)
+                <input name="debit" required placeholder="0,99" />
+              </label>
+              <label>
+                Crédito (%)
+                <input name="credit" required placeholder="2,99" />
+              </label>
+            </div>
+            <SubmitButton label="Incluir máquina" pendingLabel="Salvando…" />
           </form>
         </Modal>
       ) : null}
