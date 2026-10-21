@@ -66,9 +66,9 @@ export default async function BanksPage({
         </div>
         <SubmitButton label="Salvar banco" pendingLabel="Salvando…" />
       </form>
-      <div className="card">
-        <h2>Contas</h2>
-        {banks.length === 0 ? <p>Nenhum banco ainda. Nenhum lançamento entra aqui enquanto a conta não existir.</p> : null}
+      <div className="desk">
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {banks.length === 0 ? <p className="queue-empty">Nenhum banco ainda.</p> : null}
         {banks.length > 0 ? (
           <table>
             <thead>
@@ -104,19 +104,17 @@ export default async function BanksPage({
         ) : null}
       </div>
       {selected ? (
-        <div className="card">
-          <h2>Extrato · {selected.name}</h2>
-          <div className="row">
+        <div className="queue" style={{ overflowX: "auto" }}>
+          <div className="desk-bar">
             {banks.map((bank) => (
               <Link key={bank.id} className={bank.id === selected.id ? "btn" : "btn quiet"} href={`/financeiro/bancos?banco=${bank.id}`}>
                 {bank.name}
               </Link>
             ))}
+            <span className="chip">Abertura {formatReais(selected.openingCents)}</span>
+            <span className="chip">Saldo {formatReais(balance)}</span>
           </div>
-          <p>
-            Abertura {formatReais(selected.openingCents)} · Saldo {formatReais(balance)}
-          </p>
-          {lines.length === 0 ? <p>Nenhum lançamento neste banco.</p> : null}
+          {lines.length === 0 ? <p className="queue-empty">Nenhum lançamento neste banco.</p> : null}
           {lines.length > 0 ? (
             <table>
               <thead>
@@ -141,6 +139,7 @@ export default async function BanksPage({
           ) : null}
         </div>
       ) : null}
+      </div>
     </Panel>
   );
 }

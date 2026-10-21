@@ -31,41 +31,29 @@ export default async function ServicePeriodPage({
 
   return (
     <Panel user={user} current="/servicos" title="Venda, uso e avulso">
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
         <Link className="btn quiet" href="/servicos">
           Serviços
         </Link>
-      </div>
-      <p>
-        O serviço continua um só. Venda é a ida que entrou no pacote, pelo preço interno. Uso é essa ida quando acontece, de novo pelo interno. Avulso é o que foi cobrado fora do pacote. Cortesia conta no avulso e o valor cobrado fica zero.
-      </p>
-      <form className="row" action="/servicos/periodo">
-        <label>
-          De
-          <input name="de" type="date" defaultValue={start} required />
-        </label>
-        <label>
-          Até
-          <input name="ate" type="date" defaultValue={end} required />
-        </label>
-        <button className="btn" type="submit">
-          Ver período
-        </button>
-      </form>
-      <div className="row">
+        <form className="filters" action="/servicos/periodo">
+          <input name="de" type="date" defaultValue={start} required aria-label="De" />
+          <input name="ate" type="date" defaultValue={end} required aria-label="Até" />
+          <button className="btn" type="submit">
+            Ver
+          </button>
+        </form>
         <Link className="btn quiet" href={href(week.start, today < week.end ? today : week.end)}>
-          Esta semana
+          Semana
         </Link>
         <Link className="btn quiet" href={href(month.start, today)}>
-          Este mês
+          Mês
         </Link>
-        <strong>
-          {formatDay(start)} – {formatDay(end)}
-        </strong>
+        <span className="chip">{tooLong ? `máx. ${SPAN}d` : `${formatDay(start)} – ${formatDay(end)}`}</span>
       </div>
-      {tooLong ? <p className="error">O período fica em até {SPAN} dias.</p> : null}
-      <div className="card">
-        {!tooLong && rows.length === 0 ? <p>Nenhum serviço neste período.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {tooLong ? <p className="queue-empty">O período fica em até {SPAN} dias.</p> : null}
+        {!tooLong && rows.length === 0 ? <p className="queue-empty">Nenhum serviço neste período.</p> : null}
         {rows.length > 0 ? (
           <table className="sheet">
             <thead>
@@ -96,6 +84,7 @@ export default async function ServicePeriodPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

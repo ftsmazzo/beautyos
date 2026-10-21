@@ -18,9 +18,10 @@ export default async function SuppliersPage({
 
   return (
     <Panel user={user} current="/fornecedores" title="Fornecedores">
+      <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn" href="/fornecedores/novo">
           Novo fornecedor
         </Link>
@@ -28,11 +29,12 @@ export default async function SuppliersPage({
           Produtos
         </Link>
         <Link className="btn quiet" href="/produtos/compra">
-          Compra por nota
+          Compra
         </Link>
+        <span className="chip">{suppliers.length}</span>
       </div>
-      <div className="card">
-        {suppliers.length === 0 ? <p>Nenhum fornecedor ainda.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {suppliers.length === 0 ? <p className="queue-empty">Nenhum fornecedor ainda.</p> : null}
         {suppliers.length > 0 ? (
           <table>
             <thead>
@@ -59,6 +61,7 @@ export default async function SuppliersPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

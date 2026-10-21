@@ -403,7 +403,7 @@ export default async function AgendaPage({
           <div className="desk-secondary">
             <details>
               <summary>Cancelados do dia ({cancellations.length})</summary>
-              <div className="card">
+              <div className="queue" style={{ overflowX: "auto" }}>
                 <table>
                   <thead>
                     <tr>

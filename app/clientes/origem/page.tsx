@@ -26,15 +26,11 @@ export default async function OriginPage({
 
   return (
     <Panel user={user} current="/clientes" title="Origem">
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
         <Link className="btn quiet" href="/clientes">
           Clientes
         </Link>
-      </div>
-      <p>
-        Os seis canais da casa. Não informado é quem pulou a pergunta na comanda, e continua nesta lista. De fora é marca da pessoa, não um canal. Removidos ficam de fora.
-      </p>
-      <div className="row">
         <Link className={channel === "" ? "btn" : "btn quiet"} href="/clientes/origem">
           Todos · {people.length}
         </Link>
@@ -48,8 +44,8 @@ export default async function OriginPage({
           </Link>
         ))}
       </div>
-      <div className="card">
-        {visible.length === 0 ? <p>Ninguém neste canal.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {visible.length === 0 ? <p className="queue-empty">Ninguém neste canal.</p> : null}
         {visible.length > 0 ? (
           <table className="sheet">
             <thead>
@@ -80,6 +76,7 @@ export default async function OriginPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

@@ -59,9 +59,8 @@ export default async function ChartPage({
         </div>
         <SubmitButton label="Salvar conta" pendingLabel="Salvando…" />
       </form>
-      <div className="card">
-        <h2>Contas</h2>
-        {rows.length === 0 ? <p>Nenhuma conta no plano ainda.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {rows.length === 0 ? <p className="queue-empty">Nenhuma conta no plano ainda.</p> : null}
         {rows.length > 0 ? (
           <table>
             <thead>

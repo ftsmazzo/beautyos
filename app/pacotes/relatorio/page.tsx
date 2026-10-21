@@ -40,20 +40,13 @@ export default async function PackageReportPage({
 
   return (
     <Panel user={user} current="/pacotes/relatorio" title="Relatório de pacotes">
-      <form action="/pacotes/relatorio">
-        <div className="split">
-          <label>
-            De
-            <input type="date" name="de" defaultValue={start} required />
-          </label>
-          <label>
-            Até
-            <input type="date" name="ate" defaultValue={end} required />
-          </label>
-        </div>
-        <button className="btn" type="submit">Ver período</button>
-      </form>
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
+        <form className="filters" action="/pacotes/relatorio">
+          <input type="date" name="de" defaultValue={start} required aria-label="De" />
+          <input type="date" name="ate" defaultValue={end} required aria-label="Até" />
+          <button className="btn" type="submit">Ver</button>
+        </form>
         <Link className="btn quiet" href={`/pacotes/relatorio?de=${current.start}&ate=${current.end}`}>
           Este mês
         </Link>
@@ -61,9 +54,9 @@ export default async function PackageReportPage({
           Mês passado
         </Link>
         <Link className="btn quiet" href="/pacotes/vendidos">
-          Pacotes vendidos
+          Vendidos
         </Link>
-        <strong>{formatDay(start)} – {formatDay(end)}</strong>
+        <span className="chip">{formatDay(start)} – {formatDay(end)}</span>
       </div>
       <div className="tiles">
         <div className="stat">
@@ -79,9 +72,9 @@ export default async function PackageReportPage({
           <span>{avulsoCents >= soldCents ? "Abaixo do avulso" : "Acima do avulso"}</span>
         </div>
       </div>
-      <div className="card">
-        <h2>Quais vendem</h2>
-        {report.sales.length === 0 ? <p>Nenhum pacote vendido neste período.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="desk-bar"><span className="day-label">Quais vendem</span></div>
+        {report.sales.length === 0 ? <p className="queue-empty">Nenhum pacote vendido neste período.</p> : null}
         {report.sales.length > 0 ? (
           <table>
             <thead>
@@ -107,9 +100,9 @@ export default async function PackageReportPage({
           </table>
         ) : null}
       </div>
-      <div className="card">
-        <h2>Serviços</h2>
-        {report.services.length === 0 ? <p>Nenhum serviço neste período.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="desk-bar"><span className="day-label">Serviços</span></div>
+        {report.services.length === 0 ? <p className="queue-empty">Nenhum serviço neste período.</p> : null}
         {report.services.length > 0 ? (
           <table>
             <thead>
@@ -135,15 +128,15 @@ export default async function PackageReportPage({
           </table>
         ) : null}
       </div>
-      <div className="card">
-        <h2>Perdões</h2>
-        {report.pardons.times === 0 ? <p>Nenhum perdão neste período.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="desk-bar"><span className="day-label">Perdões</span></div>
+        {report.pardons.times === 0 ? <p className="queue-empty">Nenhum perdão neste período.</p> : null}
         {report.pardons.times > 0 ? (
           <p>
             {report.pardons.times} {report.pardons.times === 1 ? "vez" : "vezes"} · {report.pardons.weeks} {weekWord} · {report.pardons.clients} {report.pardons.clients === 1 ? "cliente" : "clientes"}
           </p>
         ) : null}
-        {report.pardons.times > 0 && report.repeats.length === 0 ? <p>Ninguém repetiu o perdão neste período.</p> : null}
+        {report.pardons.times > 0 && report.repeats.length === 0 ? <p className="queue-empty">Ninguém repetiu o perdão neste período.</p> : null}
         {report.repeats.length > 0 ? (
           <table>
             <thead>
@@ -167,6 +160,7 @@ export default async function PackageReportPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

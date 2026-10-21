@@ -37,9 +37,10 @@ export default async function ProductsPage({
   }
   return (
     <Panel user={user} current="/produtos" title="Produtos">
+      <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn" href="/produtos/novo">
           Novo produto
         </Link>
@@ -47,25 +48,26 @@ export default async function ProductsPage({
           Fornecedores
         </Link>
         <Link className="btn quiet" href="/produtos/compra">
-          Compra por nota
+          Compra
         </Link>
-        <Link className="btn quiet" href={listHref({ modo: !counting })}>
-          {counting ? "Voltar à lista" : "Conferência"}
+        <Link className={counting ? "btn" : "btn quiet"} href={listHref({ modo: !counting })}>
+          {counting ? "Lista" : "Conferência"}
         </Link>
         <Link className={onlyMin ? "btn" : "btn quiet"} href={listHref({ minimo: !onlyMin })}>
-          {onlyMin ? "Ver todos" : "No mínimo"}
+          {onlyMin ? "Todos" : "No mínimo"}
         </Link>
+        <form className="filters" method="get" action="/produtos">
+          {counting ? <input type="hidden" name="modo" value="conferencia" /> : null}
+          {onlyMin ? <input type="hidden" name="filtro" value="minimo" /> : null}
+          <input name="q" defaultValue={query.q ?? ""} placeholder="Nome, categoria ou código" />
+          <button type="submit">Buscar</button>
+        </form>
+        <span className="chip">{products.length}</span>
       </div>
-      <form className="filters" method="get" action="/produtos">
-        {counting ? <input type="hidden" name="modo" value="conferencia" /> : null}
-        {onlyMin ? <input type="hidden" name="filtro" value="minimo" /> : null}
-        <input name="q" defaultValue={query.q ?? ""} placeholder="Nome, categoria ou código de barras" />
-        <button type="submit">Buscar</button>
-      </form>
-      {counting ? <p>Conte cada produto. A diferença entra no estoque quando você confirma, com a data e quem contou.</p> : null}
-      {onlyMin ? <p>Só quem chegou no mínimo da ficha. Zero no mínimo não avisa.</p> : null}
-      <div className="card">
-        {products.length === 0 ? <p>{onlyMin ? "Nenhum produto no mínimo." : "Nenhum produto ainda."}</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {products.length === 0 ? (
+          <p className="queue-empty">{onlyMin ? "Nenhum produto no mínimo." : "Nenhum produto ainda."}</p>
+        ) : null}
         {products.length > 0 ? (
           <table>
             <thead>
@@ -124,6 +126,7 @@ export default async function ProductsPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

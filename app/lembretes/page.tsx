@@ -29,20 +29,16 @@ export default async function LembretesPage({
 
   return (
     <Panel user={user} current="/lembretes" title="Lembretes">
+      <div className="desk">
       <ErrorNote code={query.erro} />
       <Saved code={query.ok} />
-      <p>
-        Fila do balcão: confirmação dos horários de amanhã e aniversários de hoje. Disparo no WhatsApp volta com o
-        agente; aqui a casa marca o que já avisou.
-      </p>
-
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn quiet" href={`/lembretes?dia=${shiftDay(day, -1)}`}>
-          Dia anterior
+          ←
         </Link>
-        <strong>{formatDay(day)}</strong>
+        <span className="day-label">{formatDay(day)}</span>
         <Link className="btn quiet" href={`/lembretes?dia=${shiftDay(day, 1)}`}>
-          Próximo dia
+          →
         </Link>
         <Link className="btn quiet" href={`/lembretes?dia=${today}`}>
           Hoje
@@ -50,10 +46,10 @@ export default async function LembretesPage({
         <Link className="btn quiet" href="/aniversariantes">
           Aniversariantes
         </Link>
+        <span className="chip">{rows.length}</span>
       </div>
-
-      <div className="card">
-        {rows.length === 0 ? <p>Nenhum lembrete neste dia (nem amanhã para agendamento).</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {rows.length === 0 ? <p className="queue-empty">Nenhum lembrete neste dia.</p> : null}
         {rows.length > 0 ? (
           <table>
             <thead>
@@ -95,6 +91,7 @@ export default async function LembretesPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

@@ -411,53 +411,37 @@ export default async function StartPage({
         </>
       ) : null}
       {user.role === "profissional" ? (
-        <div className="card">
-          <h2>Seu dia</h2>
-          {own ? (
-            <>
-              <p>
-                Comissão de hoje {formatReais(mine?.commissionCents ?? 0)}. Abate {formatReais(mine?.abatementCents ?? 0)}.
-                {" · "}
-                <Link href="/comissao">Comissão</Link>
-              </p>
-              {pulse?.consumption ? (
-                <p>
-                  Consumo de hoje{" "}
-                  <Link href={`/comandas/${pulse.consumption.id}`}>
-                    {pulse.consumption.status === "aberta" ? "aberto" : "fechado"}
-                  </Link>
-                  . Fecha sem pagamento e o abate entra na comissão.
-                </p>
-              ) : (
-                <form action={openConsumption}>
-                  <input type="hidden" name="day" value={today} />
-                  <input type="hidden" name="professional" value={own} />
-                  <p>Produto e serviço entre profissionais entram na comanda de consumo do dia.</p>
-                  <SubmitButton label="Abrir consumo de hoje" pendingLabel="Abrindo…" className="teal" />
-                </form>
-              )}
-            </>
-          ) : (
-            <p>Este acesso ainda não está ligado a um profissional.</p>
-          )}
-          <div className="row">
-            <Link className="btn" href="/agenda">
-              Abrir agenda
+        <div className="desk-bar">
+          <Link className="btn" href="/agenda">
+            Agenda
+          </Link>
+          <Link className="btn quiet" href="/comandas">
+            Comandas
+          </Link>
+          <Link className="btn quiet" href="/comissao">
+            Comissão {formatReais(mine?.commissionCents ?? 0)}
+          </Link>
+          <span className="chip">Abate {formatReais(mine?.abatementCents ?? 0)}</span>
+          {own && pulse?.consumption ? (
+            <Link className="btn quiet" href={`/comandas/${pulse.consumption.id}`}>
+              Consumo {pulse.consumption.status === "aberta" ? "aberto" : "fechado"}
             </Link>
-            <Link className="btn quiet" href="/comandas">
-              Comandas
-            </Link>
-          </div>
+          ) : null}
+          {own && !pulse?.consumption ? (
+            <form action={openConsumption}>
+              <input type="hidden" name="day" value={today} />
+              <input type="hidden" name="professional" value={own} />
+              <SubmitButton label="Abrir consumo" pendingLabel="Abrindo…" className="teal" />
+            </form>
+          ) : null}
+          {!own ? <span className="chip">Sem ficha</span> : null}
         </div>
       ) : null}
       {user.role === "cliente" ? (
-        <div className="card stack">
-          <p>Veja horários, créditos do pacote e o histórico da casa.</p>
-          <div className="row">
-            <Link className="btn" href="/meu">
-              Abrir minha conta
-            </Link>
-          </div>
+        <div className="desk-bar">
+          <Link className="btn" href="/meu">
+            Minha conta
+          </Link>
         </div>
       ) : null}
       {user.role === "administrador" && rules ? (

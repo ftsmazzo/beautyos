@@ -46,58 +46,42 @@ export default async function LogsPage({
 
   return (
     <Panel user={user} current="/logs" title="Logs">
-      {!period ? (
-        <div className="row">
-          <Link className="btn quiet" href={`/logs?dia=${shiftDay(start, -1)}`}>
-            Dia anterior
-          </Link>
-          <strong>{formatDay(start)}</strong>
-          <Link className="btn quiet" href={`/logs?dia=${shiftDay(start, 1)}`}>
-            Próximo dia
-          </Link>
-          <Link className="btn quiet" href={`/logs?dia=${today}`}>
-            Hoje
-          </Link>
-          <Link className="btn quiet" href={rangeQuery(week.start, today, kind)}>
-            Esta semana
-          </Link>
-          <Link className="btn quiet" href={rangeQuery(month.start, today, kind)}>
-            Este mês
-          </Link>
-        </div>
-      ) : (
-        <>
-          <form className="row" action="/logs">
-            <label>
-              De
-              <input name="de" type="date" defaultValue={start} required />
-            </label>
-            <label>
-              Até
-              <input name="ate" type="date" defaultValue={end} required />
-            </label>
-            {kind ? <input type="hidden" name="tipo" value={kind} /> : null}
-            <button className="btn" type="submit">
-              Ver período
-            </button>
-          </form>
-          <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
+        {!period ? (
+          <>
+            <Link className="btn quiet" href={`/logs?dia=${shiftDay(start, -1)}`}>
+              ←
+            </Link>
+            <span className="day-label">{formatDay(start)}</span>
+            <Link className="btn quiet" href={`/logs?dia=${shiftDay(start, 1)}`}>
+              →
+            </Link>
             <Link className="btn quiet" href={`/logs?dia=${today}`}>
-              Voltar ao dia
+              Hoje
             </Link>
-            <Link className="btn quiet" href={rangeQuery(week.start, today, kind)}>
-              Esta semana
+          </>
+        ) : (
+          <>
+            <form className="filters" action="/logs">
+              <input name="de" type="date" defaultValue={start} required aria-label="De" />
+              <input name="ate" type="date" defaultValue={end} required aria-label="Até" />
+              {kind ? <input type="hidden" name="tipo" value={kind} /> : null}
+              <button className="btn" type="submit">
+                Ver
+              </button>
+            </form>
+            <Link className="btn quiet" href={`/logs?dia=${today}`}>
+              Dia
             </Link>
-            <Link className="btn quiet" href={rangeQuery(month.start, today, kind)}>
-              Este mês
-            </Link>
-            <strong>
-              {formatDay(start)} – {formatDay(end)}
-            </strong>
-          </div>
-        </>
-      )}
-      <div className="row">
+          </>
+        )}
+        <Link className="btn quiet" href={rangeQuery(week.start, today, kind)}>
+          Semana
+        </Link>
+        <Link className="btn quiet" href={rangeQuery(month.start, today, kind)}>
+          Mês
+        </Link>
         {KINDS.map((item) => {
           const href = period
             ? rangeQuery(start, end, item.id || null)
@@ -111,12 +95,11 @@ export default async function LogsPage({
             </Link>
           );
         })}
+        <span className="chip">{tooLong ? `máx. ${SPAN}d` : logs.length}</span>
       </div>
-      <div className="card">
-        <h2>{period ? "Registro do período" : "Registro do dia"}</h2>
-        <p>Preço alterado, troca de cliente, cortesia e cancelamento. Cada linha guarda quem fez e o que mudou.</p>
-        {tooLong ? <p className="error">O período fica em até {SPAN} dias.</p> : null}
-        {!tooLong && logs.length === 0 ? <p>Nenhum registro neste recorte.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {tooLong ? <p className="queue-empty">O período fica em até {SPAN} dias.</p> : null}
+        {!tooLong && logs.length === 0 ? <p className="queue-empty">Nenhum registro neste recorte.</p> : null}
         {logs.length > 0 ? (
           <table className="sheet">
             <thead>
@@ -152,6 +135,7 @@ export default async function LogsPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

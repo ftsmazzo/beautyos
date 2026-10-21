@@ -13,17 +13,18 @@ export default async function AniversariantesPage() {
 
   return (
     <Panel user={user} current="/aniversariantes" title="Aniversariantes">
-      <p>Próximos 30 dias — clientes e equipe com data de nascimento na ficha.</p>
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
+        <span className="chip">30 dias · {rows.length}</span>
         <Link className="btn quiet" href="/lembretes">
-          Lembretes do dia
+          Lembretes
         </Link>
         <Link className="btn quiet" href="/clientes">
           Clientes
         </Link>
       </div>
-      <div className="card">
-        {rows.length === 0 ? <p>Ninguém neste período.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {rows.length === 0 ? <p className="queue-empty">Ninguém neste período.</p> : null}
         {rows.length > 0 ? (
           <table>
             <thead>
@@ -54,6 +55,7 @@ export default async function AniversariantesPage() {
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

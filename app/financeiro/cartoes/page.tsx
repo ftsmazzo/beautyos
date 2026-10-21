@@ -51,9 +51,9 @@ export default async function CardsPage({
         </div>
         <SubmitButton label="Salvar cartão" pendingLabel="Salvando…" />
       </form>
-      <div className="card">
-        <h2>Cartões</h2>
-        {cards.length === 0 ? <p>Nenhum cartão ainda.</p> : null}
+      <div className="desk">
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {cards.length === 0 ? <p className="queue-empty">Nenhum cartão ainda.</p> : null}
         {cards.length > 0 ? (
           <table>
             <thead>
@@ -91,9 +91,12 @@ export default async function CardsPage({
         ) : null}
       </div>
       {selected ? (
-        <div className="card">
-          <h2>Fatura · {selected.name}</h2>
-          {charges.length === 0 ? <p>Nenhum lançamento nesta fatura.</p> : null}
+        <div className="queue" style={{ overflowX: "auto" }}>
+          <div className="desk-bar">
+            <span className="day-label">Fatura · {selected.name}</span>
+            <span className="chip">{formatReais(selected.openCents)}</span>
+          </div>
+          {charges.length === 0 ? <p className="queue-empty">Nenhum lançamento nesta fatura.</p> : null}
           {charges.length > 0 ? (
             <>
               <table>
@@ -116,7 +119,7 @@ export default async function CardsPage({
                   ))}
                 </tbody>
               </table>
-              {banks.length === 0 ? <p>Cadastre um banco para pagar a fatura.</p> : null}
+              {banks.length === 0 ? <p className="queue-empty">Cadastre um banco para pagar a fatura.</p> : null}
               {banks.length > 0 ? (
                 <form action={payCardInvoice}>
                   <input type="hidden" name="card" value={selected.id} />
@@ -136,14 +139,14 @@ export default async function CardsPage({
                       <input type="date" name="day" required defaultValue={todaySaoPaulo()} />
                     </label>
                   </div>
-                  <p>Paga os {formatReais(selected.openCents)} em aberto. Esse valor sai do banco.</p>
-                  <SubmitButton label="Pagar fatura" pendingLabel="Pagando…" />
+                  <SubmitButton label={`Pagar ${formatReais(selected.openCents)}`} pendingLabel="Pagando…" />
                 </form>
               ) : null}
             </>
           ) : null}
         </div>
       ) : null}
+      </div>
     </Panel>
   );
 }

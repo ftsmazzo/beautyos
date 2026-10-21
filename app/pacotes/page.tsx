@@ -19,17 +19,19 @@ export default async function PackagesPage({
   const packages = await listPackages(user.accountId);
   return (
     <Panel user={user} current="/pacotes" title="Pacotes">
+      <div className="desk">
       <SavedNote code={query.ok} />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn" href="/pacotes/novo">
           Novo pacote
         </Link>
         <Link className="btn quiet" href="/pacotes/vendidos">
-          Pacotes vendidos
+          Vendidos
         </Link>
+        <span className="chip">{packages.length}</span>
       </div>
-      <div className="card">
-        {packages.length === 0 ? <p>Nenhum pacote ainda.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {packages.length === 0 ? <p className="queue-empty">Nenhum pacote ainda.</p> : null}
         {packages.length > 0 ? (
           <table>
             <thead>
@@ -69,6 +71,7 @@ export default async function PackagesPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

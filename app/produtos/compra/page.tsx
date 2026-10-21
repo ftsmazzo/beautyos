@@ -26,18 +26,18 @@ export default async function PurchasePage({
 
   return (
     <Panel user={user} current="/produtos" title="Compra por nota">
+      <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn quiet" href="/produtos">
           Produtos
         </Link>
+        <span className="chip">{purchases.length} notas</span>
       </div>
-      {products.length === 0 ? <p>Cadastre um produto antes de lançar a nota.</p> : null}
+      {products.length === 0 ? <p className="queue-empty">Cadastre um produto antes de lançar a nota.</p> : null}
       {products.length > 0 ? (
-        <>
-          <p>Sem o papel na mão, a nota entra aqui. O mesmo número, no mesmo fornecedor, não entra de novo. A descrição da nota, uma vez confirmada, já escolhe o produto na próxima compra dele.</p>
-          <PurchaseForm
+        <PurchaseForm
             products={products.map((product) => ({ id: product.id, name: product.name, supplierId: product.supplierId }))}
             suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, city: supplier.city }))}
             banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
@@ -46,11 +46,9 @@ export default async function PurchasePage({
             aliases={aliases}
             today={todaySaoPaulo()}
           />
-        </>
       ) : null}
-      <div className="card">
-        <h2>Notas lançadas</h2>
-        {purchases.length === 0 ? <p>Nenhuma nota ainda.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {purchases.length === 0 ? <p className="queue-empty">Nenhuma nota ainda.</p> : null}
         {purchases.length > 0 ? (
           <table>
             <thead>
@@ -73,6 +71,7 @@ export default async function PurchasePage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

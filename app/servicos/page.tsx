@@ -19,18 +19,20 @@ export default async function ServicesPage({
   const notices = await openPriceNotices(user.accountId);
   return (
     <Panel user={user} current="/servicos" title="Serviços">
+      <div className="desk">
       <SavedNote code={query.ok} />
       <PriceNotice notices={notices} back="servicos" />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn" href="/servicos/novo">
           Novo serviço
         </Link>
         <Link className="btn quiet" href="/servicos/periodo">
           Venda, uso e avulso
         </Link>
+        <span className="chip">{services.length}</span>
       </div>
-      <div className="card">
-        {services.length === 0 ? <p>Nenhum serviço ainda.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {services.length === 0 ? <p className="queue-empty">Nenhum serviço ainda.</p> : null}
         {services.length > 0 ? (
           <table>
             <thead>
@@ -67,6 +69,7 @@ export default async function ServicesPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

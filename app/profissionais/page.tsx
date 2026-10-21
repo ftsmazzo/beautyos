@@ -17,14 +17,16 @@ export default async function ProfessionalsPage({
   const people = await listProfessionals(user.accountId);
   return (
     <Panel user={user} current="/profissionais" title="Profissionais">
+      <div className="desk">
       <SavedNote code={query.ok} />
-      <div className="row">
+      <div className="desk-bar">
         <Link className="btn" href="/profissionais/novo">
           Novo profissional
         </Link>
+        <span className="chip">{people.length}</span>
       </div>
-      <div className="card">
-        {people.length === 0 ? <p>Nenhum profissional ainda.</p> : null}
+      <div className="queue" style={{ overflowX: "auto" }}>
+        {people.length === 0 ? <p className="queue-empty">Nenhum profissional ainda.</p> : null}
         {people.length > 0 ? (
           <table>
             <thead>
@@ -55,6 +57,7 @@ export default async function ProfessionalsPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );
