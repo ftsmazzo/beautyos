@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { settlePayable } from "@/finance/actions";
+import { Modal } from "@/ui/modal";
 import { SubmitButton } from "@/ui/submit-button";
 
 export function PayableSettle({
@@ -25,10 +26,15 @@ export function PayableSettle({
   const credit = paid ? paidMethod === "credito" : method === "credito";
   const missing = credit ? cards.length === 0 : banks.length === 0;
 
+  const label = paid ? (credit ? "Lançar na fatura" : "Lançar no extrato") : "Dar baixa";
+
   return (
-    <details>
-      <summary>{paid ? (credit ? "Lançar na fatura" : "Lançar no extrato") : "Dar baixa"}</summary>
-      {missing ? <p>{credit ? "Cadastre um cartão para lançar no crédito." : "Cadastre um banco para lançar a baixa."}</p> : null}
+    <Modal label={label} title={label} tone={paid ? "navy" : "teal"}>
+      {missing ? (
+        <p className="queue-empty">
+          {credit ? "Cadastre um cartão para lançar no crédito." : "Cadastre um banco para lançar a baixa."}
+        </p>
+      ) : null}
       {missing ? null : (
         <form action={settlePayable}>
           <input type="hidden" name="id" value={id} />
@@ -95,6 +101,6 @@ export function PayableSettle({
           <SubmitButton label={credit ? "Lançar" : "Baixar"} pendingLabel="Lançando…" className="quiet" />
         </form>
       )}
-    </details>
+    </Modal>
   );
 }

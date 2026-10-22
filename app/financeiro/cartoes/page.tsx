@@ -101,6 +101,28 @@ export default async function CardsPage({
           <div className="desk-bar">
             <span className="day-label">Fatura · {selected.name}</span>
             <span className="chip">{formatReais(selected.openCents)}</span>
+            {charges.length > 0 && banks.length > 0 ? (
+              <Modal label={`Pagar ${formatReais(selected.openCents)}`} title={`Pagar · ${selected.name}`} tone="teal">
+                <form action={payCardInvoice}>
+                  <input type="hidden" name="card" value={selected.id} />
+                  <label>
+                    Banco
+                    <select name="bank" defaultValue={banks[0]?.id}>
+                      {banks.map((bank) => (
+                        <option key={bank.id} value={bank.id}>
+                          {bank.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Data
+                    <input type="date" name="day" required defaultValue={todaySaoPaulo()} />
+                  </label>
+                  <SubmitButton label={`Pagar ${formatReais(selected.openCents)}`} pendingLabel="Pagando…" />
+                </form>
+              </Modal>
+            ) : null}
           </div>
           {charges.length === 0 ? <p className="queue-empty">Nenhum lançamento nesta fatura.</p> : null}
           {charges.length > 0 ? (
@@ -126,28 +148,6 @@ export default async function CardsPage({
                 </tbody>
               </table>
               {banks.length === 0 ? <p className="queue-empty">Cadastre um banco para pagar a fatura.</p> : null}
-              {banks.length > 0 ? (
-                <form action={payCardInvoice}>
-                  <input type="hidden" name="card" value={selected.id} />
-                  <div className="split">
-                    <label>
-                      Banco
-                      <select name="bank" defaultValue={banks[0]?.id}>
-                        {banks.map((bank) => (
-                          <option key={bank.id} value={bank.id}>
-                            {bank.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Data
-                      <input type="date" name="day" required defaultValue={todaySaoPaulo()} />
-                    </label>
-                  </div>
-                  <SubmitButton label={`Pagar ${formatReais(selected.openCents)}`} pendingLabel="Pagando…" />
-                </form>
-              ) : null}
             </>
           ) : null}
         </div>
