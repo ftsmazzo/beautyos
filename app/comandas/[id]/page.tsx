@@ -658,7 +658,41 @@ export default async function OrderPage({
 
       {order.kind === "cliente" ? (
         <div className="order-section">
-          <h2>Pagamentos</h2>
+          <div className="order-actions-bar">
+            <h2 style={{ margin: 0, border: 0, padding: 0, flex: "1 1 auto" }}>Pagamentos</h2>
+            {operator && open ? (
+              <Modal label="Receber" title="Receber" tone="teal">
+                <PaymentForm
+                  orderId={order.id}
+                  banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
+                  acquirers={acquirers}
+                />
+              </Modal>
+            ) : null}
+            {operator && open && order.clientId && credit > 0 && gap > 0 ? (
+              <Modal label={`Crédito ${formatReais(credit)}`} title="Usar crédito" tone="navy">
+                <form action={applyClientCredit}>
+                  <input type="hidden" name="order" value={order.id} />
+                  <span className="chip">
+                    {formatReais(credit)}
+                    {ledger && ledger.sources.length > 0
+                      ? ` · ${ledger.sources.map((row) => `${formatDay(row.day)} ${formatReais(row.cents)}`).join(", ")}`
+                      : ""}
+                  </span>
+                  <label>
+                    Valor
+                    <input
+                      name="amount"
+                      inputMode="decimal"
+                      defaultValue={centsToInput(Math.min(credit, gap))}
+                      required
+                    />
+                  </label>
+                  <SubmitButton label="Usar crédito" pendingLabel="Usando…" />
+                </form>
+              </Modal>
+            ) : null}
+          </div>
           {order.payments.length === 0 ? <p className="queue-empty">Nenhum pagamento ainda.</p> : null}
           {order.payments.length > 0 ? (
             <table className="sheet">
@@ -697,34 +731,6 @@ export default async function OrderPage({
                 ))}
               </tbody>
             </table>
-          ) : null}
-          {operator && open ? (
-            <PaymentForm
-              orderId={order.id}
-              banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
-              acquirers={acquirers}
-            />
-          ) : null}
-          {operator && open && order.clientId && credit > 0 && gap > 0 ? (
-            <form action={applyClientCredit}>
-              <input type="hidden" name="order" value={order.id} />
-              <span className="chip">
-                Crédito {formatReais(credit)}
-                {ledger && ledger.sources.length > 0
-                  ? ` · ${ledger.sources.map((row) => `${formatDay(row.day)} ${formatReais(row.cents)}`).join(", ")}`
-                  : ""}
-              </span>
-              <label>
-                Valor
-                <input
-                  name="amount"
-                  inputMode="decimal"
-                  defaultValue={centsToInput(Math.min(credit, gap))}
-                  required
-                />
-              </label>
-              <SubmitButton label="Usar crédito" pendingLabel="Usando…" />
-            </form>
           ) : null}
         </div>
       ) : (

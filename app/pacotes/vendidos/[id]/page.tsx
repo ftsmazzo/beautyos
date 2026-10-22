@@ -143,70 +143,76 @@ export default async function SoldPackagePage({
                       ) : null}
                       {open && people.length === 0 ? <span className="chip">Sem profissional</span> : null}
                       {open && people.length > 0 && visit.status === "falta_agendar" && !item.expired && !item.late ? (
-                        <form action={usePackageVisitNow}>
-                          <input type="hidden" name="package" value={item.id} />
-                          <input type="hidden" name="credit" value={visit.id} />
-                          <label>
-                            Profissional
-                            <select name="professional" required defaultValue={people[0]?.id}>
-                              {people.map((person) => (
-                                <option key={person.id} value={person.id}>{person.nickname || person.name}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            Horário
-                            <input type="time" name="start" required defaultValue={now} />
-                          </label>
-                          <SubmitButton label="Usar agora" pendingLabel="Usando…" className="quiet" />
-                        </form>
+                        <Modal label="Usar agora" title={`Usar agora · ${visit.serviceName}`} tone="teal">
+                          <form action={usePackageVisitNow}>
+                            <input type="hidden" name="package" value={item.id} />
+                            <input type="hidden" name="credit" value={visit.id} />
+                            <label>
+                              Profissional
+                              <select name="professional" required defaultValue={people[0]?.id}>
+                                {people.map((person) => (
+                                  <option key={person.id} value={person.id}>{person.nickname || person.name}</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              Horário
+                              <input type="time" name="start" required defaultValue={now} />
+                            </label>
+                            <SubmitButton label="Usar agora" pendingLabel="Usando…" />
+                          </form>
+                        </Modal>
                       ) : null}
                       {open && people.length > 0 && visit.status === "falta_agendar" ? (
-                        <form action={schedulePackageVisit}>
-                          <input type="hidden" name="package" value={item.id} />
-                          <input type="hidden" name="order" value={item.orderId ?? ""} />
-                          <input type="hidden" name="credit" value={visit.id} />
-                          <label>
-                            Profissional
-                            <select name="professional" required defaultValue={people[0]?.id}>
-                              {people.map((person) => (
-                                <option key={person.id} value={person.id}>{person.nickname || person.name}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            Dia
-                            <input type="date" name="day" required defaultValue={today} />
-                          </label>
-                          <label>
-                            Horário
-                            <input type="time" name="start" required defaultValue="09:00" />
-                          </label>
-                          <SubmitButton label="Marcar" pendingLabel="Marcando…" className="quiet" />
-                        </form>
+                        <Modal label="Marcar" title={`Marcar · ${visit.serviceName}`} tone="blue">
+                          <form action={schedulePackageVisit}>
+                            <input type="hidden" name="package" value={item.id} />
+                            <input type="hidden" name="order" value={item.orderId ?? ""} />
+                            <input type="hidden" name="credit" value={visit.id} />
+                            <label>
+                              Profissional
+                              <select name="professional" required defaultValue={people[0]?.id}>
+                                {people.map((person) => (
+                                  <option key={person.id} value={person.id}>{person.nickname || person.name}</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              Dia
+                              <input type="date" name="day" required defaultValue={today} />
+                            </label>
+                            <label>
+                              Horário
+                              <input type="time" name="start" required defaultValue="09:00" />
+                            </label>
+                            <SubmitButton label="Marcar" pendingLabel="Marcando…" />
+                          </form>
+                        </Modal>
                       ) : null}
                       {open && people.length > 0 && visit.status === "agendado" ? (
-                        <form action={movePackageVisit}>
-                          <input type="hidden" name="package" value={item.id} />
-                          <input type="hidden" name="credit" value={visit.id} />
-                          <label>
-                            Profissional
-                            <select name="professional" required defaultValue={visit.professionalId ?? people[0]?.id}>
-                              {people.map((person) => (
-                                <option key={person.id} value={person.id}>{person.nickname || person.name}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label>
-                            Dia
-                            <input type="date" name="day" required defaultValue={visit.day ?? today} />
-                          </label>
-                          <label>
-                            Horário
-                            <input type="time" name="start" required defaultValue={visit.start ?? "09:00"} />
-                          </label>
-                          <SubmitButton label="Remarcar" pendingLabel="Remarcando…" className="quiet" />
-                        </form>
+                        <Modal label="Remarcar" title={`Remarcar · ${visit.serviceName}`} tone="navy">
+                          <form action={movePackageVisit}>
+                            <input type="hidden" name="package" value={item.id} />
+                            <input type="hidden" name="credit" value={visit.id} />
+                            <label>
+                              Profissional
+                              <select name="professional" required defaultValue={visit.professionalId ?? people[0]?.id}>
+                                {people.map((person) => (
+                                  <option key={person.id} value={person.id}>{person.nickname || person.name}</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              Dia
+                              <input type="date" name="day" required defaultValue={visit.day ?? today} />
+                            </label>
+                            <label>
+                              Horário
+                              <input type="time" name="start" required defaultValue={visit.start ?? "09:00"} />
+                            </label>
+                            <SubmitButton label="Remarcar" pendingLabel="Remarcando…" />
+                          </form>
+                        </Modal>
                       ) : null}
                     </td>
                   </tr>
