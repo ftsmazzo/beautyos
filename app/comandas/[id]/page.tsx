@@ -395,39 +395,8 @@ export default async function OrderPage({
                     {line.start && line.end ? `${line.start}–${line.end}` : "—"}
                     {line.waitMin == null ? "" : line.appointmentStatus === "chegou" ? ` · há ${line.waitMin} min` : ` · esperou ${line.waitMin} min`}
                   </td>
-                  <td data-label="Valor">
-                    {operator && open && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (
-                      <form action={adjustLinePrice} className="price-field">
-                        <input type="hidden" name="order" value={order.id} />
-                        <input type="hidden" name="line" value={line.id} />
-                        <input
-                          name="amount"
-                          inputMode="decimal"
-                          defaultValue={centsToInput(line.priceCents)}
-                          aria-label={`Preço de ${line.description}`}
-                          required
-                        />
-                        <SubmitButton label="Salvar" pendingLabel="…" className="quiet" />
-                      </form>
-                    ) : (
-                      formatReais(line.priceCents)
-                    )}
-                  </td>
+                  <td data-label="Valor">{formatReais(line.priceCents)}</td>
                   <td data-label="Comissão">
-                    {operator && open && line.packageCreditId && line.kind === "servico" ? (
-                      <form action={adjustLineCommission} className="price-field">
-                        <input type="hidden" name="order" value={order.id} />
-                        <input type="hidden" name="line" value={line.id} />
-                        <input
-                          name="percent"
-                          inputMode="numeric"
-                          defaultValue={String(line.commissionPercent)}
-                          aria-label={`Percentual de ${line.description}`}
-                          required
-                        />
-                        <SubmitButton label="Salvar" pendingLabel="…" className="quiet" />
-                      </form>
-                    ) : null}
                     {formatReais(line.commissionCents)}
                     {line.abatementCents > 0
                       ? order.kind === "consumo" && line.kind === "servico"
@@ -438,36 +407,68 @@ export default async function OrderPage({
                   </td>
                   <td data-label="Ações">
                     <div className="line-actions">
-                    {open && line.appointmentId && line.appointmentStatus ? (
-                      <form action={setStatus}>
-                        <input type="hidden" name="order" value={order.id} />
-                        <input type="hidden" name="appointment" value={line.appointmentId} />
-                        <select name="status" defaultValue={line.appointmentStatus}>
-                          {statuses.map(([value, paint]) => (
-                            <option key={value} value={value}>
-                              {paint.word}
-                            </option>
-                          ))}
-                        </select>
-                        <SubmitButton label="Estado" pendingLabel="Salvando…" className="quiet" />
-                      </form>
-                    ) : null}
-                    {open && line.kind === "servico" && line.serviceId ? (
-                      <form action={moveLineProfessional}>
-                        <input type="hidden" name="order" value={order.id} />
-                        <input type="hidden" name="line" value={line.id} />
-                        <select name="professional" defaultValue={line.professionalId ?? ""}>
-                          {catalog
-                            .filter((service) => service.id === line.serviceId)
-                            .filter((service) => order.kind !== "consumo" || service.professionalId !== order.professionalId)
-                            .map((service) => (
-                              <option key={service.professionalId} value={service.professionalId}>
-                                {roster.find((person) => person.id === service.professionalId)?.name ?? "Profissional"}
-                              </option>
-                            ))}
-                        </select>
-                        <SubmitButton label="Trocar" pendingLabel="Trocando…" className="quiet" />
-                      </form>
+                    {open && (line.appointmentId || line.kind === "servico" || (operator && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId) || (operator && line.packageCreditId && line.kind === "servico")) ? (
+                      <Modal label="Ajustar" title={`Ajustar · ${line.description}`} tone="navy">
+                        {operator && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (
+                          <form action={adjustLinePrice}>
+                            <input type="hidden" name="order" value={order.id} />
+                            <input type="hidden" name="line" value={line.id} />
+                            <label>
+                              Preço
+                              <input name="amount" inputMode="decimal" defaultValue={centsToInput(line.priceCents)} required />
+                            </label>
+                            <SubmitButton label="Salvar preço" pendingLabel="Salvando…" />
+                          </form>
+                        ) : null}
+                        {operator && line.packageCreditId && line.kind === "servico" ? (
+                          <form action={adjustLineCommission}>
+                            <input type="hidden" name="order" value={order.id} />
+                            <input type="hidden" name="line" value={line.id} />
+                            <label>
+                              Comissão (%)
+                              <input name="percent" inputMode="numeric" defaultValue={String(line.commissionPercent)} required />
+                            </label>
+                            <SubmitButton label="Salvar comissão" pendingLabel="Salvando…" />
+                          </form>
+                        ) : null}
+                        {line.appointmentId && line.appointmentStatus ? (
+                          <form action={setStatus}>
+                            <input type="hidden" name="order" value={order.id} />
+                            <input type="hidden" name="appointment" value={line.appointmentId} />
+                            <label>
+                              Estado
+                              <select name="status" defaultValue={line.appointmentStatus}>
+                                {statuses.map(([value, paint]) => (
+                                  <option key={value} value={value}>
+                                    {paint.word}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <SubmitButton label="Salvar estado" pendingLabel="Salvando…" />
+                          </form>
+                        ) : null}
+                        {line.kind === "servico" && line.serviceId ? (
+                          <form action={moveLineProfessional}>
+                            <input type="hidden" name="order" value={order.id} />
+                            <input type="hidden" name="line" value={line.id} />
+                            <label>
+                              Profissional
+                              <select name="professional" defaultValue={line.professionalId ?? ""}>
+                                {catalog
+                                  .filter((service) => service.id === line.serviceId)
+                                  .filter((service) => order.kind !== "consumo" || service.professionalId !== order.professionalId)
+                                  .map((service) => (
+                                    <option key={service.professionalId} value={service.professionalId}>
+                                      {roster.find((person) => person.id === service.professionalId)?.name ?? "Profissional"}
+                                    </option>
+                                  ))}
+                              </select>
+                            </label>
+                            <SubmitButton label="Trocar" pendingLabel="Trocando…" />
+                          </form>
+                        ) : null}
+                      </Modal>
                     ) : null}
                     {open ? (
                       <form action={removeLine}>
