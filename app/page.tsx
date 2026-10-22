@@ -21,7 +21,7 @@ export default async function HomePage({
 
   const params = await searchParams;
   return (
-    <AuthFrame title="Criar a casa" lede="A primeira pessoa entra como administrador. Uma conta é um negócio.">
+    <AuthFrame title="Criar a casa" lede="">
       {params.erro ? <p className="error">Preencha nome, e-mail e uma senha com pelo menos 8 caracteres.</p> : null}
       <form action={createHouse}>
         <label>

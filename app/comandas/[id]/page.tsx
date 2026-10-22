@@ -122,6 +122,39 @@ export default async function OrderPage({
         <Link className="btn quiet" href={`/agenda?dia=${order.day}`}>
           Agenda
         </Link>
+        {operator && order.incomplete && open ? (
+          <Modal label="Completar cadastro" title="Completar cadastro" tone="amber">
+            <form action={attachClient}>
+              <input type="hidden" name="order" value={order.id} />
+              <label>
+                Cliente já cadastrado
+                <select name="client" defaultValue="">
+                  <option value="">Cadastrar agora</option>
+                  {people.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="split">
+                <label>
+                  Nome
+                  <input name="name" />
+                </label>
+                <label>
+                  Celular
+                  <input name="phone" inputMode="numeric" />
+                </label>
+              </div>
+              <label className="check">
+                <input type="checkbox" name="from_outside" value="1" />
+                De fora
+              </label>
+              <SubmitButton label="Completar" pendingLabel="Salvando…" />
+            </form>
+          </Modal>
+        ) : null}
         {canClose ? (
           <form action={open ? closeOrder : reopenOrder} style={{ margin: 0 }}>
             <input type="hidden" name="order" value={order.id} />
@@ -224,41 +257,6 @@ export default async function OrderPage({
           </span>
         </div>
       </div>
-
-      {operator && order.incomplete && open ? (
-        <div className="order-section">
-          <h2>Completar cadastro</h2>
-          <form action={attachClient}>
-            <input type="hidden" name="order" value={order.id} />
-            <label>
-              Cliente já cadastrado
-              <select name="client" defaultValue="">
-                <option value="">Cadastrar agora</option>
-                {people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="split">
-              <label>
-                Nome
-                <input name="name" />
-              </label>
-              <label>
-                Celular
-                <input name="phone" inputMode="numeric" />
-              </label>
-            </div>
-            <label className="check">
-              <input type="checkbox" name="from_outside" value="1" />
-              De fora
-            </label>
-            <SubmitButton label="Completar" pendingLabel="Salvando…" />
-          </form>
-        </div>
-      ) : null}
 
       <div className="order-section">
         <div className="order-actions-bar">

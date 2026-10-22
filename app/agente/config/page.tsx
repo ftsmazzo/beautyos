@@ -42,11 +42,6 @@ export default async function AgenteConfigPage({
         </Link>
       </div>
 
-      <p>
-        Aqui fica o WhatsApp da casa (Evolution), o nome/tom do agente e a fila de espera. As conversas
-        do dia a dia ficam em <Link href="/agente">Conversas</Link>.
-      </p>
-
       <div className="agent-config-grid">
         <EvolutionPanel initial={data.evolution} />
 
@@ -54,9 +49,6 @@ export default async function AgenteConfigPage({
           <div className="agent-card-head">
             <strong>Personalidade</strong>
           </div>
-          <p className="muted" style={{ margin: 0 }}>
-            Orientação de tom — não é roteiro fixo. O nome é como ela se apresenta no Zap.
-          </p>
           <form action={saveAgentPersona} className="stack">
             <label>
               Nome do agente
@@ -92,9 +84,6 @@ export default async function AgenteConfigPage({
           <div className="agent-card-head">
             <strong>Canal</strong>
           </div>
-          <p className="muted" style={{ margin: 0 }}>
-            Token do webhook Evolution (já embutido na URL do painel Evolution).
-          </p>
           <p>
             <code>{data.channel.webhookToken}</code>
           </p>
@@ -117,7 +106,7 @@ export default async function AgenteConfigPage({
           <strong>Espera (fila da IA)</strong>
           <span className="agent-pill mute">{data.waitlist.length}</span>
         </div>
-        {data.waitlist.length === 0 ? <p className="muted">Nenhuma espera aberta.</p> : null}
+        {data.waitlist.length === 0 ? <p className="queue-empty">Nenhuma espera aberta.</p> : null}
         {data.waitlist.length > 0 ? (
           <table>
             <thead>

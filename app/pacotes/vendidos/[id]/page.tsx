@@ -13,6 +13,7 @@ import {
 import { dayRoster, serviceOptions, soldPackage, soldPackageVisits } from "@/desk/queries";
 import { paymentMethodsLabel } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -75,6 +76,18 @@ export default async function SoldPackagePage({
           <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
             Comanda
           </Link>
+        ) : null}
+        {item.status === "ativo" ? (
+          <Modal label="Cancelar venda" title="Cancelar venda" tone="rose">
+            <form action={cancelPackageSale}>
+              <input type="hidden" name="package" value={item.id} />
+              <label>
+                Motivo
+                <textarea name="reason" required minLength={3} maxLength={300} />
+              </label>
+              <SubmitButton label="Cancelar venda" pendingLabel="Cancelando…" className="rose" />
+            </form>
+          </Modal>
         ) : null}
         {item.status === "cancelado" ? <span className="chip">{item.cancelReason || "Cancelado"}</span> : null}
         {item.status === "encerrado" ? <span className="chip">Encerrado</span> : null}
@@ -203,17 +216,6 @@ export default async function SoldPackagePage({
           </table>
         ) : null}
       </div>
-      {item.status === "ativo" ? (
-        <form action={cancelPackageSale}>
-          <input type="hidden" name="package" value={item.id} />
-          <h2>Cancelar venda</h2>
-          <label>
-            Motivo
-            <textarea name="reason" required minLength={3} maxLength={300} />
-          </label>
-          <SubmitButton label="Cancelar venda" pendingLabel="Cancelando…" className="rose" />
-        </form>
-      ) : null}
       </div>
     </Panel>
   );

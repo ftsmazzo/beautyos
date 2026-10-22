@@ -50,42 +50,20 @@ export default async function ConversasAgentePage({
       <ErrorNote code={query.erro} />
       <Saved code={query.ok} />
 
-      <div className="agent-top">
-        <div className="card agent-card">
-          <div className="agent-card-head">
-            <strong>{data.channel.displayName}</strong>
-            <span className={`agent-pill ${waOk ? "ok" : "mute"}`}>
-              {waOk ? "WhatsApp conectado" : "WhatsApp off"}
-            </span>
-          </div>
-          <p className="muted" style={{ margin: 0 }}>
-            Inbox do cliente via Evolution. O balcão assume quando o modo vira humano.
-          </p>
-          <div className="row" style={{ marginTop: 10, marginBottom: 0 }}>
-            <Link className="btn quiet" href="/agente/config">
-              WhatsApp e personalidade
-            </Link>
-            {data.waitlistCount > 0 ? (
-              <Link className="btn quiet" href="/agente/config#espera">
-                Espera · {data.waitlistCount}
-              </Link>
-            ) : null}
-          </div>
-        </div>
-        <div className="card agent-card">
-          <div className="agent-card-head">
-            <strong>O que o agente faz</strong>
-            <span className="agent-pill mute">9 tools</span>
-          </div>
-          <ul className="agent-skills">
-            <li>Horários, vagas, agendar / remarcar / cancelar</li>
-            <li>Pacotes e créditos</li>
-            <li>Fila de espera da IA</li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
+        <span className="day-label">{data.channel.displayName}</span>
+        <span className={`agent-pill ${waOk ? "ok" : "mute"}`}>
+          {waOk ? "WhatsApp" : "WhatsApp off"}
+        </span>
+        <Link className="btn quiet" href="/agente/config">
+          Configurar
+        </Link>
+        {data.waitlistCount > 0 ? (
+          <Link className="btn quiet" href="/agente/config#espera">
+            Espera · {data.waitlistCount}
+          </Link>
+        ) : null}
         <div className="agent-filters">
           <Link className={filter === "todas" ? "is-on" : undefined} href="/agente">
             Todas
@@ -97,16 +75,16 @@ export default async function ConversasAgentePage({
             Humano
           </Link>
         </div>
-        <span className="muted">{data.conversations.length} conversa(s)</span>
+        <span className="chip">{data.conversations.length}</span>
         {isAdmin ? (
           <form action={clearAgentInbox}>
-            <SubmitButton label="Limpar inbox" pendingLabel="Limpando…" className="quiet" />
+            <SubmitButton label="Limpar" pendingLabel="Limpando…" className="quiet" />
           </form>
         ) : null}
       </div>
 
       <div className={`agent-inbox${data.selected ? " has-thread" : ""}`}>
-        <div className="card" style={{ padding: 0 }}>
+        <div className="queue" style={{ overflowX: "auto" }}>
           <table className="agent-table">
             <thead>
               <tr>
@@ -120,8 +98,8 @@ export default async function ConversasAgentePage({
             <tbody>
               {data.conversations.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="muted" style={{ padding: 16 }}>
-                    Nenhuma conversa. Conecte o WhatsApp em configuração ou teste com o simulador lá.
+                  <td colSpan={5}>
+                    <p className="queue-empty">Nenhuma conversa.</p>
                   </td>
                 </tr>
               ) : (
@@ -148,7 +126,7 @@ export default async function ConversasAgentePage({
         </div>
 
         {data.selected ? (
-          <div className="card stack agent-thread">
+          <div className="queue stack agent-thread">
             <div className="agent-card-head">
               <div>
                 <strong>{data.selected.label}</strong>
@@ -228,6 +206,7 @@ export default async function ConversasAgentePage({
             </form>
           </div>
         ) : null}
+      </div>
       </div>
 
       <details className="agent-sim-start">

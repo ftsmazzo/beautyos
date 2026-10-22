@@ -17,7 +17,7 @@ export function AuthFrame({
       </section>
       <section className="auth-panel">
         <h2>{title}</h2>
-        <p>{lede}</p>
+        {lede ? <p>{lede}</p> : null}
         {children}
       </section>
     </div>
