@@ -100,9 +100,13 @@ export function PurchaseForm({
         </label>
       </div>
       {known.length > 0 ? (
-        <p>
-          Este fornecedor já usou: {known.map((item) => `${item.label} → ${item.productName}`).join(" · ")}
-        </p>
+        <div className="desk-bar">
+          {known.map((item) => (
+            <span className="chip" key={`${item.supplierId}-${item.productId}-${item.label}`}>
+              {item.label} → {item.productName}
+            </span>
+          ))}
+        </div>
       ) : null}
       {rows.map((row) => (
         <div className="split" key={row}>

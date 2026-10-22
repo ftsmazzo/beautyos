@@ -36,18 +36,50 @@ export default async function AgenteConfigPage({
       <ErrorNote code={query.erro} />
       <Saved code={query.ok} />
 
-      <div className="row">
+      <div className="desk">
+      <div className="desk-bar">
         <Link className="btn quiet" href="/agente">
-          ← Voltar às conversas
+          ← Conversas
         </Link>
+        <span className="chip">{data.waitlist.length} na espera</span>
+      </div>
+      <div id="espera" className="queue" style={{ overflowX: "auto" }}>
+        {data.waitlist.length === 0 ? <p className="queue-empty">Nenhuma espera aberta.</p> : null}
+        {data.waitlist.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th>Cliente</th>
+                <th>Serviço</th>
+                <th>Profissional</th>
+                <th>Nota</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.waitlist.map((row) => (
+                <tr key={row.id}>
+                  <td>{formatDay(row.day)}</td>
+                  <td>
+                    {row.clientName}
+                    <div>{formatPhone(row.phone)}</div>
+                  </td>
+                  <td>{row.serviceName}</td>
+                  <td>{row.professionalName ?? "—"}</td>
+                  <td>{row.note ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
       </div>
 
       <div className="agent-config-grid">
         <EvolutionPanel initial={data.evolution} />
 
-        <div className="card stack agent-card">
-          <div className="agent-card-head">
-            <strong>Personalidade</strong>
+        <div className="queue stack">
+          <div className="desk-bar">
+            <span className="day-label">Personalidade</span>
           </div>
           <form action={saveAgentPersona} className="stack">
             <label>
@@ -80,13 +112,12 @@ export default async function AgenteConfigPage({
           </form>
         </div>
 
-        <div className="card stack agent-card">
-          <div className="agent-card-head">
-            <strong>Canal</strong>
+        <div className="queue stack">
+          <div className="desk-bar">
+            <span className="day-label">Canal</span>
+            <span className="chip">{data.channel.active ? "Ativo" : "Pausado"}</span>
+            <span className="chip">{data.channel.webhookToken}</span>
           </div>
-          <p>
-            <code>{data.channel.webhookToken}</code>
-          </p>
           <form action={saveAgentChannelBasics} className="stack">
             <label className="row">
               <input type="checkbox" name="active" value="1" defaultChecked={data.channel.active} />
@@ -94,48 +125,12 @@ export default async function AgenteConfigPage({
             </label>
             <label className="row">
               <input type="checkbox" name="rotateToken" value="1" />
-              Gerar novo token (reconfigure o webhook na Evolution)
+              Gerar novo token
             </label>
             <SubmitButton label="Salvar canal" pendingLabel="Salvando…" />
           </form>
         </div>
       </div>
-
-      <div id="espera" className="card stack agent-card" style={{ marginTop: 16 }}>
-        <div className="agent-card-head">
-          <strong>Espera (fila da IA)</strong>
-          <span className="agent-pill mute">{data.waitlist.length}</span>
-        </div>
-        {data.waitlist.length === 0 ? <p className="queue-empty">Nenhuma espera aberta.</p> : null}
-        {data.waitlist.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Dia</th>
-                <th>Cliente</th>
-                <th>Serviço</th>
-                <th>Profissional</th>
-                <th>Nota</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.waitlist.map((row) => (
-                <tr key={row.id}>
-                  <td>{formatDay(row.day)}</td>
-                  <td>
-                    {row.clientName}
-                    <div className="muted" style={{ fontSize: "0.85rem" }}>
-                      {formatPhone(row.phone)}
-                    </div>
-                  </td>
-                  <td>{row.serviceName}</td>
-                  <td>{row.professionalName ?? "—"}</td>
-                  <td>{row.note ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
       </div>
     </Panel>
   );

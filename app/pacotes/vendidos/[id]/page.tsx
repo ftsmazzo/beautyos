@@ -141,7 +141,7 @@ export default async function SoldPackagePage({
                           />
                         </form>
                       ) : null}
-                      {open && people.length === 0 ? <p>Nenhum profissional faz este serviço.</p> : null}
+                      {open && people.length === 0 ? <span className="chip">Sem profissional</span> : null}
                       {open && people.length > 0 && visit.status === "falta_agendar" && !item.expired && !item.late ? (
                         <form action={usePackageVisitNow}>
                           <input type="hidden" name="package" value={item.id} />

@@ -141,7 +141,7 @@ export default async function ProfessionalFormPage({
         ) : null}
         <h2>Serviços</h2>
         <RosterShortcut checkName="does" />
-        {visible.length === 0 ? <p>Cadastre um serviço para montar esta tabela.</p> : null}
+        {visible.length === 0 ? <p className="queue-empty">Nenhum serviço na casa.</p> : null}
         {visible.length > 0 ? (
           <table>
             <thead>

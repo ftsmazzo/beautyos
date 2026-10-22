@@ -51,35 +51,26 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
   }
 
   return (
-    <div className="card stack agent-card">
-      <div className="agent-card-head">
-        <strong>WhatsApp · Evolution</strong>
+    <div className="queue stack">
+      <div className="desk-bar">
+        <span className="day-label">WhatsApp</span>
         <span className={`agent-pill ${connected ? "ok" : state.status === "pairing" ? "warn" : "mute"}`}>
-          {connected ? "Conectado" : state.status === "pairing" ? "Aguardando QR" : "Desconectado"}
+          {connected ? "Conectado" : state.status === "pairing" ? "QR" : "Off"}
         </span>
+        {state.instanceName ? <span className="chip">{state.instanceName}</span> : null}
+        {state.phoneE164 ? <span className="chip">{formatPhone(state.phoneE164)}</span> : null}
       </div>
 
       {!state.configured ? (
-        <p className="muted">
-          Configure <code>EVOLUTION_URL</code> e <code>EVOLUTION_API_KEY</code> no EasyPanel do app. Sem isso o inbox
-          funciona só no simulador.
-        </p>
+        <p className="queue-empty">Sem Evolution neste servidor. O simulador continua na inbox.</p>
       ) : (
         <>
-          <p className="muted" style={{ margin: 0 }}>
-            Instância: <strong>{state.instanceName ?? "—"}</strong>
-            {" · "}
-            Número: <strong>{state.phoneE164 ? formatPhone(state.phoneE164) : "—"}</strong>
-          </p>
-          <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-            Webhook: <code>{state.webhookHint}</code>
-          </p>
+          {state.webhookHint ? <span className="chip">{state.webhookHint}</span> : null}
 
           {state.qrcodeBase64 ? (
             <div className="agent-qr">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={state.qrcodeBase64} alt="QR Code WhatsApp" width={220} height={220} />
-              <p className="muted">Escaneie no celular (Aparelhos conectados).</p>
             </div>
           ) : null}
 

@@ -101,7 +101,7 @@ export default async function ServiceFormPage({
         </div>
         <h2>Quem executa</h2>
         <RosterShortcut checkName="does" />
-        {roster.length === 0 ? <p>Cadastre um profissional para montar esta tabela.</p> : null}
+        {roster.length === 0 ? <p className="queue-empty">Nenhum profissional na casa.</p> : null}
         {roster.length > 0 ? (
           <table>
             <thead>

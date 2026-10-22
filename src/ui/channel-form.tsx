@@ -24,7 +24,6 @@ export function ChannelForm({
     <form action={setClientChannel}>
       <input type="hidden" name="order" value={orderId} />
       <input type="hidden" name="client" value={clientId} />
-      <h2>Como chegou</h2>
       <label>
         Canal
         <select name="channel" required value={channel} onChange={(event) => setChannel(event.target.value)}>

@@ -181,29 +181,21 @@ export default async function OrderPage({
             {order.incomplete ? <span className="chip hot">Cadastro pendente</span> : null}
             {birthday ? <span className="chip warn">Aniversário</span> : null}
             {order.kind === "consumo" ? <span className="chip">Consumo</span> : null}
-          </div>
-          {held.map((item) => {
-            const left = Math.max(0, item.total - item.used);
-            return (
-              <p className="order-pack" key={item.id}>
-                {item.name} · {left === 1 ? "1 ida restante" : `${left} idas restantes`} · {packageDeadline(item)}
-                {item.pardons > 0 ? " · já houve perdão" : ""}
-              </p>
-            );
-          })}
-          {otherDues.length > 0 ? (
-            <p className="order-pack">
-              Outras em aberto:{" "}
-              {otherDues.map((row, index) => (
-                <span key={row.id}>
-                  {index > 0 ? " · " : ""}
-                  <Link href={`/comandas/${row.id}`}>
-                    {formatDay(row.day)} {formatReais(row.gapCents)}
-                  </Link>
+            {held.map((item) => {
+              const left = Math.max(0, item.total - item.used);
+              return (
+                <span className="chip" key={item.id}>
+                  {item.name} · {left} · {packageDeadline(item)}
+                  {item.pardons > 0 ? " · perdão" : ""}
                 </span>
-              ))}
-            </p>
-          ) : null}
+              );
+            })}
+            {otherDues.map((row) => (
+              <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
+                {formatDay(row.day)} {formatReais(row.gapCents)}
+              </Link>
+            ))}
+          </div>
           <div className="order-actions">
             {operator && order.clientId ? (
               <form action={toggleFromOutside}>
@@ -239,13 +231,15 @@ export default async function OrderPage({
             ) : null}
           </div>
           {askChannel && rules && order.clientId ? (
-            <ChannelForm
-              orderId={order.id}
-              clientId={order.clientId}
-              housePercent={rules.referral}
-              professionals={roster.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
-              clients={people.map((person) => ({ id: person.id, name: person.name }))}
-            />
+            <Modal label="Como chegou" title="Como chegou" tone="navy">
+              <ChannelForm
+                orderId={order.id}
+                clientId={order.clientId}
+                housePercent={rules.referral}
+                professionals={roster.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+                clients={people.map((person) => ({ id: person.id, name: person.name }))}
+              />
+            </Modal>
           ) : null}
         </div>
         <div className="order-money">

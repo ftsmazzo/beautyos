@@ -174,7 +174,7 @@ export default async function ProductFormPage({
           </label>
         </div>
         <h2>Comissão de quem vende</h2>
-        {sellers.length === 0 ? <p>Nenhum profissional ativo.</p> : null}
+        {sellers.length === 0 ? <p className="queue-empty">Nenhum profissional ativo.</p> : null}
         {sellers.map((person) => (
           <label key={person.id}>
             {person.nickname || person.name}
