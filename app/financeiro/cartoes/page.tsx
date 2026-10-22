@@ -4,6 +4,7 @@ import { deleteCard, payCardInvoice, saveCard } from "@/finance/actions";
 import { listBanks, listCardCharges, listCards } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -26,6 +27,9 @@ export default async function CardsPage({
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       <FinanceNav current="cartoes" />
+      <div className="desk">
+      <div className="desk-bar">
+      <Modal label="Novo cartão" title="Novo cartão" tone="teal">
       <form action={saveCard}>
         <div className="split">
           <label>
@@ -51,7 +55,9 @@ export default async function CardsPage({
         </div>
         <SubmitButton label="Salvar cartão" pendingLabel="Salvando…" />
       </form>
-      <div className="desk">
+      </Modal>
+      <span className="chip">{cards.length}</span>
+      </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {cards.length === 0 ? <p className="queue-empty">Nenhum cartão ainda.</p> : null}
         {cards.length > 0 ? (

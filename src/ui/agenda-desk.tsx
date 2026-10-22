@@ -363,7 +363,7 @@ export function AgendaDesk({
               {menu.orderId ? (
                 <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
               ) : (
-                <p>A comanda abre neste dia.</p>
+                <span className="chip">Sem comanda</span>
               )}
               {operator && menu.orderId && menu.orderStatus === "aberta" ? (
                 <form action={closeOrder}>
@@ -385,7 +385,7 @@ export function AgendaDesk({
               {menu.orderId ? (
                 <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
               ) : (
-                <p>A comanda abre neste dia.</p>
+                <span className="chip">Sem comanda</span>
               )}
               {operator && menu.orderId && menu.orderStatus === "aberta" ? (
                 <form action={closeOrder}>

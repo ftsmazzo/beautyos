@@ -7,6 +7,7 @@ import { formatPhone } from "@/catalog/format";
 import { HOUSE_MODULES } from "@/catalog/modules";
 import { houseModules, listClients } from "@/catalog/queries";
 import { databaseReady, db } from "@/db/client";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -57,6 +58,32 @@ export default async function AccessPage({
       {params.erro === "ultimo" ? <p className="error">A casa precisa de um administrador ativo.</p> : null}
       {params.ok === "modulos" ? <p className="ok">Módulos salvos.</p> : null}
       <div className="desk-bar">
+        <Modal label="Incluir acesso" title="Incluir acesso" tone="teal">
+          <form action={createAccess}>
+            <label>
+              Nome
+              <input name="name" required minLength={2} />
+            </label>
+            <label>
+              E-mail
+              <input name="email" type="email" required />
+            </label>
+            <label>
+              Senha inicial
+              <input name="password" type="password" required minLength={8} />
+            </label>
+            <label>
+              Papel
+              <select name="role" defaultValue="balcao">
+                <option value="balcao">Balcão</option>
+                <option value="administrador">Administrador</option>
+                <option value="profissional">Profissional</option>
+                <option value="cliente">Cliente</option>
+              </select>
+            </label>
+            <SubmitButton label="Incluir" />
+          </form>
+        </Modal>
         <span className="chip">{people.length}</span>
       </div>
       <details className="desk-secondary">
@@ -148,30 +175,6 @@ export default async function AccessPage({
           </tbody>
         </table>
       </div>
-      <form action={createAccess}>
-        <label>
-          Nome
-          <input name="name" required minLength={2} />
-        </label>
-        <label>
-          E-mail
-          <input name="email" type="email" required />
-        </label>
-        <label>
-          Senha inicial
-          <input name="password" type="password" required minLength={8} />
-        </label>
-        <label>
-          Papel
-          <select name="role" defaultValue="balcao">
-            <option value="balcao">Balcão</option>
-            <option value="administrador">Administrador</option>
-            <option value="profissional">Profissional</option>
-            <option value="cliente">Cliente</option>
-          </select>
-        </label>
-        <SubmitButton label="Incluir" />
-      </form>
       </div>
     </Panel>
   );

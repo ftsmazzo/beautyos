@@ -716,12 +716,12 @@ export default async function OrderPage({
           {operator && open && order.clientId && credit > 0 && gap > 0 ? (
             <form action={applyClientCredit}>
               <input type="hidden" name="order" value={order.id} />
-              <p className="desk-hint">
+              <span className="chip">
                 Crédito {formatReais(credit)}
                 {ledger && ledger.sources.length > 0
                   ? ` · ${ledger.sources.map((row) => `${formatDay(row.day)} ${formatReais(row.cents)}`).join(", ")}`
                   : ""}
-              </p>
+              </span>
               <label>
                 Valor
                 <input
@@ -736,7 +736,7 @@ export default async function OrderPage({
           ) : null}
         </div>
       ) : (
-        <p className="desk-hint">Consumo interno · fecha sem pagamento</p>
+        <span className="chip">Consumo interno</span>
       )}
 
       {trail.length > 0 ? (

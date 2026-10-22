@@ -160,7 +160,7 @@ export default async function ServiceFormPage({
           </table>
         ) : null}
         <h2>Próxima troca de preço</h2>
-        {service?.priceChangedOn ? <p>Preço avulso em vigor desde {formatDay(service.priceChangedOn)}.</p> : null}
+        {service?.priceChangedOn ? <span className="chip">Avulso desde {formatDay(service.priceChangedOn)}</span> : null}
         <div className="split">
           <label>
             Novo avulso

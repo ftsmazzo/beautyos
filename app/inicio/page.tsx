@@ -466,7 +466,6 @@ export default async function StartPage({
             <SubmitButton label="Salvar regras" />
           </form>
           <h2>Máquinas de cartão</h2>
-          <p className="desk-hint">A máquina guarda a taxa base. Cada bandeira pode ter débito e crédito diferentes. Sem bandeira, vale a base.</p>
           {acquirers.filter((machine) => machine.active).map((machine) => (
             <div key={machine.id} className="stack">
             <form action={saveCardAcquirer}>

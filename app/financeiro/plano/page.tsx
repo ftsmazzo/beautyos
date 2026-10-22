@@ -3,6 +3,7 @@ import { deleteChart, saveChart } from "@/finance/actions";
 import { listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -26,6 +27,9 @@ export default async function ChartPage({
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       <FinanceNav current="plano" />
+      <div className="desk">
+      <div className="desk-bar">
+      <Modal label="Nova conta" title="Nova conta" tone="teal">
       <form action={saveChart}>
         <div className="split">
           <label>
@@ -59,6 +63,9 @@ export default async function ChartPage({
         </div>
         <SubmitButton label="Salvar conta" pendingLabel="Salvando…" />
       </form>
+      </Modal>
+      <span className="chip">{rows.length}</span>
+      </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {rows.length === 0 ? <p className="queue-empty">Nenhuma conta no plano ainda.</p> : null}
         {rows.length > 0 ? (
@@ -92,6 +99,7 @@ export default async function ChartPage({
             </tbody>
           </table>
         ) : null}
+      </div>
       </div>
     </Panel>
   );

@@ -5,6 +5,7 @@ import { deleteBank, saveBank } from "@/finance/actions";
 import { listBankLines, listBanks } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { FinanceNav } from "@/ui/finance-nav";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -33,6 +34,9 @@ export default async function BanksPage({
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       <FinanceNav current="bancos" />
+      <div className="desk">
+      <div className="desk-bar">
+      <Modal label="Novo banco" title="Novo banco" tone="teal">
       <form action={saveBank}>
         <div className="split">
           <label>
@@ -66,7 +70,9 @@ export default async function BanksPage({
         </div>
         <SubmitButton label="Salvar banco" pendingLabel="Salvando…" />
       </form>
-      <div className="desk">
+      </Modal>
+      <span className="chip">{banks.length}</span>
+      </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {banks.length === 0 ? <p className="queue-empty">Nenhum banco ainda.</p> : null}
         {banks.length > 0 ? (
