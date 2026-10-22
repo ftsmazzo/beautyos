@@ -42,7 +42,6 @@ export function StaffServiceForm({
           ))}
         </select>
       </label>
-      <p>Fica nesta comanda, de quem recebeu. Não entra na agenda. O caixa continua zerado.</p>
       <SubmitButton label="Lançar serviço" pendingLabel="Lançando…" className="teal" />
     </form>
   );

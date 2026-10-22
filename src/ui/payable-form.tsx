@@ -53,10 +53,6 @@ export function PayableForm({
           </label>
         ) : null}
       </div>
-      {mode === "parcela" ? <p>O valor se divide nas vezes.</p> : null}
-      {mode === "repete" ? (
-        <p>Cada mês entra com o mesmo valor. Se já pagou, só o primeiro mês sai do banco. O mês que chega entra no dia, com a tela fechada ou aberta.</p>
-      ) : null}
       {charts.length > 0 ? (
         <label>
           Plano
@@ -124,7 +120,6 @@ export function PayableForm({
           ) : null}
         </div>
       ) : null}
-      <p>No crédito, a conta fica na fatura. Nas outras formas, o banco escolhido recebe a baixa. Não sai do caixa do balcão.</p>
       <SubmitButton label="Lançar conta" pendingLabel="Lançando…" />
     </form>
   );

@@ -138,7 +138,6 @@ export function PurchaseForm({
       <button type="button" className="btn quiet" onClick={() => setRows((current) => [...current, current.length])}>
         Incluir produto
       </button>
-      <p>O custo desta entrada passa a ser o custo do produto. Preço de venda e comissão não mudam.</p>
       <label className="check">
         <input type="checkbox" name="bill" value="1" checked={bill} onChange={(event) => setBill(event.target.checked)} />
         Lançar em contas a pagar
@@ -218,7 +217,6 @@ export function PurchaseForm({
               ) : null}
             </div>
           ) : null}
-          <p>No crédito, a compra fica na fatura. Nas outras formas, o banco escolhido recebe a baixa. Não sai do caixa do balcão.</p>
         </>
       ) : null}
       <SubmitButton label="Lançar compra" pendingLabel="Lançando…" />

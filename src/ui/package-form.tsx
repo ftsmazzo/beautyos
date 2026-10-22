@@ -118,13 +118,12 @@ export function PackageForm({
         Dias de validade
         <input name="validity_days" type="number" required min={1} max={3650} defaultValue={initial.validityDays} />
       </label>
-      <p>O prazo corre a partir do primeiro uso.</p>
       <label>
         Comissão da venda (%)
         <input name="sale_commission" inputMode="numeric" defaultValue={initial.saleCommission} placeholder="Em branco fica zero" />
       </label>
       {groups.map((group, index) => (
-        <div className="card" key={index}>
+        <div className="queue" key={index}>
           <label>
             Serviço
             <select required value={group.serviceId} onChange={(event) => chooseService(index, event.target.value)}>
@@ -179,7 +178,6 @@ export function PackageForm({
           Dividir
         </button>
       </div>
-      <p>O valor dos produtos sai antes da divisão. O preço do pacote é a soma, sem um segundo total.</p>
       {rows.map((row, index) => (
         <div className="row" key={index}>
           <label>

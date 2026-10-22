@@ -52,7 +52,6 @@ export function OrderServiceForm({
           Encaixe
         </label>
       </div>
-      <p>Entra nesta comanda e na coluna desse profissional.</p>
       <SubmitButton label="Lançar serviço" pendingLabel="Lançando…" />
     </form>
   );

@@ -53,7 +53,6 @@ export default async function SupplierFormPage({
       {supplier ? (
         <form action={deleteSupplier}>
           <input type="hidden" name="id" value={supplier.id} />
-          <p>Excluir só vale se este fornecedor ainda não entrou numa compra nem num produto.</p>
           <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="rose" />
         </form>
       ) : null}

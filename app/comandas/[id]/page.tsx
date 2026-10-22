@@ -582,56 +582,85 @@ export default async function OrderPage({
             ) : null}
           </div>
           {held.length === 0 ? <p className="queue-empty">Nenhum pacote ativo.</p> : null}
-          {held.map((item) => {
-            const warned = item.expired || item.late;
-            return (
-              <div key={item.id}>
-                <p>
-                  {item.name} · {item.used} de {item.total} usadas · {packageDeadline(item)}
-                </p>
-                {warned ? (
-                  <p>
-                    Pacote vencido.
-                    {item.pardons > 0 ? ` Já houve perdão. Esta é a ${item.pardons + 1}ª vez.` : ""}
-                  </p>
-                ) : null}
-                {operator && warned ? (
-                  <form action={pardonPackage}>
-                    <input type="hidden" name="order" value={order.id} />
-                    <input type="hidden" name="package" value={item.id} />
-                    <SubmitButton label="Perdoar" pendingLabel="Perdoando…" className="quiet" />
-                  </form>
-                ) : null}
-              </div>
-            );
-          })}
-          {visits.map((visit) => {
-            const due = visit.late && visit.listPriceCents != null
-              ? Math.max(0, visit.listPriceCents - visit.internalPriceCents)
-              : null;
-            return (
-              <div key={visit.id}>
-                <p>
-                  {visit.serviceName}
-                  {visit.status === "usado" ? " · usada" : visit.when ? ` · ${visit.when}` : " · falta agendar"}
-                  {visit.professionalName && visit.status !== "falta_agendar" ? ` · ${visit.professionalName}` : ""}
-                  {visit.late ? " · depois do prazo" : ""}
-                  {due != null ? ` · diferença ${formatReais(due)}` : ""}
-                </p>
-                {operator && visit.late ? (
-                  <form action={chargePackageDifference}>
-                    <input type="hidden" name="order" value={order.id} />
-                    <input type="hidden" name="credit" value={visit.id} />
-                    <SubmitButton
-                      label={due != null ? `Cobrar diferença ${formatReais(due)}` : "Cobrar diferença"}
-                      pendingLabel="Cobrando…"
-                      className="quiet"
-                    />
-                  </form>
-                ) : null}
-              </div>
-            );
-          })}
+          {held.length > 0 ? (
+            <table className="sheet">
+              <thead>
+                <tr>
+                  <th>Pacote</th>
+                  <th>Uso</th>
+                  <th>Prazo</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {held.map((item) => {
+                  const warned = item.expired || item.late;
+                  return (
+                    <tr key={item.id}>
+                      <td>{item.name}</td>
+                      <td>{item.used} de {item.total}</td>
+                      <td>
+                        {packageDeadline(item)}
+                        {warned ? (item.pardons > 0 ? ` · ${item.pardons + 1}ª` : " · vencido") : ""}
+                      </td>
+                      <td>
+                        {operator && warned ? (
+                          <form action={pardonPackage}>
+                            <input type="hidden" name="order" value={order.id} />
+                            <input type="hidden" name="package" value={item.id} />
+                            <SubmitButton label="Perdoar" pendingLabel="Perdoando…" className="quiet" />
+                          </form>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : null}
+          {visits.length > 0 ? (
+            <table className="sheet">
+              <thead>
+                <tr>
+                  <th>Visita</th>
+                  <th>Quando</th>
+                  <th>Profissional</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visits.map((visit) => {
+                  const due = visit.late && visit.listPriceCents != null
+                    ? Math.max(0, visit.listPriceCents - visit.internalPriceCents)
+                    : null;
+                  return (
+                    <tr key={visit.id}>
+                      <td>{visit.serviceName}</td>
+                      <td>
+                        {visit.status === "usado" ? "Usada" : visit.when ?? "Falta agendar"}
+                        {visit.late ? " · depois do prazo" : ""}
+                        {due != null ? ` · ${formatReais(due)}` : ""}
+                      </td>
+                      <td>{visit.professionalName && visit.status !== "falta_agendar" ? visit.professionalName : "—"}</td>
+                      <td>
+                        {operator && visit.late ? (
+                          <form action={chargePackageDifference}>
+                            <input type="hidden" name="order" value={order.id} />
+                            <input type="hidden" name="credit" value={visit.id} />
+                            <SubmitButton
+                              label={due != null ? `Cobrar ${formatReais(due)}` : "Cobrar diferença"}
+                              pendingLabel="Cobrando…"
+                              className="quiet"
+                            />
+                          </form>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : null}
         </div>
       ) : null}
 

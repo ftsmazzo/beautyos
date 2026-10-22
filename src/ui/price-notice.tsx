@@ -12,14 +12,12 @@ export function PriceNotice({
 }) {
   if (notices.length === 0) return null;
   return (
-    <div className="card">
-      <h2>Preço trocado</h2>
-      <p>Horário aberto a partir dessa data acompanha. O que foi marcado antes, o valor alterado à mão, o valor próprio e o pacote ficam.</p>
+    <div className="desk-alert desk-bar">
       {notices.map((notice) => (
-        <p key={notice.id}>
+        <span className="chip" key={notice.id}>
           {notice.serviceId ? <Link href={`/servicos/${notice.serviceId}`}>{notice.serviceName}</Link> : notice.serviceName}
-          {` passou de ${formatReais(notice.beforeCents)} para ${formatReais(notice.afterCents)}.`}
-        </p>
+          {` ${formatReais(notice.beforeCents)} → ${formatReais(notice.afterCents)}`}
+        </span>
       ))}
       <form action={seePriceNotices}>
         <input type="hidden" name="back" value={back} />

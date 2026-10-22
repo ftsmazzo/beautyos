@@ -64,7 +64,7 @@ export function BookForm({
           ))}
         </select>
       </label>
-      {offered.length === 0 ? <p>Esse profissional ainda não tem serviço na ficha.</p> : null}
+      {offered.length === 0 ? <p className="queue-empty">Esse profissional ainda não tem serviço na ficha.</p> : null}
       <label>
         Cliente
         <select name="client" defaultValue={initialClient}>
@@ -86,7 +86,6 @@ export function BookForm({
           Encaixe
         </label>
       </div>
-      <p>Marcar abre a comanda desse cliente neste dia. Sem encaixe, o horário precisa caber no expediente.</p>
       <SubmitButton label="Marcar" pendingLabel="Marcando…" />
     </form>
   );

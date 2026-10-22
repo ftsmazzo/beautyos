@@ -43,7 +43,6 @@ export function StockOut({ productId }: { productId: string }) {
       <input type="hidden" name="back" value="lista" />
       <input type="hidden" name="reason" value="ajuste" />
       <input type="hidden" name="sign" value="out" />
-      <p>Sai como ajuste.</p>
       <label>
         Quantidade
         <input name="qty" type="number" min={1} required />

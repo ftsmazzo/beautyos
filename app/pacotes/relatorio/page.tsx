@@ -132,9 +132,11 @@ export default async function PackageReportPage({
         <div className="desk-bar"><span className="day-label">Perdões</span></div>
         {report.pardons.times === 0 ? <p className="queue-empty">Nenhum perdão neste período.</p> : null}
         {report.pardons.times > 0 ? (
-          <p>
-            {report.pardons.times} {report.pardons.times === 1 ? "vez" : "vezes"} · {report.pardons.weeks} {weekWord} · {report.pardons.clients} {report.pardons.clients === 1 ? "cliente" : "clientes"}
-          </p>
+          <div className="desk-bar">
+            <span className="chip">{report.pardons.times} {report.pardons.times === 1 ? "vez" : "vezes"}</span>
+            <span className="chip">{report.pardons.weeks} {weekWord}</span>
+            <span className="chip">{report.pardons.clients} {report.pardons.clients === 1 ? "cliente" : "clientes"}</span>
+          </div>
         ) : null}
         {report.pardons.times > 0 && report.repeats.length === 0 ? <p className="queue-empty">Ninguém repetiu o perdão neste período.</p> : null}
         {report.repeats.length > 0 ? (

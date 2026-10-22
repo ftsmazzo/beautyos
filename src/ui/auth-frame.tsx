@@ -14,7 +14,6 @@ export function AuthFrame({
           B
         </span>
         <h1>BeautyOS</h1>
-        <p>O painel da casa. Fichas, agenda e comanda no mesmo sistema.</p>
       </section>
       <section className="auth-panel">
         <h2>{title}</h2>
