@@ -5,6 +5,7 @@ import { centsToInput, formatDay, formatReais } from "@/catalog/format";
 import { getService, listDiscounts, listProducts, listProfessionals, listServiceLinks, listSupplies, serviceGroups } from "@/catalog/queries";
 import { saveService } from "@/catalog/service-actions";
 import { ErrorNote } from "@/ui/error-note";
+import { Modal } from "@/ui/modal";
 import { RosterShortcut } from "@/ui/roster-shortcut";
 import { StandardField } from "@/ui/standard-field";
 import { Panel } from "@/ui/panel";
@@ -38,10 +39,9 @@ export default async function ServiceFormPage({
   ]);
   const linked = new Map(links.map((row) => [row.professionalId, row]));
   const roster = people.filter((person) => person.active || linked.has(person.id));
+  const executors = roster.filter((person) => linked.has(person.id));
 
-  return (
-    <Panel user={user} current="/servicos" title={service ? service.name : "Novo serviço"}>
-      <ErrorNote code={query.erro} />
+  const editor = (
       <form action={saveService}>
         {service ? <input type="hidden" name="id" value={service.id} /> : null}
         <label>
@@ -239,6 +239,95 @@ export default async function ServiceFormPage({
         </div>
         <SubmitButton label="Salvar serviço" />
       </form>
+  );
+
+  return (
+    <Panel user={user} current="/servicos" title={service ? service.name : "Novo serviço"}>
+      <ErrorNote code={query.erro} />
+      {service ? (
+        <div className="desk">
+          <div className="desk-bar">
+            <span className="chip">{formatReais(service.priceCents)}</span>
+            <span className="chip">{service.durationMin} min</span>
+            <span className="chip">{service.commissionPercent}%</span>
+            <span className="chip">{service.returnDays == null ? "Sem volta" : `Volta ${service.returnDays} d`}</span>
+            {service.menuGroup ? <span className="chip">{service.menuGroup}</span> : null}
+            {service.active ? null : <span className="chip">inativo</span>}
+            {service.bookable ? null : <span className="chip">Fora da agenda</span>}
+            {service.extrasGoal ? <span className="chip">Extra</span> : null}
+            {service.nextPriceCents != null && service.nextPriceOn ? (
+              <span className="chip">Próximo {formatReais(service.nextPriceCents)} · {formatDay(service.nextPriceOn)}</span>
+            ) : null}
+            <Modal label="Editar" title={`Editar · ${service.name}`} tone="navy">
+              {editor}
+            </Modal>
+          </div>
+          <div className="queue" style={{ overflowX: "auto" }}>
+            {executors.length === 0 ? <p className="queue-empty">Ninguém executa.</p> : null}
+            {executors.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pessoa</th>
+                    <th>Preço</th>
+                    <th>Tempo</th>
+                    <th>Comissão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {executors.map((person) => {
+                    const link = linked.get(person.id);
+                    return (
+                      <tr key={person.id}>
+                        <td>
+                          {person.nickname || person.name}
+                          {person.active ? "" : " · inativo"}
+                        </td>
+                        <td>{formatReais(link?.priceCents ?? service.priceCents)}</td>
+                        <td>{link?.durationMin ?? service.durationMin} min</td>
+                        <td>{link?.commissionPercent ?? service.commissionPercent}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+          {discounts.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Desconto de dia</span></div>
+              <table>
+                <tbody>
+                  {discounts.map((discount) => (
+                    <tr key={discount.id}>
+                      <td>{WEEKDAYS[discount.weekday]}</td>
+                      <td>{discount.startTime ? `${discount.startTime}–${discount.endTime}` : "Dia inteiro"}</td>
+                      <td>{discount.mode === "percentual" ? `${discount.amount}%` : formatReais(discount.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {supplies.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Insumo</span></div>
+              <table>
+                <tbody>
+                  {supplies.map((supply) => (
+                    <tr key={supply.productId}>
+                      <td>{supply.name}</td>
+                      <td>{supply.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        editor
+      )}
     </Panel>
   );
 }
