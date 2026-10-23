@@ -55,19 +55,8 @@ export default async function ProductFormPage({
   const staffNow = product ? staffPriceCents(product.salePriceCents, product.staffPriceCents, rules.consumption) : null;
   const free = product ? await productIsFree(product.id) : false;
 
-  return (
-    <Panel user={user} current="/produtos" title={product ? product.name : "Novo produto"}>
-      <SavedNote code={query.ok} />
-      <ErrorNote code={query.erro} />
-      {product ? (
-        <div className="desk-bar">
-          <span className="chip">Saldo {product.balance}</span>
-          {product.minQty > 0 ? <span className="chip">Mínimo {product.minQty}</span> : null}
-          <span className="chip">Margem {formatReais(product.salePriceCents - product.costCents)}</span>
-          {staffNow != null ? <span className="chip">Consumo {formatReais(staffNow)}</span> : null}
-        </div>
-      ) : null}
-      <form action={saveProduct}>
+  const editor = (
+    <form action={saveProduct}>
         {product ? <input type="hidden" name="id" value={product.id} /> : null}
         <div className="split">
           <label>
@@ -213,15 +202,22 @@ export default async function ProductFormPage({
         </div>
         <SubmitButton label="Salvar produto" />
       </form>
-      {product && free ? (
-        <form action={deleteProduct}>
-          <input type="hidden" name="id" value={product.id} />
-          <SubmitButton label="Excluir produto" pendingLabel="Excluindo…" className="quiet" />
-        </form>
-      ) : null}
+  );
+
+  return (
+    <Panel user={user} current="/produtos" title={product ? product.name : "Novo produto"}>
+      <SavedNote code={query.ok} />
+      <ErrorNote code={query.erro} />
       {product ? (
-        <div className="stack">
-          <div className="row">
+        <div className="desk">
+          <div className="desk-bar">
+            <span className="chip">Saldo {product.balance}</span>
+            {product.minQty > 0 ? <span className="chip">Mínimo {product.minQty}</span> : null}
+            <span className="chip">Margem {formatReais(product.salePriceCents - product.costCents)}</span>
+            {staffNow != null ? <span className="chip">Consumo {formatReais(staffNow)}</span> : null}
+            <Modal label="Editar" title={`Editar · ${product.name}`} tone="navy">
+              {editor}
+            </Modal>
             <Modal label="Compra" title="Compra" tone="teal">
               <form action={moveStock}>
                 <input type="hidden" name="id" value={product.id} />
@@ -271,6 +267,12 @@ export default async function ProductFormPage({
                 <SubmitButton label="Confirmar contagem" />
               </form>
             </Modal>
+            {free ? (
+              <form action={deleteProduct}>
+                <input type="hidden" name="id" value={product.id} />
+                <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+              </form>
+            ) : null}
           </div>
           <div className="queue" style={{ overflowX: "auto" }}>
             {movements.length === 0 ? <p className="queue-empty">Nenhum movimento ainda.</p> : null}
@@ -300,7 +302,9 @@ export default async function ProductFormPage({
             ) : null}
           </div>
         </div>
-      ) : null}
+      ) : (
+        editor
+      )}
     </Panel>
   );
 }
