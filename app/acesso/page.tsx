@@ -13,6 +13,13 @@ import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
+const ROLES = [
+  { value: "balcao", label: "Balcão" },
+  { value: "administrador", label: "Administrador" },
+  { value: "profissional", label: "Profissional" },
+  { value: "cliente", label: "Cliente" },
+] as const;
+
 export default async function AccessPage({
   searchParams,
 }: {
@@ -75,10 +82,11 @@ export default async function AccessPage({
             <label>
               Papel
               <select name="role" defaultValue="balcao">
-                <option value="balcao">Balcão</option>
-                <option value="administrador">Administrador</option>
-                <option value="profissional">Profissional</option>
-                <option value="cliente">Cliente</option>
+                {ROLES.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
               </select>
             </label>
             <SubmitButton label="Incluir" />
@@ -104,7 +112,6 @@ export default async function AccessPage({
             <tr>
               <th>Nome</th>
               <th>Papel</th>
-              <th>Senha</th>
               <th>Vínculo</th>
               <th></th>
             </tr>
@@ -115,60 +122,78 @@ export default async function AccessPage({
                 <td>
                   <strong>{person.name}</strong>
                   <div>{person.email}</div>
-                  <div>{person.active ? "ativo" : "desativado"}</div>
                 </td>
                 <td>
-                  <form action={setAccessRole}>
-                    <input type="hidden" name="id" value={person.id} />
-                    <select name="role" defaultValue={person.role} aria-label={`Papel de ${person.name}`}>
-                      <option value="balcao">Balcão</option>
-                      <option value="administrador">Administrador</option>
-                      <option value="profissional">Profissional</option>
-                      <option value="cliente">Cliente</option>
-                    </select>
-                    <SubmitButton label="Salvar" pendingLabel="Salvando…" />
-                  </form>
-                </td>
-                <td>
-                  <form action={setAccessPassword}>
-                    <input type="hidden" name="id" value={person.id} />
-                    <input name="password" type="password" required minLength={8} autoComplete="new-password" aria-label={`Senha de ${person.name}`} placeholder="Nova senha" />
-                    <SubmitButton label="Trocar" pendingLabel="Trocando…" className="quiet" />
-                  </form>
+                  {ROLES.find((role) => role.value === person.role)?.label ?? person.role}
+                  {" "}
+                  <span className="chip">{person.active ? "ativo" : "desativado"}</span>
                 </td>
                 <td>
                   {person.professionalId ? (
                     <Link href={`/profissionais/${person.professionalId}`}>{person.professionalName}</Link>
-                  ) : null}
-                  {person.role === "cliente" ? (
-                    <form action={setAccessClient}>
-                      <input type="hidden" name="id" value={person.id} />
-                      <select name="client" defaultValue={person.clientId ?? ""} aria-label={`Ficha de ${person.name}`}>
-                        <option value="">Sem vínculo</option>
-                        {clients.map((client) => (
-                          <option key={client.id} value={client.id}>
-                            {client.name} · {formatPhone(client.phone)}
-                          </option>
-                        ))}
-                      </select>
-                      <SubmitButton label="Vincular" pendingLabel="Salvando…" />
-                    </form>
-                  ) : null}
+                  ) : person.clientName ? (
+                    person.clientName
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>
-                  {person.id === user.id ? (
-                    <span className="chip">Você</span>
-                  ) : (
-                    <form action={setAccessActive}>
-                      <input type="hidden" name="id" value={person.id} />
-                      <input type="hidden" name="active" value={person.active ? "0" : "1"} />
-                      <SubmitButton
-                        label={person.active ? "Desativar" : "Reativar"}
-                        pendingLabel="Salvando…"
-                        className="quiet"
-                      />
-                    </form>
-                  )}
+                  <div className="row">
+                    <Modal label="Ajustar" title={`Ajustar · ${person.name}`} tone="navy">
+                      <form action={setAccessRole}>
+                        <input type="hidden" name="id" value={person.id} />
+                        <label>
+                          Papel
+                          <select name="role" defaultValue={person.role} aria-label={`Papel de ${person.name}`}>
+                            {ROLES.map((role) => (
+                              <option key={role.value} value={role.value}>
+                                {role.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <SubmitButton label="Salvar papel" pendingLabel="Salvando…" />
+                      </form>
+                      <form action={setAccessPassword}>
+                        <input type="hidden" name="id" value={person.id} />
+                        <label>
+                          Nova senha
+                          <input name="password" type="password" required minLength={8} autoComplete="new-password" aria-label={`Senha de ${person.name}`} />
+                        </label>
+                        <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
+                      </form>
+                      {person.role === "cliente" ? (
+                        <form action={setAccessClient}>
+                          <input type="hidden" name="id" value={person.id} />
+                          <label>
+                            Ficha
+                            <select name="client" defaultValue={person.clientId ?? ""} aria-label={`Ficha de ${person.name}`}>
+                              <option value="">Sem vínculo</option>
+                              {clients.map((client) => (
+                                <option key={client.id} value={client.id}>
+                                  {client.name} · {formatPhone(client.phone)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <SubmitButton label="Vincular" pendingLabel="Salvando…" />
+                        </form>
+                      ) : null}
+                    </Modal>
+                    {person.id === user.id ? (
+                      <span className="chip">Você</span>
+                    ) : (
+                      <form action={setAccessActive}>
+                        <input type="hidden" name="id" value={person.id} />
+                        <input type="hidden" name="active" value={person.active ? "0" : "1"} />
+                        <SubmitButton
+                          label={person.active ? "Desativar" : "Reativar"}
+                          pendingLabel="Salvando…"
+                          className="quiet"
+                        />
+                      </form>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

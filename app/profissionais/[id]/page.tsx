@@ -9,6 +9,7 @@ import { ErrorNote } from "@/ui/error-note";
 import { HoursGrid } from "@/ui/hours-grid";
 import { RosterShortcut } from "@/ui/roster-shortcut";
 import { StandardField } from "@/ui/standard-field";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -217,30 +218,32 @@ export default async function ProfessionalFormPage({
             <span className="day-label">{linkedLogin.email}</span>
             <span className="chip">{linkedLogin.role === "profissional" ? "Profissional" : linkedLogin.role}</span>
             <span className="chip">{linkedLogin.active ? "ativo" : "desativado"}</span>
+            <Modal label="Trocar senha" title={`Senha · ${person.name}`} tone="navy">
+              <form action={setAccessPassword}>
+                <input type="hidden" name="id" value={person.userId} />
+                <input type="hidden" name="back" value="ficha" />
+                <input type="hidden" name="professional" value={person.id} />
+                <label>
+                  Nova senha
+                  <input name="password" type="password" required minLength={8} autoComplete="new-password" />
+                </label>
+                <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
+              </form>
+            </Modal>
+            {person.userId === user.id ? <span className="chip">Seu acesso</span> : (
+              <form action={setAccessActive}>
+                <input type="hidden" name="id" value={person.userId} />
+                <input type="hidden" name="back" value="ficha" />
+                <input type="hidden" name="professional" value={person.id} />
+                <input type="hidden" name="active" value={linkedLogin.active ? "0" : "1"} />
+                <SubmitButton
+                  label={linkedLogin.active ? "Desativar login" : "Reativar login"}
+                  pendingLabel="Salvando…"
+                  className="quiet"
+                />
+              </form>
+            )}
           </div>
-          <form action={setAccessPassword} className="row">
-            <input type="hidden" name="id" value={person.userId} />
-            <input type="hidden" name="back" value="ficha" />
-            <input type="hidden" name="professional" value={person.id} />
-            <label>
-              Nova senha
-              <input name="password" type="password" required minLength={8} autoComplete="new-password" />
-            </label>
-            <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
-          </form>
-          {person.userId === user.id ? <span className="chip">Seu acesso</span> : (
-            <form action={setAccessActive}>
-              <input type="hidden" name="id" value={person.userId} />
-              <input type="hidden" name="back" value="ficha" />
-              <input type="hidden" name="professional" value={person.id} />
-              <input type="hidden" name="active" value={linkedLogin.active ? "0" : "1"} />
-              <SubmitButton
-                label={linkedLogin.active ? "Desativar login" : "Reativar login"}
-                pendingLabel="Salvando…"
-                className="quiet"
-              />
-            </form>
-          )}
         </div>
       ) : null}
       {person && used.length === 0 ? (
