@@ -7,7 +7,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "next": "^15.5.4",
+    "next": "^15.5.28",
     "postgres": "^3.4.9",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
