@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
-import { centsToInput } from "@/catalog/format";
+import { centsToInput, formatDay, formatPhone, formatReais } from "@/catalog/format";
+import { WEEKDAYS } from "@/catalog/labels";
 import { getProfessional, listHours, listProServices, listServices, loginOptions } from "@/catalog/queries";
 import { deleteProfessional, saveProfessional } from "@/catalog/professional-actions";
 import { setAccessActive, setAccessPassword } from "@/auth/actions";
@@ -26,6 +27,11 @@ function hourValues(rows: { weekday: number; period: number; startTime: string; 
   return values;
 }
 
+function hourLabel(values: Record<string, { start: string; end: string }>, day: number, period: number) {
+  const slot = values[`${day}-${period}`];
+  return slot?.start && slot.end ? `${slot.start}–${slot.end}` : "—";
+}
+
 export default async function ProfessionalFormPage({
   params,
   searchParams,
@@ -48,6 +54,9 @@ export default async function ProfessionalFormPage({
   ]);
   const linked = new Map(links.map((link) => [link.serviceId, link]));
   const visible = services.filter((service) => service.active || linked.has(service.id));
+  const does = visible.filter((service) => linked.has(service.id));
+  const fixedHours = hourValues(hours, false);
+  const periodHours = hourValues(hours, true);
   const override = hours.find((row) => row.validFrom);
   const used = person
     ? await db()`
@@ -67,9 +76,7 @@ export default async function ProfessionalFormPage({
       )[0] ?? null
     : null;
 
-  return (
-    <Panel user={user} current="/profissionais" title={person ? person.name : "Novo profissional"}>
-      <ErrorNote code={query.erro} />
+  const editor = (
       <form action={saveProfessional}>
         {person ? <input type="hidden" name="id" value={person.id} /> : null}
         <div className="split">
@@ -212,46 +219,143 @@ export default async function ProfessionalFormPage({
         <HoursGrid prefix="o" values={hourValues(hours, true)} />
         <SubmitButton label="Salvar profissional" />
       </form>
-      {user.role === "administrador" && person?.userId && linkedLogin ? (
+  );
+
+  return (
+    <Panel user={user} current="/profissionais" title={person ? person.name : "Novo profissional"}>
+      <ErrorNote code={query.erro} />
+      {person ? (
         <div className="desk">
           <div className="desk-bar">
-            <span className="day-label">{linkedLogin.email}</span>
-            <span className="chip">{linkedLogin.role === "profissional" ? "Profissional" : linkedLogin.role}</span>
-            <span className="chip">{linkedLogin.active ? "ativo" : "desativado"}</span>
-            <Modal label="Trocar senha" title={`Senha · ${person.name}`} tone="navy">
-              <form action={setAccessPassword}>
-                <input type="hidden" name="id" value={person.userId} />
-                <input type="hidden" name="back" value="ficha" />
-                <input type="hidden" name="professional" value={person.id} />
-                <label>
-                  Nova senha
-                  <input name="password" type="password" required minLength={8} autoComplete="new-password" />
-                </label>
-                <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
-              </form>
+            {person.nickname ? <span className="chip">{person.nickname}</span> : null}
+            {person.phone ? <span className="chip">{formatPhone(person.phone)}</span> : null}
+            {person.active ? null : <span className="chip">inativo</span>}
+            {person.bookable ? null : <span className="chip">Fora da agenda</span>}
+            <Modal label="Editar" title={`Editar · ${person.name}`} tone="navy">
+              {editor}
             </Modal>
-            {person.userId === user.id ? <span className="chip">Seu acesso</span> : (
-              <form action={setAccessActive}>
-                <input type="hidden" name="id" value={person.userId} />
-                <input type="hidden" name="back" value="ficha" />
-                <input type="hidden" name="professional" value={person.id} />
-                <input type="hidden" name="active" value={linkedLogin.active ? "0" : "1"} />
-                <SubmitButton
-                  label={linkedLogin.active ? "Desativar login" : "Reativar login"}
-                  pendingLabel="Salvando…"
-                  className="quiet"
-                />
+            {user.role === "administrador" && person.userId && linkedLogin ? (
+              <>
+                <span className="chip">{linkedLogin.email}</span>
+                <span className="chip">{linkedLogin.active ? "login ativo" : "login desativado"}</span>
+                <Modal label="Trocar senha" title={`Senha · ${person.name}`} tone="navy">
+                  <form action={setAccessPassword}>
+                    <input type="hidden" name="id" value={person.userId} />
+                    <input type="hidden" name="back" value="ficha" />
+                    <input type="hidden" name="professional" value={person.id} />
+                    <label>
+                      Nova senha
+                      <input name="password" type="password" required minLength={8} autoComplete="new-password" />
+                    </label>
+                    <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
+                  </form>
+                </Modal>
+                {person.userId === user.id ? <span className="chip">Seu acesso</span> : (
+                  <form action={setAccessActive}>
+                    <input type="hidden" name="id" value={person.userId} />
+                    <input type="hidden" name="back" value="ficha" />
+                    <input type="hidden" name="professional" value={person.id} />
+                    <input type="hidden" name="active" value={linkedLogin.active ? "0" : "1"} />
+                    <SubmitButton
+                      label={linkedLogin.active ? "Desativar login" : "Reativar login"}
+                      pendingLabel="Salvando…"
+                      className="quiet"
+                    />
+                  </form>
+                )}
+              </>
+            ) : null}
+            {used.length === 0 ? (
+              <form action={deleteProfessional}>
+                <input type="hidden" name="id" value={person.id} />
+                <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
               </form>
+            ) : null}
+          </div>
+          <div className="queue" style={{ overflowX: "auto" }}>
+            {does.length === 0 ? <p className="queue-empty">Nenhum serviço.</p> : null}
+            {does.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Serviço</th>
+                    <th>Preço</th>
+                    <th>Tempo</th>
+                    <th>Comissão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {does.map((service) => {
+                    const link = linked.get(service.id);
+                    return (
+                      <tr key={service.id}>
+                        <td>{service.name}</td>
+                        <td>{formatReais(link?.priceCents ?? service.priceCents)}</td>
+                        <td>{link?.durationMin ?? service.durationMin} min</td>
+                        <td>{link?.commissionPercent ?? service.commissionPercent}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+          <div className="queue" style={{ overflowX: "auto" }}>
+            <div className="desk-bar"><span className="day-label">Horário fixo</span></div>
+            {Object.keys(fixedHours).length === 0 ? <p className="queue-empty">Sem horário fixo.</p> : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Dia</th>
+                    <th>Primeiro</th>
+                    <th>Segundo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {WEEKDAYS.map((label, day) => (
+                    <tr key={label}>
+                      <td>{label}</td>
+                      <td>{hourLabel(fixedHours, day, 1)}</td>
+                      <td>{hourLabel(fixedHours, day, 2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
+          {override ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar">
+                <span className="day-label">
+                  Horário{override.validFrom && override.validUntil ? ` ${formatDay(override.validFrom)}–${formatDay(override.validUntil)}` : " por período"}
+                </span>
+              </div>
+              {Object.keys(periodHours).length === 0 ? <p className="queue-empty">Sem horário neste período.</p> : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Dia</th>
+                      <th>Primeiro</th>
+                      <th>Segundo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {WEEKDAYS.map((label, day) => (
+                      <tr key={`o-${label}`}>
+                        <td>{label}</td>
+                        <td>{hourLabel(periodHours, day, 1)}</td>
+                        <td>{hourLabel(periodHours, day, 2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      {person && used.length === 0 ? (
-        <form action={deleteProfessional}>
-          <input type="hidden" name="id" value={person.id} />
-          <SubmitButton label="Excluir profissional" pendingLabel="Excluindo…" className="quiet" />
-        </form>
-      ) : null}
+      ) : (
+        editor
+      )}
     </Panel>
   );
 }
