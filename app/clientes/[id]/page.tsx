@@ -2,13 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
 import { daysAbsent, formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
-import { CHANNELS } from "@/catalog/labels";
+import { CHANNELS, channelLabel } from "@/catalog/labels";
 import { getClient, houseRules, listClients, listProfessionals } from "@/catalog/queries";
 import { saveClient } from "@/catalog/client-actions";
 import { openDayOrder } from "@/desk/actions";
 import { clientBrief, clientLedger } from "@/desk/queries";
 import { APPOINTMENT_STATUS } from "@/desk/statuses";
 import { ErrorNote } from "@/ui/error-note";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -38,11 +39,125 @@ export default async function ClientFormPage({
     person ? clientLedger(user.accountId, person.id) : Promise.resolve(null),
   ]);
   const today = todaySaoPaulo();
+  const channel = channelLabel(person?.channel ?? "nao_informado");
 
-  return (
-    <Panel user={user} current="/clientes" title={person ? person.name : "Novo cliente"}>
-      <ErrorNote code={query.erro} />
-      {person && brief ? (
+  const editor = (
+      <form action={saveClient}>
+        {person ? <input type="hidden" name="id" value={person.id} /> : null}
+        <div className="split">
+          <label>
+            Nome
+            <input name="name" required minLength={2} defaultValue={person?.name ?? ""} />
+          </label>
+          <label>
+            Celular
+            <input name="phone" required defaultValue={person ? formatPhone(person.phone) : ""} />
+          </label>
+        </div>
+        <div className="split">
+          <label>
+            E-mail
+            <input name="email" type="email" defaultValue={person?.email ?? ""} />
+          </label>
+          <label>
+            Nascimento
+            <input name="birth" type="date" defaultValue={person?.birthDate ?? ""} />
+          </label>
+        </div>
+        <label>
+          Observação
+          <textarea name="notes" defaultValue={person?.notes ?? ""} />
+        </label>
+        <label>
+          Canal de chegada
+          <select name="channel" defaultValue={person?.channel ?? "nao_informado"}>
+            {CHANNELS.map((channel) => (
+              <option key={channel.value} value={channel.value}>
+                {channel.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="row">
+          <label className="check">
+            <input type="checkbox" name="from_outside" value="1" defaultChecked={person?.fromOutside ?? false} />
+            De fora
+          </label>
+          <label className="check">
+            <input type="checkbox" name="incomplete" value="1" defaultChecked={person?.incomplete ?? false} />
+            Cadastro incompleto
+          </label>
+          <label className="check">
+            <input type="checkbox" name="active" value="1" defaultChecked={person?.active ?? true} />
+            Ativo
+          </label>
+        </div>
+        <h2>Indicação</h2>
+        <div className="split">
+          <label>
+            Profissional que indicou
+            <select name="referrer_professional" defaultValue={person?.referrerProfessionalId ?? ""}>
+              <option value="">Ninguém</option>
+              {professionals.map((professional) => (
+                <option key={professional.id} value={professional.id}>
+                  {professional.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Cliente que indicou
+            <select name="referrer_client" defaultValue={person?.referrerClientId ?? ""}>
+              <option value="">Ninguém</option>
+              {clients
+                .filter((client) => client.id !== person?.id)
+                .map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Comissão desta indicação (%)
+            <input
+              name="referral_commission"
+              inputMode="numeric"
+              placeholder={String(rules.referral)}
+              defaultValue={person?.referralCommissionPercent ?? ""}
+            />
+          </label>
+        </div>
+        <details>
+          <summary>Documento e endereço</summary>
+          <div className="split">
+            <label>
+              Telefone fixo
+              <input name="landline" defaultValue={person?.landline ?? ""} />
+            </label>
+            <label>
+              CPF
+              <input name="cpf" defaultValue={person?.cpf ?? ""} />
+            </label>
+            <label>
+              RG
+              <input name="rg" defaultValue={person?.rg ?? ""} />
+            </label>
+            <label>
+              Sexo
+              <input name="sex" defaultValue={person?.sex ?? ""} />
+            </label>
+          </div>
+          <label>
+            Endereço
+            <textarea name="address" defaultValue={person?.address ?? ""} />
+          </label>
+        </details>
+        <SubmitButton label="Salvar cliente" />
+      </form>
+  );
+
+  const desk = person && brief ? (
         <div className="desk">
           <div className="desk-bar">
             {brief.last ? (
@@ -69,6 +184,14 @@ export default async function ClientFormPage({
             {ledger && ledger.creditCents > 0 ? <span className="chip">Crédito {formatReais(ledger.creditCents)}</span> : null}
             <span className="chip">{brief.topService ? `${brief.topService.name} · ${brief.topService.qty}` : "Sem serviço"}</span>
             <span className="chip">{brief.topProduct ? `${brief.topProduct.name} · ${brief.topProduct.qty}` : "Sem produto"}</span>
+            <span className="chip">{formatPhone(person.phone)}</span>
+            {person.channel !== "nao_informado" ? <span className="chip">{channel}</span> : null}
+            {person.incomplete ? <span className="chip">Incompleto</span> : null}
+            {person.fromOutside ? <span className="chip">De fora</span> : null}
+            {person.active ? null : <span className="chip">inativo</span>}
+            <Modal label="Editar" title={`Editar · ${person.name}`} tone="navy">
+              {editor}
+            </Modal>
             <form action={openDayOrder}>
               <input type="hidden" name="from" value="cliente" />
               <input type="hidden" name="client" value={person.id} />
@@ -211,120 +334,12 @@ export default async function ClientFormPage({
             </div>
           ) : null}
         </div>
-      ) : null}
-      <form action={saveClient}>
-        {person ? <input type="hidden" name="id" value={person.id} /> : null}
-        <div className="split">
-          <label>
-            Nome
-            <input name="name" required minLength={2} defaultValue={person?.name ?? ""} />
-          </label>
-          <label>
-            Celular
-            <input name="phone" required defaultValue={person ? formatPhone(person.phone) : ""} />
-          </label>
-        </div>
-        <div className="split">
-          <label>
-            E-mail
-            <input name="email" type="email" defaultValue={person?.email ?? ""} />
-          </label>
-          <label>
-            Nascimento
-            <input name="birth" type="date" defaultValue={person?.birthDate ?? ""} />
-          </label>
-        </div>
-        <label>
-          Observação
-          <textarea name="notes" defaultValue={person?.notes ?? ""} />
-        </label>
-        <label>
-          Canal de chegada
-          <select name="channel" defaultValue={person?.channel ?? "nao_informado"}>
-            {CHANNELS.map((channel) => (
-              <option key={channel.value} value={channel.value}>
-                {channel.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="row">
-          <label className="check">
-            <input type="checkbox" name="from_outside" value="1" defaultChecked={person?.fromOutside ?? false} />
-            De fora. Fica fora da análise de volta.
-          </label>
-          <label className="check">
-            <input type="checkbox" name="incomplete" value="1" defaultChecked={person?.incomplete ?? false} />
-            Cadastro incompleto
-          </label>
-          <label className="check">
-            <input type="checkbox" name="active" value="1" defaultChecked={person?.active ?? true} />
-            Ativo
-          </label>
-        </div>
-        <h2>Indicação</h2>
-        <div className="split">
-          <label>
-            Profissional que indicou
-            <select name="referrer_professional" defaultValue={person?.referrerProfessionalId ?? ""}>
-              <option value="">Ninguém</option>
-              {professionals.map((professional) => (
-                <option key={professional.id} value={professional.id}>
-                  {professional.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Cliente que indicou
-            <select name="referrer_client" defaultValue={person?.referrerClientId ?? ""}>
-              <option value="">Ninguém</option>
-              {clients
-                .filter((client) => client.id !== person?.id)
-                .map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label>
-            Comissão desta indicação (%)
-            <input
-              name="referral_commission"
-              inputMode="numeric"
-              placeholder={String(rules.referral)}
-              defaultValue={person?.referralCommissionPercent ?? ""}
-            />
-          </label>
-        </div>
-        <details>
-          <summary>Documento e endereço</summary>
-          <div className="split">
-            <label>
-              Telefone fixo
-              <input name="landline" defaultValue={person?.landline ?? ""} />
-            </label>
-            <label>
-              CPF
-              <input name="cpf" defaultValue={person?.cpf ?? ""} />
-            </label>
-            <label>
-              RG
-              <input name="rg" defaultValue={person?.rg ?? ""} />
-            </label>
-            <label>
-              Sexo
-              <input name="sex" defaultValue={person?.sex ?? ""} />
-            </label>
-          </div>
-          <label>
-            Endereço
-            <textarea name="address" defaultValue={person?.address ?? ""} />
-          </label>
-        </details>
-        <SubmitButton label="Salvar cliente" />
-      </form>
+  ) : null;
+
+  return (
+    <Panel user={user} current="/clientes" title={person ? person.name : "Novo cliente"}>
+      <ErrorNote code={query.erro} />
+      {desk ?? editor}
     </Panel>
   );
 }
