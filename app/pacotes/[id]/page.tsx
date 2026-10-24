@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
-import { centsToInput } from "@/catalog/format";
+import { centsToInput, formatReais } from "@/catalog/format";
 import { getPackage, listProducts, listServices } from "@/catalog/queries";
 import { savePackage } from "@/catalog/package-actions";
 import { ErrorNote } from "@/ui/error-note";
+import { Modal } from "@/ui/modal";
 import { PackageForm, type PackageInitial } from "@/ui/package-form";
 import { Panel } from "@/ui/panel";
 
@@ -51,9 +52,30 @@ export default async function PackageFormPage({
     })),
   };
 
-  return (
-    <Panel user={user} current="/pacotes" title={pack ? pack.name : "Novo pacote"}>
-      <ErrorNote code={query.erro} />
+  const serviceName = new Map(services.map((service) => [service.id, service.name]));
+  const productName = new Map(products.map((product) => [product.id, product.name]));
+  const visitRows = visits.reduce<{ key: string; name: string; count: number; cents: number }[]>((list, item) => {
+    const serviceId = item.serviceId ?? "";
+    const last = list[list.length - 1];
+    if (last && last.key === serviceId) {
+      last.count += 1;
+      last.cents += item.internalPriceCents;
+      return list;
+    }
+    list.push({
+      key: serviceId,
+      name: serviceName.get(serviceId) ?? "Serviço",
+      count: 1,
+      cents: item.internalPriceCents,
+    });
+    return list;
+  }, []);
+  const packageCents = (pack?.items ?? []).reduce((sum, item) => sum + item.internalPriceCents, 0);
+  const avulsoCents = visits.reduce((sum, item) => {
+    const service = services.find((row) => row.id === item.serviceId);
+    return sum + (service?.priceCents ?? 0);
+  }, 0);
+  const editor = (
       <PackageForm
         action={savePackage}
         services={services.filter((service) => service.active || initial.groups.some((group) => group.serviceId === service.id)).map((service) => ({
@@ -64,6 +86,66 @@ export default async function PackageFormPage({
         products={products.filter((product) => product.active).map((product) => ({ id: product.id, name: product.name }))}
         initial={initial}
       />
+  );
+
+  return (
+    <Panel user={user} current="/pacotes" title={pack ? pack.name : "Novo pacote"}>
+      <ErrorNote code={query.erro} />
+      {pack ? (
+        <div className="desk">
+          <div className="desk-bar">
+            <span className="chip">{formatReais(packageCents)}</span>
+            {avulsoCents > 0 ? <span className="chip">Avulso {formatReais(avulsoCents)}</span> : null}
+            <span className="chip">{pack.validityDays} dias</span>
+            <span className="chip">{pack.forSale ? "À venda" : "Fora de venda"}</span>
+            {pack.saleCommissionPercent != null ? <span className="chip">{pack.saleCommissionPercent}% venda</span> : null}
+            <Modal label="Editar" title={`Editar · ${pack.name}`} tone="navy">
+              {editor}
+            </Modal>
+          </div>
+          <div className="queue" style={{ overflowX: "auto" }}>
+            {visitRows.length === 0 ? <p className="queue-empty">Nenhuma ida.</p> : null}
+            {visitRows.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Serviço</th>
+                    <th>Idas</th>
+                    <th>No pacote</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visitRows.map((row) => (
+                    <tr key={row.key}>
+                      <td>{row.name}</td>
+                      <td>{row.count}</td>
+                      <td>{formatReais(row.cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </div>
+          {lines.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Produtos</span></div>
+              <table>
+                <tbody>
+                  {lines.map((item, index) => (
+                    <tr key={`${item.productId ?? "produto"}-${index}`}>
+                      <td>{productName.get(item.productId ?? "") ?? "Produto"}</td>
+                      <td>{item.qty}</td>
+                      <td>{formatReais(item.internalPriceCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        editor
+      )}
     </Panel>
   );
 }
