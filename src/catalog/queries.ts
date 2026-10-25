@@ -609,22 +609,25 @@ export async function listSupplierLabels(accountId: string) {
   `;
 }
 
-export async function listPurchases(accountId: string) {
-  return db()<{
+export async function listPurchases(accountId: string, supplierId?: string) {
+  const sql = db();
+  return sql<{
     id: string;
+    supplierId: string;
     supplierName: string;
     document: string;
     day: string;
     totalCents: number;
   }[]>`
-    SELECT p.id, s.name AS "supplierName", p.document,
+    SELECT p.id, p.supplier_id AS "supplierId", s.name AS "supplierName", p.document,
            to_char(p.purchased_on, 'DD/MM/YYYY') AS day,
            COALESCE((SELECT SUM(l.qty * l.cost_cents) FROM purchase_lines l WHERE l.purchase_id = p.id), 0)::int AS "totalCents"
     FROM purchases p
     JOIN suppliers s ON s.id = p.supplier_id
     WHERE p.account_id = ${accountId}
+      ${supplierId ? sql`AND p.supplier_id = ${supplierId}` : sql``}
     ORDER BY p.purchased_on DESC, p.created_at DESC
-    LIMIT 30
+    LIMIT ${supplierId ? 40 : 30}
   `;
 }
 
