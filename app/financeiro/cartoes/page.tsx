@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireAdmin } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { deleteCard, payCardInvoice, saveCard } from "@/finance/actions";
@@ -29,80 +30,48 @@ export default async function CardsPage({
       <FinanceNav current="cartoes" />
       <div className="desk">
       <div className="desk-bar">
-      <Modal label="Novo cartão" title="Novo cartão" tone="teal">
-      <form action={saveCard}>
-        <div className="split">
-          <label>
-            Nome
-            <input name="name" required />
-          </label>
-          <label>
-            Instituição
-            <input name="institution" placeholder="Nubank, Itaú, Cielo" />
-          </label>
-          <label>
-            Limite
-            <input name="limit" placeholder="0,00" />
-          </label>
-          <label>
-            Fecha no dia
-            <input name="closing" type="number" min={1} max={31} defaultValue={1} required />
-          </label>
-          <label>
-            Vence no dia
-            <input name="due" type="number" min={1} max={31} defaultValue={10} required />
-          </label>
-        </div>
-        <SubmitButton label="Salvar cartão" pendingLabel="Salvando…" />
-      </form>
-      </Modal>
-      <span className="chip">{cards.length}</span>
-      </div>
-      <div className="queue" style={{ overflowX: "auto" }}>
-        {cards.length === 0 ? <p className="queue-empty">Nenhum cartão ainda.</p> : null}
-        {cards.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Instituição</th>
-                <th>Fecha</th>
-                <th>Vence</th>
-                <th>Limite</th>
-                <th>Fatura</th>
-                <th>Disponível</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {cards.map((card) => (
-                <tr key={card.id}>
-                  <td>{card.name}</td>
-                  <td>{card.institution ?? ""}</td>
-                  <td>{card.closingDay}</td>
-                  <td>{card.dueDay}</td>
-                  <td>{formatReais(card.limitCents)}</td>
-                  <td>{formatReais(card.openCents)}</td>
-                  <td>{formatReais(card.limitCents - card.openCents)}</td>
-                  <td>
-                    <form action={deleteCard}>
-                      <input type="hidden" name="id" value={card.id} />
-                      <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </div>
-      {selected ? (
-        <div className="queue" style={{ overflowX: "auto" }}>
-          <div className="desk-bar">
-            <span className="day-label">Fatura · {selected.name}</span>
-            <span className="chip">{formatReais(selected.openCents)}</span>
-            {charges.length > 0 && banks.length > 0 ? (
-              <Modal label={`Pagar ${formatReais(selected.openCents)}`} title={`Pagar · ${selected.name}`} tone="teal">
+        <Modal label="Novo cartão" title="Novo cartão" tone="teal">
+          <form action={saveCard}>
+            <div className="split">
+              <label>
+                Nome
+                <input name="name" required />
+              </label>
+              <label>
+                Instituição
+                <input name="institution" placeholder="Nubank, Itaú, Cielo" />
+              </label>
+              <label>
+                Limite
+                <input name="limit" placeholder="0,00" />
+              </label>
+              <label>
+                Fecha no dia
+                <input name="closing" type="number" min={1} max={31} defaultValue={1} required />
+              </label>
+              <label>
+                Vence no dia
+                <input name="due" type="number" min={1} max={31} defaultValue={10} required />
+              </label>
+            </div>
+            <SubmitButton label="Salvar cartão" pendingLabel="Salvando…" />
+          </form>
+        </Modal>
+        {cards.map((card) => (
+          <Link key={card.id} className={card.id === selected?.id ? "btn" : "btn quiet"} href={`/financeiro/cartoes?cartao=${card.id}`}>
+            {card.name}
+          </Link>
+        ))}
+        {selected ? (
+          <>
+            {selected.institution ? <span className="chip">{selected.institution}</span> : null}
+            <span className="chip">Fecha dia {selected.closingDay}</span>
+            <span className="chip">Vence dia {selected.dueDay}</span>
+            <span className="chip">Limite {formatReais(selected.limitCents)}</span>
+            <span className="chip">Disponível {formatReais(selected.limitCents - selected.openCents)}</span>
+            <span className="chip">Fatura {formatReais(selected.openCents)}</span>
+            {selected.openCents > 0 && banks.length > 0 ? (
+              <Modal label="Pagar fatura" title={`Pagar · ${selected.name}`} tone="teal">
                 <form action={payCardInvoice}>
                   <input type="hidden" name="card" value={selected.id} />
                   <label>
@@ -123,35 +92,43 @@ export default async function CardsPage({
                 </form>
               </Modal>
             ) : null}
-          </div>
+            <form action={deleteCard}>
+              <input type="hidden" name="id" value={selected.id} />
+              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+            </form>
+          </>
+        ) : null}
+      </div>
+      {selected ? (
+        <div className="queue" style={{ overflowX: "auto" }}>
           {charges.length === 0 ? <p className="queue-empty">Nenhum lançamento nesta fatura.</p> : null}
           {charges.length > 0 ? (
-            <>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Descrição</th>
-                    <th>Fornecedor</th>
-                    <th>Valor</th>
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Fornecedor</th>
+                  <th>Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {charges.map((charge) => (
+                  <tr key={charge.id}>
+                    <td>{charge.paid}</td>
+                    <td>{charge.description}</td>
+                    <td>{charge.partyName}</td>
+                    <td>{formatReais(charge.amountCents)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {charges.map((charge) => (
-                    <tr key={charge.id}>
-                      <td>{charge.paid}</td>
-                      <td>{charge.description}</td>
-                      <td>{charge.partyName}</td>
-                      <td>{formatReais(charge.amountCents)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {banks.length === 0 ? <p className="queue-empty">Cadastre um banco para pagar a fatura.</p> : null}
-            </>
+                ))}
+              </tbody>
+            </table>
           ) : null}
+          {selected.openCents > 0 && banks.length === 0 ? <p className="queue-empty">Cadastre um banco para pagar a fatura.</p> : null}
         </div>
-      ) : null}
+      ) : (
+        <p className="queue-empty">Nenhum cartão ainda.</p>
+      )}
       </div>
     </Panel>
   );

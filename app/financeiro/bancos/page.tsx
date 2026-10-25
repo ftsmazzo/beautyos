@@ -36,90 +36,65 @@ export default async function BanksPage({
       <FinanceNav current="bancos" />
       <div className="desk">
       <div className="desk-bar">
-      <Modal label="Novo banco" title="Novo banco" tone="teal">
-      <form action={saveBank}>
-        <div className="split">
-          <label>
-            Nome
-            <input name="name" required />
-          </label>
-          <label>
-            Instituição
-            <input name="institution" placeholder="Itaú, Bradesco, Caixa" />
-          </label>
-          <label>
-            Tipo
-            <select name="kind" defaultValue="corrente">
-              <option value="corrente">Corrente</option>
-              <option value="poupanca">Poupança</option>
-              <option value="outro">Outro</option>
-            </select>
-          </label>
-          <label>
-            Código
-            <input name="code" />
-          </label>
-          <label>
-            Saldo de abertura
-            <input name="opening" placeholder="0,00" />
-          </label>
-          <label>
-            Data do saldo
-            <input type="date" name="opening_on" defaultValue={todaySaoPaulo()} />
-          </label>
-        </div>
-        <SubmitButton label="Salvar banco" pendingLabel="Salvando…" />
-      </form>
-      </Modal>
-      <span className="chip">{banks.length}</span>
-      </div>
-      <div className="queue" style={{ overflowX: "auto" }}>
-        {banks.length === 0 ? <p className="queue-empty">Nenhum banco ainda.</p> : null}
-        {banks.length > 0 ? (
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Instituição</th>
-                <th>Tipo</th>
-                <th>Código</th>
-                <th>Saldo de abertura</th>
-                <th>Data</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {banks.map((bank) => (
-                <tr key={bank.id}>
-                  <td>{bank.name}</td>
-                  <td>{bank.institution ?? ""}</td>
-                  <td>{KINDS[bank.kind] ?? bank.kind}</td>
-                  <td>{bank.code ?? ""}</td>
-                  <td>{formatReais(bank.openingCents)}</td>
-                  <td>{bank.openingOn ?? ""}</td>
-                  <td>
-                    <form action={deleteBank}>
-                      <input type="hidden" name="id" value={bank.id} />
-                      <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
-                    </form>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <Modal label="Novo banco" title="Novo banco" tone="teal">
+          <form action={saveBank}>
+            <div className="split">
+              <label>
+                Nome
+                <input name="name" required />
+              </label>
+              <label>
+                Instituição
+                <input name="institution" placeholder="Itaú, Bradesco, Caixa" />
+              </label>
+              <label>
+                Tipo
+                <select name="kind" defaultValue="corrente">
+                  <option value="corrente">Corrente</option>
+                  <option value="poupanca">Poupança</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </label>
+              <label>
+                Código
+                <input name="code" />
+              </label>
+              <label>
+                Saldo de abertura
+                <input name="opening" placeholder="0,00" />
+              </label>
+              <label>
+                Data do saldo
+                <input type="date" name="opening_on" defaultValue={todaySaoPaulo()} />
+              </label>
+            </div>
+            <SubmitButton label="Salvar banco" pendingLabel="Salvando…" />
+          </form>
+        </Modal>
+        {banks.map((bank) => (
+          <Link key={bank.id} className={bank.id === selected?.id ? "btn" : "btn quiet"} href={`/financeiro/bancos?banco=${bank.id}`}>
+            {bank.name}
+          </Link>
+        ))}
+        {selected ? (
+          <>
+            {selected.institution ? <span className="chip">{selected.institution}</span> : null}
+            <span className="chip">{KINDS[selected.kind] ?? selected.kind}</span>
+            {selected.code ? <span className="chip">{selected.code}</span> : null}
+            <span className="chip">
+              Abertura {formatReais(selected.openingCents)}
+              {selected.openingOn ? ` · ${selected.openingOn}` : ""}
+            </span>
+            <span className="chip ok">Saldo {formatReais(balance)}</span>
+            <form action={deleteBank}>
+              <input type="hidden" name="id" value={selected.id} />
+              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+            </form>
+          </>
         ) : null}
       </div>
       {selected ? (
         <div className="queue" style={{ overflowX: "auto" }}>
-          <div className="desk-bar">
-            {banks.map((bank) => (
-              <Link key={bank.id} className={bank.id === selected.id ? "btn" : "btn quiet"} href={`/financeiro/bancos?banco=${bank.id}`}>
-                {bank.name}
-              </Link>
-            ))}
-            <span className="chip">Abertura {formatReais(selected.openingCents)}</span>
-            <span className="chip">Saldo {formatReais(balance)}</span>
-          </div>
           {lines.length === 0 ? <p className="queue-empty">Nenhum lançamento neste banco.</p> : null}
           {lines.length > 0 ? (
             <table>
@@ -144,7 +119,9 @@ export default async function BanksPage({
             </table>
           ) : null}
         </div>
-      ) : null}
+      ) : (
+        <p className="queue-empty">Nenhum banco ainda.</p>
+      )}
       </div>
     </Panel>
   );
