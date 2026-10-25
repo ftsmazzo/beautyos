@@ -312,36 +312,6 @@ export default async function CashPage({
           ))}
         </div>
       ) : null}
-      {cash.commissions.length > 0 ? (
-        <div className="queue" style={{ overflowX: "auto" }}>
-          <div className="queue-head">
-            <h2>Comissão</h2>
-            <Link className="meta" href={`/comissao?de=${day}&ate=${day}`}>
-              Abrir
-            </Link>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Pessoa</th>
-                <th>Comissão</th>
-                <th>Abate</th>
-                <th>Líquido</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cash.commissions.map((row) => (
-                <tr key={row.name}>
-                  <td>{row.name}</td>
-                  <td>{formatReais(row.amountCents)}</td>
-                  <td>{formatReais(row.abatementCents)}</td>
-                  <td>{formatReais(row.amountCents - row.abatementCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
       </div>
     </Panel>
   );

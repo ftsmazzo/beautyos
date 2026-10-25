@@ -208,12 +208,12 @@ export default async function FluxoPage({
         </Link>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
-        <div className="queue-head"><h2>Doze meses</h2></div>
-        <MonthTable rows={months} />
-      </div>
-      <div className="queue" style={{ overflowX: "auto" }}>
         <div className="queue-head"><h2>Dia a dia</h2></div>
         <DayTable rows={days} />
+      </div>
+      <div className="queue" style={{ overflowX: "auto" }}>
+        <div className="queue-head"><h2>Doze meses</h2></div>
+        <MonthTable rows={months} />
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="queue-head"><h2>Fluxo</h2></div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
-import { daysAbsent, formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
+import { formatDay, formatPhone, formatReais, packageDeadline, todaySaoPaulo } from "@/catalog/format";
 import { CHANNELS, channelLabel } from "@/catalog/labels";
 import { getClient, houseRules, listClients, listProfessionals } from "@/catalog/queries";
 import { saveClient } from "@/catalog/client-actions";
@@ -160,31 +160,13 @@ export default async function ClientFormPage({
   const desk = person && brief ? (
         <div className="desk">
           <div className="desk-bar">
-            {brief.last ? (
-              <span className="chip">
-                {formatDay(brief.last.day)} {brief.last.time} · {brief.last.service} · {brief.last.professional} · {daysAbsent(brief.last.day, today)}
-              </span>
-            ) : (
-              <span className="chip">Sem visita</span>
-            )}
-            {brief.last?.orderId ? (
-              <Link className="btn quiet" href={`/comandas/${brief.last.orderId}`}>
-                Última comanda
-              </Link>
-            ) : null}
-            <span className="chip">
-              Gastou {formatReais(brief.money.spentCents)}
-              {brief.money.orderCount > 0 ? ` · ${brief.money.orderCount}` : ""}
-            </span>
+            <span className="chip">{formatPhone(person.phone)}</span>
             {brief.money.dueCents > 0 ? (
-              <Link className="chip" href="/comandas?lista=abertas&filtro=falta">
+              <Link className="chip hot" href="/comandas?lista=abertas&filtro=falta">
                 A receber {formatReais(brief.money.dueCents)}
               </Link>
             ) : null}
             {ledger && ledger.creditCents > 0 ? <span className="chip">Crédito {formatReais(ledger.creditCents)}</span> : null}
-            <span className="chip">{brief.topService ? `${brief.topService.name} · ${brief.topService.qty}` : "Sem serviço"}</span>
-            <span className="chip">{brief.topProduct ? `${brief.topProduct.name} · ${brief.topProduct.qty}` : "Sem produto"}</span>
-            <span className="chip">{formatPhone(person.phone)}</span>
             {person.channel !== "nao_informado" ? <span className="chip">{channel}</span> : null}
             {person.incomplete ? <span className="chip">Incompleto</span> : null}
             {person.fromOutside ? <span className="chip">De fora</span> : null}
@@ -199,6 +181,24 @@ export default async function ClientFormPage({
               <SubmitButton label="Comanda de hoje" pendingLabel="Abrindo…" />
             </form>
           </div>
+          {brief.agenda.length > 0 ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar"><span className="day-label">Agenda</span></div>
+              <table>
+                <tbody>
+                  {brief.agenda.map((visit) => (
+                    <tr key={visit.id}>
+                      <td>{formatDay(visit.day)} {visit.time}</td>
+                      <td>{visit.service}</td>
+                      <td>{visit.professional}</td>
+                      <td>{APPOINTMENT_STATUS[visit.status as keyof typeof APPOINTMENT_STATUS]?.word ?? visit.status}</td>
+                      <td>{visit.orderId ? <Link href={`/comandas/${visit.orderId}`}>Comanda</Link> : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           {brief.returns.length > 0 ? (
             <div className="queue" style={{ overflowX: "auto" }}>
               <div className="desk-bar"><span className="day-label">Volta</span></div>
@@ -291,24 +291,6 @@ export default async function ClientFormPage({
                         {order.paidCents < order.totalCents ? `em aberto ${formatReais(order.totalCents - order.paidCents)}` : ""}
                       </td>
                       <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-          {brief.agenda.length > 0 ? (
-            <div className="queue" style={{ overflowX: "auto" }}>
-              <div className="desk-bar"><span className="day-label">Agenda</span></div>
-              <table>
-                <tbody>
-                  {brief.agenda.map((visit) => (
-                    <tr key={visit.id}>
-                      <td>{formatDay(visit.day)} {visit.time}</td>
-                      <td>{visit.service}</td>
-                      <td>{visit.professional}</td>
-                      <td>{APPOINTMENT_STATUS[visit.status as keyof typeof APPOINTMENT_STATUS]?.word ?? visit.status}</td>
-                      <td>{visit.orderId ? <Link href={`/comandas/${visit.orderId}`}>Comanda</Link> : ""}</td>
                     </tr>
                   ))}
                 </tbody>
