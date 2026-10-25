@@ -5,11 +5,9 @@ import { saveCardAcquirer, saveCardBrand, saveHouseRules, stopCardAcquirer, stop
 import {
   applyDuePrices,
   birthdaysAhead,
-  catalogCounts,
   houseRules,
   listCardAcquirers,
   listPayables,
-  listProfessionals,
   openPriceNotices,
   productsAtMinimum,
 } from "@/catalog/queries";
@@ -18,19 +16,15 @@ import {
   clientsWithCredit,
   deskPulse,
   deskReceivables,
-  extrasBook,
   latePackageVisits,
   linkedProfessional,
   openIncompleteOrders,
   overdueReturns,
   ownCommission,
-  commissionBook,
-  rankNet,
-  rankStaff,
   unpaidPackageSales,
 } from "@/desk/queries";
 import { openConsumption } from "@/desk/actions";
-import { shiftDay, weekBounds } from "@/desk/clock";
+import { shiftDay } from "@/desk/clock";
 import { APPOINTMENT_STATUS } from "@/desk/statuses";
 import { PriceNotice } from "@/ui/price-notice";
 import { Modal } from "@/ui/modal";
@@ -50,7 +44,6 @@ export default async function StartPage({
   const operator = user.role === "administrador" || user.role === "balcao";
   if (operator) await applyDuePrices(user.accountId);
   const notices = operator ? await openPriceNotices(user.accountId) : [];
-  const counts = operator ? await catalogCounts(user.accountId) : null;
   const rules = operator || user.role === "administrador" ? await houseRules(user.accountId) : null;
   const acquirers = user.role === "administrador" ? await listCardAcquirers(user.accountId) : [];
   const today = todaySaoPaulo();
@@ -80,17 +73,6 @@ export default async function StartPage({
   const nameless =
     operator || own
       ? await openIncompleteOrders(user.accountId, operator ? null : own)
-      : [];
-  const week = weekBounds(today);
-  const ranking = operator
-    ? rankStaff(
-        await commissionBook(user.accountId, week.start, today, null),
-        new Set((await listProfessionals(user.accountId)).map((person) => person.id)),
-      )
-    : [];
-  const extras =
-    operator && rules?.extrasLadder
-      ? await extrasBook(user.accountId, week.start, today)
       : [];
   const dueOpen = pulse?.openOrders ?? [];
   const dueTotal = receivables.reduce((sum, row) => sum + row.gapCents, 0);
@@ -284,7 +266,7 @@ export default async function StartPage({
           ))}
         </div>
       ) : null}
-      {operator && counts ? (
+      {operator ? (
         <>
           <PriceNotice notices={notices} back="inicio" />
           {lowStock.length > 0 ? (
@@ -339,75 +321,6 @@ export default async function StartPage({
               ))}
             </div>
           ) : null}
-          {ranking.length > 0 ? (
-            <div className="queue">
-              <div className="queue-head">
-                <h2>Ranking · {formatDay(week.start)}–hoje</h2>
-                <Link className="meta" href={`/comissao?de=${week.start}&ate=${today}`}>
-                  Comissão
-                </Link>
-              </div>
-              {ranking.map((person, index) => (
-                <div className="queue-row" key={person.id}>
-                  <strong>#{index + 1}</strong>
-                  <span>{person.name}</span>
-                  <span>{person.visits} atend.</span>
-                  <span>{formatReais(rankNet(person))}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {rules?.extrasLadder && extras.length > 0 ? (
-            <div className="queue">
-              <div className="queue-head">
-                <h2>Meta de extras</h2>
-              </div>
-              {extras.map((person, index) => (
-                <div className="queue-row" key={person.id}>
-                  <strong>#{index + 1}</strong>
-                  <span>{person.name}</span>
-                  <span>{person.visits}</span>
-                  <span>{formatReais(person.cents)}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          <div className="tiles">
-            <Link className="tile tile-blue" href="/agenda">
-              <strong>Agenda</strong>
-              <span>Grade do dia</span>
-            </Link>
-            <Link className="tile tile-teal" href="/comandas">
-              <strong>Comandas</strong>
-              <span>Do dia</span>
-            </Link>
-            <Link className="tile tile-amber" href="/caixa">
-              <strong>Caixa</strong>
-              <span>Do dia</span>
-            </Link>
-          </div>
-          <div className="tiles">
-            <Link className="tile tile-blue" href="/servicos">
-              <strong>{counts.services}</strong>
-              <span>Serviços</span>
-            </Link>
-            <Link className="tile tile-teal" href="/profissionais">
-              <strong>{counts.professionals}</strong>
-              <span>Profissionais</span>
-            </Link>
-            <Link className="tile tile-amber" href="/clientes">
-              <strong>{counts.clients}</strong>
-              <span>Clientes</span>
-            </Link>
-            <Link className="tile tile-rose" href="/produtos">
-              <strong>{counts.products}</strong>
-              <span>Produtos</span>
-            </Link>
-            <Link className="tile tile-violet" href="/pacotes">
-              <strong>{counts.packages}</strong>
-              <span>Pacotes</span>
-            </Link>
-          </div>
         </>
       ) : null}
       {user.role === "profissional" ? (

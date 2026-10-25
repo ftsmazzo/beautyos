@@ -92,20 +92,19 @@ export default async function AccessPage({
             <SubmitButton label="Incluir" />
           </form>
         </Modal>
+        <Modal label="Módulos" title="Módulos da casa" tone="navy">
+          <form action={saveHouseModules}>
+            {HOUSE_MODULES.map((item) => (
+              <label className="check" key={item.id}>
+                <input type="checkbox" name={item.id} value="1" defaultChecked={modules[item.id]} />
+                {item.label}
+              </label>
+            ))}
+            <SubmitButton label="Salvar módulos" pendingLabel="Salvando…" />
+          </form>
+        </Modal>
         <span className="chip">{people.length}</span>
       </div>
-      <details className="desk-secondary">
-        <summary>Módulos</summary>
-        <form action={saveHouseModules}>
-          {HOUSE_MODULES.map((item) => (
-            <label className="check" key={item.id}>
-              <input type="checkbox" name={item.id} value="1" defaultChecked={modules[item.id]} />
-              {item.label}
-            </label>
-          ))}
-          <SubmitButton label="Salvar módulos" pendingLabel="Salvando…" />
-        </form>
-      </details>
       <div className="queue" style={{ overflowX: "auto" }}>
         <table>
           <thead>

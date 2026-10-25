@@ -355,10 +355,10 @@ export default async function OrderPage({
                     {notes
                       .filter((note) => note.appointmentId === line.appointmentId)
                       .map((note) => (
-                        <div key={note.id}>
-                          <p>
+                        <div className="row" key={note.id}>
+                          <span>
                             {note.body} · {note.who} · {note.at}
-                          </p>
+                          </span>
                           {operator ? (
                             <form action={deleteVisitNote}>
                               <input type="hidden" name="order" value={order.id} />
