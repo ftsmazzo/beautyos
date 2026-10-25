@@ -102,6 +102,7 @@ export default async function OrderPage({
   );
   const statuses = Object.entries(APPOINTMENT_STATUS).filter(([value]) => value !== "bloqueado");
   const notes = await visitNotes(user.accountId, order.id);
+  const openVisits = visits.filter((visit) => visit.status !== "usado" || visit.late);
   const askChannel = operator && open && order.kind === "cliente" && order.clientId != null && order.channel === "nao_informado";
   const rules = askChannel ? await houseRules(user.accountId) : null;
   const birthdays = await birthdaysOn(user.accountId, order.day);
@@ -181,15 +182,6 @@ export default async function OrderPage({
             {order.incomplete ? <span className="chip hot">Cadastro pendente</span> : null}
             {birthday ? <span className="chip warn">Aniversário</span> : null}
             {order.kind === "consumo" ? <span className="chip">Consumo</span> : null}
-            {held.map((item) => {
-              const left = Math.max(0, item.total - item.used);
-              return (
-                <span className="chip" key={item.id}>
-                  {item.name} · {left} · {packageDeadline(item)}
-                  {item.pardons > 0 ? " · perdão" : ""}
-                </span>
-              );
-            })}
             {otherDues.map((row) => (
               <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
                 {formatDay(row.day)} {formatReais(row.gapCents)}
@@ -518,7 +510,7 @@ export default async function OrderPage({
         ) : null}
       </div>
 
-      {order.kind === "cliente" && order.clientId && (held.length > 0 || forSale.length > 0) ? (
+      {order.kind === "cliente" && order.clientId && (held.length > 0 || forSale.length > 0 || openVisits.length > 0) ? (
         <div className="order-section">
           <div className="order-actions-bar">
             <h2 style={{ margin: 0, border: 0, padding: 0, flex: "1 1 auto" }}>Pacote</h2>
@@ -574,7 +566,6 @@ export default async function OrderPage({
               </Modal>
             ) : null}
           </div>
-          {held.length === 0 ? <p className="queue-empty">Nenhum pacote ativo.</p> : null}
           {held.length > 0 ? (
             <table className="sheet">
               <thead>
@@ -611,7 +602,7 @@ export default async function OrderPage({
               </tbody>
             </table>
           ) : null}
-          {visits.length > 0 ? (
+          {openVisits.length > 0 ? (
             <table className="sheet">
               <thead>
                 <tr>
@@ -622,7 +613,7 @@ export default async function OrderPage({
                 </tr>
               </thead>
               <tbody>
-                {visits.map((visit) => {
+                {openVisits.map((visit) => {
                   const due = visit.late && visit.listPriceCents != null
                     ? Math.max(0, visit.listPriceCents - visit.internalPriceCents)
                     : null;
