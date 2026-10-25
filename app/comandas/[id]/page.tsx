@@ -123,6 +123,24 @@ export default async function OrderPage({
         <Link className="btn quiet" href={`/agenda?dia=${order.day}`}>
           Agenda
         </Link>
+        <span className="day-label">{heroName}</span>
+        {order.phone ? <span className="chip">{formatPhone(order.phone)}</span> : null}
+        <span className="chip">{formatDay(order.day)}</span>
+        <span className={`chip ${open ? "ok" : ""}`}>{open ? "Aberta" : "Fechada"}</span>
+        <span className="chip">{formatReais(total)}</span>
+        {paid > 0 && paid < total ? <span className="chip">Pago {formatReais(paid)}</span> : null}
+        <span className={`chip ${paid >= total ? "ok" : "hot"}`}>
+          {paid >= total ? "Coberta" : `Falta ${formatReais(gap)}`}
+        </span>
+        {order.fromOutside ? <span className="chip warn">De fora</span> : null}
+        {order.incomplete ? <span className="chip hot">Cadastro pendente</span> : null}
+        {birthday ? <span className="chip warn">Aniversário</span> : null}
+        {order.kind === "consumo" ? <span className="chip">Consumo</span> : null}
+        {otherDues.map((row) => (
+          <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
+            {formatDay(row.day)} {formatReais(row.gapCents)}
+          </Link>
+        ))}
         {operator && order.incomplete && open ? (
           <Modal label="Completar cadastro" title="Completar cadastro" tone="amber">
             <form action={attachClient}>
@@ -156,6 +174,49 @@ export default async function OrderPage({
             </form>
           </Modal>
         ) : null}
+        {operator && order.clientId ? (
+          <form action={toggleFromOutside}>
+            <input type="hidden" name="order" value={order.id} />
+            <input type="hidden" name="client" value={order.clientId} />
+            <SubmitButton
+              label={order.fromOutside ? "Tirar de fora" : "Marcar de fora"}
+              pendingLabel="Salvando…"
+              className="amber"
+            />
+          </form>
+        ) : null}
+        {operator && open && order.kind === "cliente" && order.clientId && !order.incomplete ? (
+          <Modal label="Trocar cliente" title="Trocar cliente" tone="navy">
+            <form action={changeClient}>
+              <input type="hidden" name="order" value={order.id} />
+              <label>
+                Cliente
+                <select name="client" required defaultValue="">
+                  <option value="">Escolha</option>
+                  {people
+                    .filter((person) => person.id !== order.clientId)
+                    .map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <SubmitButton label="Trocar" pendingLabel="Trocando…" />
+            </form>
+          </Modal>
+        ) : null}
+        {askChannel && rules && order.clientId ? (
+          <Modal label="Como chegou" title="Como chegou" tone="navy">
+            <ChannelForm
+              orderId={order.id}
+              clientId={order.clientId}
+              housePercent={rules.referral}
+              professionals={roster.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
+              clients={people.map((person) => ({ id: person.id, name: person.name }))}
+            />
+          </Modal>
+        ) : null}
         {canClose ? (
           <form action={open ? closeOrder : reopenOrder} style={{ margin: 0 }}>
             <input type="hidden" name="order" value={order.id} />
@@ -169,80 +230,6 @@ export default async function OrderPage({
       </div>
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <div className="order-hero">
-        <div className="order-hero-main">
-          <h2>{heroName}</h2>
-          <p className="meta">
-            {order.phone ? `${formatPhone(order.phone)} · ` : ""}
-            {formatDay(order.day)}
-          </p>
-          <div className="order-chips">
-            <span className={`chip ${open ? "ok" : ""}`}>{open ? "Aberta" : "Fechada"}</span>
-            {order.fromOutside ? <span className="chip warn">De fora</span> : null}
-            {order.incomplete ? <span className="chip hot">Cadastro pendente</span> : null}
-            {birthday ? <span className="chip warn">Aniversário</span> : null}
-            {order.kind === "consumo" ? <span className="chip">Consumo</span> : null}
-            {otherDues.map((row) => (
-              <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
-                {formatDay(row.day)} {formatReais(row.gapCents)}
-              </Link>
-            ))}
-          </div>
-          <div className="order-actions">
-            {operator && order.clientId ? (
-              <form action={toggleFromOutside}>
-                <input type="hidden" name="order" value={order.id} />
-                <input type="hidden" name="client" value={order.clientId} />
-                <SubmitButton
-                  label={order.fromOutside ? "Tirar de fora" : "Marcar de fora"}
-                  pendingLabel="Salvando…"
-                  className="amber"
-                />
-              </form>
-            ) : null}
-            {operator && open && order.kind === "cliente" && order.clientId && !order.incomplete ? (
-              <Modal label="Trocar cliente" title="Trocar cliente" tone="navy">
-                <form action={changeClient}>
-                  <input type="hidden" name="order" value={order.id} />
-                  <label>
-                    Cliente
-                    <select name="client" required defaultValue="">
-                      <option value="">Escolha</option>
-                      {people
-                        .filter((person) => person.id !== order.clientId)
-                        .map((person) => (
-                          <option key={person.id} value={person.id}>
-                            {person.name}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  <SubmitButton label="Trocar" pendingLabel="Trocando…" />
-                </form>
-              </Modal>
-            ) : null}
-          </div>
-          {askChannel && rules && order.clientId ? (
-            <Modal label="Como chegou" title="Como chegou" tone="navy">
-              <ChannelForm
-                orderId={order.id}
-                clientId={order.clientId}
-                housePercent={rules.referral}
-                professionals={roster.map((person) => ({ id: person.id, name: person.nickname || person.name }))}
-                clients={people.map((person) => ({ id: person.id, name: person.name }))}
-              />
-            </Modal>
-          ) : null}
-        </div>
-        <div className="order-money">
-          <span className="label">Total</span>
-          <span className="value">{formatReais(total)}</span>
-          <span className="sub">Pago {formatReais(paid)}</span>
-          <span className={paid >= total ? "done" : "gap"}>
-            {paid >= total ? "Coberta" : `Falta ${formatReais(gap)}`}
-          </span>
-        </div>
-      </div>
 
       <div className="order-section">
         <div className="order-actions-bar">
