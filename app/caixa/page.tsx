@@ -201,8 +201,6 @@ export default async function CashPage({
             <SubmitButton label="Lançar" pendingLabel="Lançando…" />
           </form>
         </Modal>
-      </div>
-      <div className="pulse-stats">
         <span className="chip ok">Recebido {formatReais(received)}</span>
         <span className="chip">Gaveta {formatReais(drawerNet)}</span>
         <span className="chip">Banco {formatReais(banked)}</span>

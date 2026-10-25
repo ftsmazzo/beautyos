@@ -57,20 +57,9 @@ export default async function PackageReportPage({
           Vendidos
         </Link>
         <span className="chip">{formatDay(start)} – {formatDay(end)}</span>
-      </div>
-      <div className="tiles">
-        <div className="stat">
-          <strong>{soldCount}</strong>
-          <span>{soldCount === 1 ? "Pacote vendido" : "Pacotes vendidos"}</span>
-        </div>
-        <div className="stat">
-          <strong>{formatReais(soldCents)}</strong>
-          <span>Valor vendido</span>
-        </div>
-        <div className="stat">
-          <strong>{formatReais(Math.abs(avulsoCents - soldCents))}</strong>
-          <span>{avulsoCents >= soldCents ? "Abaixo do avulso" : "Acima do avulso"}</span>
-        </div>
+        <span className="chip">{soldCount} {soldCount === 1 ? "vendido" : "vendidos"}</span>
+        <span className="chip">{formatReais(soldCents)}</span>
+        <span className="chip">{avulsoCents >= soldCents ? "Abaixo do avulso" : "Acima do avulso"} {formatReais(Math.abs(avulsoCents - soldCents))}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="desk-bar"><span className="day-label">Quais vendem</span></div>

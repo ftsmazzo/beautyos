@@ -116,6 +116,15 @@ export default async function CommissionPage({
         <Link className="btn quiet" href={periodHref(month.start, month.end, selected)}>
           Mês
         </Link>
+        {!tooLong && (own || operator) ? (
+          <>
+            <span className="chip">Comissão {formatReais(commission)}</span>
+            <span className="chip">Indicação {formatReais(referral)}</span>
+            <span className="chip warn">Abate {formatReais(abatement)}</span>
+            <span className="chip">Taxa {formatReais(fee)}</span>
+            <span className="chip ok">Líquido {formatReais(commission + referral - abatement - fee)}</span>
+          </>
+        ) : null}
       </form>
       {user.role === "profissional" && !own ? (
         <p className="desk-alert">Este acesso ainda não está ligado a um profissional.</p>
@@ -123,14 +132,6 @@ export default async function CommissionPage({
       {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
       {!tooLong && (own || operator) ? (
         <>
-          <div className="pulse-stats">
-            <span className="chip">Comissão {formatReais(commission)}</span>
-            <span className="chip">Indicação {formatReais(referral)}</span>
-            <span className="chip warn">Abate {formatReais(abatement)}</span>
-            <span className="chip">Taxa {formatReais(fee)}</span>
-            <span className="chip ok">Líquido {formatReais(commission + referral - abatement - fee)}</span>
-            <span className="chip">{formatDay(start)} – {formatDay(end)}</span>
-          </div>
           {ranking.length > 0 ? (
             <div className="queue" style={{ overflowX: "auto" }}>
               <div className="queue-head">

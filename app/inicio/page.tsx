@@ -47,7 +47,6 @@ export default async function StartPage({
   const rules = operator || user.role === "administrador" ? await houseRules(user.accountId) : null;
   const acquirers = user.role === "administrador" ? await listCardAcquirers(user.accountId) : [];
   const today = todaySaoPaulo();
-  const tomorrow = shiftDay(today, 1);
   const birthdays = user.role === "cliente" ? null : await birthdaysAhead(user.accountId, today);
   const lateVisits = operator ? await latePackageVisits(user.accountId) : [];
   const lateClients = operator ? await overdueReturns(user.accountId, today) : [];
@@ -82,39 +81,180 @@ export default async function StartPage({
 
   return (
     <Panel user={user} current="/inicio" title="Início">
+      <div className="desk">
       {params.ok === "regras" ? <p className="ok">Regras salvas.</p> : null}
       {params.erro === "dados" ? <p className="error">Informe os percentuais, de 0 a 100.</p> : null}
-      {pulse ? (
-        <div className="pulse-hero">
-          <div className="pulse-stats">
-            <h2>Hoje · {formatDay(today)}</h2>
-            <span className="chip">{pulse.todaySlots.length} {pulse.todaySlots.length === 1 ? "horário" : "horários"}</span>
-            {pulse.tomorrowQty > 0 ? <span className="chip">Amanhã {pulse.tomorrowQty}</span> : null}
-            {dueOpen.length > 0 ? <span className="chip hot">{dueOpen.length} com falta</span> : null}
-            {receivables.length > 0 ? <span className="chip warn">A receber {formatReais(dueTotal)}</span> : null}
-            {birthdayToday > 0 ? (
-              <Link className="chip warn" href="/aniversariantes">
-                {birthdayToday} aniversário{birthdayToday === 1 ? "" : "s"} hoje
-              </Link>
-            ) : birthdaySoon > 0 ? (
-              <Link className="chip" href="/aniversariantes">
-                {birthdaySoon} aniversário{birthdaySoon === 1 ? "" : "s"} · 14 dias
+      <div className="desk-bar">
+        <span className="day-label">{formatDay(today)}</span>
+        {pulse ? (
+          <span className="chip">
+            {pulse.todaySlots.length} {pulse.todaySlots.length === 1 ? "horário" : "horários"}
+          </span>
+        ) : null}
+        {pulse && pulse.tomorrowQty > 0 ? <span className="chip">Amanhã {pulse.tomorrowQty}</span> : null}
+        {dueOpen.length > 0 ? <span className="chip hot">{dueOpen.length} com falta</span> : null}
+        {receivables.length > 0 ? <span className="chip warn">A receber {formatReais(dueTotal)}</span> : null}
+        {birthdayToday > 0 ? (
+          <Link className="chip warn" href="/aniversariantes">
+            {birthdayToday} aniversário{birthdayToday === 1 ? "" : "s"} hoje
+          </Link>
+        ) : birthdaySoon > 0 ? (
+          <Link className="chip" href="/aniversariantes">
+            {birthdaySoon} aniversário{birthdaySoon === 1 ? "" : "s"} · 14 dias
+          </Link>
+        ) : null}
+        {user.role === "profissional" ? (
+          <>
+            <Link className="btn quiet" href="/comissao">
+              Comissão {formatReais(mine?.commissionCents ?? 0)}
+            </Link>
+            <span className="chip">Abate {formatReais(mine?.abatementCents ?? 0)}</span>
+            {own && pulse?.consumption ? (
+              <Link className="btn quiet" href={`/comandas/${pulse.consumption.id}`}>
+                Consumo {pulse.consumption.status === "aberta" ? "aberto" : "fechado"}
               </Link>
             ) : null}
-            <div className="pulse-link">
-              <Link className="btn" href={`/agenda?dia=${today}`}>
-                Agenda
-              </Link>
-              <Link className="btn quiet" href={`/comandas?dia=${today}`}>
-                Comandas
-              </Link>
-              {operator ? (
-                <Link className="btn quiet" href={`/agenda?dia=${tomorrow}`}>
-                  Amanhã
-                </Link>
-              ) : null}
+            {own && !pulse?.consumption ? (
+              <form action={openConsumption}>
+                <input type="hidden" name="day" value={today} />
+                <input type="hidden" name="professional" value={own} />
+                <SubmitButton label="Abrir consumo" pendingLabel="Abrindo…" className="teal" />
+              </form>
+            ) : null}
+            {!own ? <span className="chip">Sem ficha</span> : null}
+          </>
+        ) : null}
+        {user.role === "cliente" ? (
+          <Link className="btn" href="/meu">
+            Minha conta
+          </Link>
+        ) : null}
+        {user.role === "administrador" && rules ? (
+        <Modal label="Regras da casa" title="Regras da casa" tone="navy">
+          <form action={saveHouseRules}>
+            <label>
+              Comissão de quem indicou (%)
+              <input name="referral" type="number" min={0} max={100} required defaultValue={rules.referral} />
+            </label>
+            <label>
+              Consumo do profissional (% do preço de venda)
+              <input name="consumption" type="number" min={0} max={100} required defaultValue={rules.consumption} />
+            </label>
+            <label>
+              Desconto do serviço entre profissionais (%)
+              <input name="service_discount" type="number" min={0} max={100} required defaultValue={rules.serviceDiscount} />
+            </label>
+            <label className="check">
+              <input type="checkbox" name="extras_ladder" value="1" defaultChecked={rules.extrasLadder} />
+              Mostrar meta de extras
+            </label>
+            <SubmitButton label="Salvar regras" />
+          </form>
+          <h2>Máquinas de cartão</h2>
+          {acquirers.filter((machine) => machine.active).map((machine) => (
+            <div key={machine.id} className="stack">
+            <form action={saveCardAcquirer}>
+              <input type="hidden" name="id" value={machine.id} />
+              <div className="split">
+                <label>
+                  Máquina
+                  <input name="name" required defaultValue={machine.name} />
+                </label>
+                <label>
+                  Débito base (%)
+                  <input name="debit" required defaultValue={(machine.debitBps / 100).toFixed(2).replace(".", ",")} />
+                </label>
+                <label>
+                  Crédito base (%)
+                  <input name="credit" required defaultValue={(machine.creditBps / 100).toFixed(2).replace(".", ",")} />
+                </label>
+              </div>
+              <div className="row">
+                <SubmitButton label="Salvar máquina" pendingLabel="Salvando…" />
+                <span className="chip">
+                  base {formatRate(machine.debitBps)} / {formatRate(machine.creditBps)}
+                </span>
+              </div>
+            </form>
+            {machine.brands.filter((brand) => brand.active).map((brand) => (
+              <form key={brand.id} action={saveCardBrand}>
+                <input type="hidden" name="id" value={brand.id} />
+                <input type="hidden" name="acquirer" value={machine.id} />
+                <div className="split">
+                  <label>
+                    Bandeira
+                    <input name="name" required defaultValue={brand.name} />
+                  </label>
+                  <label>
+                    Débito (%)
+                    <input name="debit" required defaultValue={(brand.debitBps / 100).toFixed(2).replace(".", ",")} />
+                  </label>
+                  <label>
+                    Crédito (%)
+                    <input name="credit" required defaultValue={(brand.creditBps / 100).toFixed(2).replace(".", ",")} />
+                  </label>
+                </div>
+                <SubmitButton label="Salvar bandeira" pendingLabel="Salvando…" className="quiet" />
+              </form>
+            ))}
+            <form action={saveCardBrand}>
+              <input type="hidden" name="acquirer" value={machine.id} />
+              <div className="split">
+                <label>
+                  Nova bandeira
+                  <input name="name" required placeholder="Visa, Mastercard, Elo" />
+                </label>
+                <label>
+                  Débito (%)
+                  <input name="debit" required placeholder="1,19" />
+                </label>
+                <label>
+                  Crédito (%)
+                  <input name="credit" required placeholder="2,49" />
+                </label>
+              </div>
+              <SubmitButton label={`Incluir em ${machine.name}`} pendingLabel="Salvando…" className="quiet" />
+            </form>
             </div>
-          </div>
+          ))}
+          {acquirers
+            .filter((machine) => machine.active)
+            .map((machine) => (
+              <div key={`off-${machine.id}`} className="row">
+                <form action={stopCardAcquirer}>
+                  <input type="hidden" name="id" value={machine.id} />
+                  <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="quiet" />
+                </form>
+                {machine.brands.filter((brand) => brand.active).map((brand) => (
+                  <form key={`off-brand-${brand.id}`} action={stopCardBrand}>
+                    <input type="hidden" name="id" value={brand.id} />
+                    <SubmitButton label={`Desativar ${brand.name}`} pendingLabel="Desativando…" className="quiet" />
+                  </form>
+                ))}
+              </div>
+            ))}
+          <form action={saveCardAcquirer}>
+            <div className="split">
+              <label>
+                Nova máquina
+                <input name="name" required placeholder="Rede, InfinityPay" />
+              </label>
+              <label>
+                Débito (%)
+                <input name="debit" required placeholder="0,99" />
+              </label>
+              <label>
+                Crédito (%)
+                <input name="credit" required placeholder="2,99" />
+              </label>
+            </div>
+            <SubmitButton label="Incluir máquina" pendingLabel="Salvando…" />
+          </form>
+        </Modal>
+      ) : null}
+      </div>
+      {pulse ? (
+        <>
           {pulse.floor.length > 0 ? (
             <div className="desk-floor">
               <span className="label">Na casa</span>
@@ -168,7 +308,7 @@ export default async function StartPage({
               ))}
             </div>
           ) : null}
-        </div>
+        </>
       ) : null}
       {(operator || own) && nameless.length > 0 ? (
         <div className="queue">
@@ -323,163 +463,7 @@ export default async function StartPage({
           ) : null}
         </>
       ) : null}
-      {user.role === "profissional" ? (
-        <div className="desk-bar">
-          <Link className="btn" href="/agenda">
-            Agenda
-          </Link>
-          <Link className="btn quiet" href="/comandas">
-            Comandas
-          </Link>
-          <Link className="btn quiet" href="/comissao">
-            Comissão {formatReais(mine?.commissionCents ?? 0)}
-          </Link>
-          <span className="chip">Abate {formatReais(mine?.abatementCents ?? 0)}</span>
-          {own && pulse?.consumption ? (
-            <Link className="btn quiet" href={`/comandas/${pulse.consumption.id}`}>
-              Consumo {pulse.consumption.status === "aberta" ? "aberto" : "fechado"}
-            </Link>
-          ) : null}
-          {own && !pulse?.consumption ? (
-            <form action={openConsumption}>
-              <input type="hidden" name="day" value={today} />
-              <input type="hidden" name="professional" value={own} />
-              <SubmitButton label="Abrir consumo" pendingLabel="Abrindo…" className="teal" />
-            </form>
-          ) : null}
-          {!own ? <span className="chip">Sem ficha</span> : null}
-        </div>
-      ) : null}
-      {user.role === "cliente" ? (
-        <div className="desk-bar">
-          <Link className="btn" href="/meu">
-            Minha conta
-          </Link>
-        </div>
-      ) : null}
-      {user.role === "administrador" && rules ? (
-        <Modal label="Regras da casa" title="Regras da casa" tone="navy">
-          <form action={saveHouseRules}>
-            <label>
-              Comissão de quem indicou (%)
-              <input name="referral" type="number" min={0} max={100} required defaultValue={rules.referral} />
-            </label>
-            <label>
-              Consumo do profissional (% do preço de venda)
-              <input name="consumption" type="number" min={0} max={100} required defaultValue={rules.consumption} />
-            </label>
-            <label>
-              Desconto do serviço entre profissionais (%)
-              <input name="service_discount" type="number" min={0} max={100} required defaultValue={rules.serviceDiscount} />
-            </label>
-            <label className="check">
-              <input type="checkbox" name="extras_ladder" value="1" defaultChecked={rules.extrasLadder} />
-              Mostrar meta de extras
-            </label>
-            <SubmitButton label="Salvar regras" />
-          </form>
-          <h2>Máquinas de cartão</h2>
-          {acquirers.filter((machine) => machine.active).map((machine) => (
-            <div key={machine.id} className="stack">
-            <form action={saveCardAcquirer}>
-              <input type="hidden" name="id" value={machine.id} />
-              <div className="split">
-                <label>
-                  Máquina
-                  <input name="name" required defaultValue={machine.name} />
-                </label>
-                <label>
-                  Débito base (%)
-                  <input name="debit" required defaultValue={(machine.debitBps / 100).toFixed(2).replace(".", ",")} />
-                </label>
-                <label>
-                  Crédito base (%)
-                  <input name="credit" required defaultValue={(machine.creditBps / 100).toFixed(2).replace(".", ",")} />
-                </label>
-              </div>
-              <div className="row">
-                <SubmitButton label="Salvar máquina" pendingLabel="Salvando…" />
-                <span className="chip">
-                  base {formatRate(machine.debitBps)} / {formatRate(machine.creditBps)}
-                </span>
-              </div>
-            </form>
-            {machine.brands.filter((brand) => brand.active).map((brand) => (
-              <form key={brand.id} action={saveCardBrand}>
-                <input type="hidden" name="id" value={brand.id} />
-                <input type="hidden" name="acquirer" value={machine.id} />
-                <div className="split">
-                  <label>
-                    Bandeira
-                    <input name="name" required defaultValue={brand.name} />
-                  </label>
-                  <label>
-                    Débito (%)
-                    <input name="debit" required defaultValue={(brand.debitBps / 100).toFixed(2).replace(".", ",")} />
-                  </label>
-                  <label>
-                    Crédito (%)
-                    <input name="credit" required defaultValue={(brand.creditBps / 100).toFixed(2).replace(".", ",")} />
-                  </label>
-                </div>
-                <SubmitButton label="Salvar bandeira" pendingLabel="Salvando…" className="quiet" />
-              </form>
-            ))}
-            <form action={saveCardBrand}>
-              <input type="hidden" name="acquirer" value={machine.id} />
-              <div className="split">
-                <label>
-                  Nova bandeira
-                  <input name="name" required placeholder="Visa, Mastercard, Elo" />
-                </label>
-                <label>
-                  Débito (%)
-                  <input name="debit" required placeholder="1,19" />
-                </label>
-                <label>
-                  Crédito (%)
-                  <input name="credit" required placeholder="2,49" />
-                </label>
-              </div>
-              <SubmitButton label={`Incluir em ${machine.name}`} pendingLabel="Salvando…" className="quiet" />
-            </form>
             </div>
-          ))}
-          {acquirers
-            .filter((machine) => machine.active)
-            .map((machine) => (
-              <div key={`off-${machine.id}`} className="row">
-                <form action={stopCardAcquirer}>
-                  <input type="hidden" name="id" value={machine.id} />
-                  <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="quiet" />
-                </form>
-                {machine.brands.filter((brand) => brand.active).map((brand) => (
-                  <form key={`off-brand-${brand.id}`} action={stopCardBrand}>
-                    <input type="hidden" name="id" value={brand.id} />
-                    <SubmitButton label={`Desativar ${brand.name}`} pendingLabel="Desativando…" className="quiet" />
-                  </form>
-                ))}
-              </div>
-            ))}
-          <form action={saveCardAcquirer}>
-            <div className="split">
-              <label>
-                Nova máquina
-                <input name="name" required placeholder="Rede, InfinityPay" />
-              </label>
-              <label>
-                Débito (%)
-                <input name="debit" required placeholder="0,99" />
-              </label>
-              <label>
-                Crédito (%)
-                <input name="credit" required placeholder="2,99" />
-              </label>
-            </div>
-            <SubmitButton label="Incluir máquina" pendingLabel="Salvando…" />
-          </form>
-        </Modal>
-      ) : null}
     </Panel>
   );
 }
