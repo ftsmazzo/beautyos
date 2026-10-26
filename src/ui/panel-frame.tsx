@@ -17,6 +17,7 @@ const OPERATION: NavLink[] = [
   { href: "/lembretes", label: "Lembretes", group: "Operação" },
   { href: "/caixa", label: "Caixa", group: "Operação" },
   { href: "/comissao", label: "Comissão", group: "Operação" },
+  { href: "/relatorios", label: "Relatórios", group: "Operação" },
   { href: "/agente", label: "Conversas", group: "Operação" },
 ];
 
@@ -92,7 +93,7 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/pacotes" || href === "/pacotes/vendidos") {
     return <svg {...common}><path d="M8 7h11v12H8z" /><path d="M5 4h11v3" /></svg>;
   }
-  if (href === "/pacotes/relatorio") {
+  if (href === "/pacotes/relatorio" || href === "/relatorios") {
     return <svg {...common}><path d="M5 19V10M12 19V5M19 19v-7" /></svg>;
   }
   if (href.startsWith("/financeiro")) {
