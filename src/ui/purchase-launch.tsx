@@ -26,6 +26,7 @@ export function PurchaseLaunch(props: LaunchProps) {
   const [token, setToken] = useState(0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [photo, setPhoto] = useState("");
   const pending = draft?.lines.filter((line) => !line.productId).length ?? 0;
   const openDraft = useCallback((next: InvoiceDraft) => {
     setToken((current) => current + 1);
@@ -46,12 +47,18 @@ export function PurchaseLaunch(props: LaunchProps) {
     }
     openDraft(result.draft);
   }, [openDraft]);
+  const onShot = useCallback((shot: { qr: string; photo: string }) => {
+    setPhoto(shot.photo);
+    void onCoupon(shot.qr);
+  }, [onCoupon]);
   const form = <PurchaseForm {...props} />;
   return (
     <>
       <div className="desk-bar">
         <Link className="btn quiet" href="/produtos">Produtos</Link>
-        {props.products.length > 0 ? <CouponScan busy={busy} onCode={(value) => void onCoupon(value)} /> : null}
+        {props.products.length > 0 ? (
+          <CouponScan busy={busy} onShot={onShot} />
+        ) : null}
         {props.products.length > 0 ? (
           <form
             className="desk-bar"
@@ -79,6 +86,7 @@ export function PurchaseLaunch(props: LaunchProps) {
         <span className="chip">{props.purchaseCount} notas</span>
       </div>
       {error ? <p className="desk-alert">{error}</p> : null}
+      {photo ? <img className="coupon-shot" alt="Cupom enviado pelo celular" src={photo} /> : null}
       {draft ? (
         <Modal key={token} label="Nota lida" title="Confira a nota" tone="teal" startOpen>
           <p className="desk-alert">

@@ -1199,10 +1199,13 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
 .statement-day td.action { font-weight: 700; white-space: nowrap; }
 .statement-what { display: grid; gap: 2px; }
 .statement-what span { color: var(--muted); font-size: 0.85rem; font-weight: 500; }
-.coupon-scan { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex-basis: 100%; }
-.coupon-cam {
-  width: min(100%, 360px);
-  max-height: 280px;
+.coupon-pair { display: grid; gap: 8px; flex-basis: 100%; }
+.coupon-pair svg { width: 220px; height: 220px; background: #fff; }
+.coupon-shot { width: min(100%, 220px); border-radius: 10px; }
+.coupon-phone { display: grid; gap: 10px; }
+.coupon-phone video {
+  width: 100%;
+  max-height: 62vh;
   background: #111;
   border-radius: 10px;
   object-fit: cover;

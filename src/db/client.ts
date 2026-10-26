@@ -777,6 +777,16 @@ async function ensureSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS card_brands_acquirer_idx ON card_brands (acquirer_id, active, name)`;
   await sql`ALTER TABLE payments ADD COLUMN IF NOT EXISTS brand_id uuid REFERENCES card_brands(id) ON DELETE SET NULL`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS coupon_drops (
+      token text PRIMARY KEY,
+      account_id uuid NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      photo bytea,
+      qr text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      expires_at timestamptz NOT NULL
+    )
+  `;
   const legacyFees = await sql<{ id: string; debit: number; credit: number }[]>`
     SELECT a.id, a.card_debit_percent AS debit, a.card_credit_percent AS credit
     FROM accounts a

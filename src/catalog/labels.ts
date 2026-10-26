@@ -44,7 +44,7 @@ export const FORM_ERRORS: Record<string, string> = {
   nota: "Essa nota desse fornecedor já entrou.",
   arquivo: "Envie o XML ou o PDF da nota.",
   leitura: "Não consegui ler essa nota. O XML da NF-e entra direto.",
-  cupom: "Não achei o QR do cupom. Aproxime a câmera ou mande a foto com o código visível.",
+  cupom: "A foto chegou, mas o QR do cupom não apareceu. Aproxime o celular e envie de novo.",
   consulta: "A consulta da nota não trouxe os itens. Mostre o QR de novo.",
   avaliacao: "Escreva a avaliação da visita.",
   linha: "A mesma nota não repete o produto.",
