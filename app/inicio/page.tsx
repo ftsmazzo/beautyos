@@ -144,6 +144,10 @@ export default async function StartPage({
               Desconto do serviço entre profissionais (%)
               <input name="service_discount" type="number" min={0} max={100} required defaultValue={rules.serviceDiscount} />
             </label>
+            <label>
+              Taxa de cartão abatida da comissão (%)
+              <input name="card_fee_share" type="number" min={0} max={100} required defaultValue={rules.cardFeeShare} />
+            </label>
             <label className="check">
               <input type="checkbox" name="extras_ladder" value="1" defaultChecked={rules.extrasLadder} />
               Mostrar meta de extras

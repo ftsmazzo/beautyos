@@ -1846,6 +1846,9 @@ export async function addPayment(formData: FormData) {
       if ((method === "debito" || method === "credito") && acquirerRaw && !acquirerId) throw new FormError("maquina");
       if ((method === "debito" || method === "credito") && brandRaw && !brandId) throw new FormError("bandeira");
       const rate = await cardRate(tx, user.accountId, method, acquirerId, brandId);
+      const shareRows = await tx<{ share: number }[]>`
+        SELECT card_fee_share_percent AS share FROM accounts WHERE id = ${user.accountId}
+      `;
       const lines = rate.bps > 0
         ? await tx<{ id: string; priceCents: number; commissionCents: number; abatementCents: number }[]>`
             SELECT id, price_cents AS "priceCents", commission_cents AS "commissionCents",
@@ -1855,7 +1858,7 @@ export async function addPayment(formData: FormData) {
             ORDER BY created_at, id
           `
         : [];
-      const fee = cardFeeShares(amount, rate.bps, lines);
+      const fee = cardFeeShares(amount, rate.bps, lines, shareRows[0]?.share ?? 50);
       await tx`
         INSERT INTO payments (id, account_id, order_id, method, amount_cents, bank_account_id, paid_on, fee_cents, acquirer_id, brand_id)
         VALUES (

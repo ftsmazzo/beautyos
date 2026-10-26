@@ -211,17 +211,19 @@ export async function houseRules(accountId: string) {
     credit: number;
     serviceDiscount: number;
     extrasLadder: boolean;
+    cardFeeShare: number;
   }[]>`
     SELECT referral_commission_percent AS referral,
            staff_consumption_percent AS consumption,
            card_debit_percent AS debit,
            card_credit_percent AS credit,
            staff_service_discount_percent AS "serviceDiscount",
-           extras_ladder AS "extrasLadder"
+           extras_ladder AS "extrasLadder",
+           card_fee_share_percent AS "cardFeeShare"
     FROM accounts
     WHERE id = ${accountId}
   `;
-  return rows[0] ?? { referral: 0, consumption: 30, debit: 0, credit: 0, serviceDiscount: 0, extrasLadder: true };
+  return rows[0] ?? { referral: 0, consumption: 30, debit: 0, credit: 0, serviceDiscount: 0, extrasLadder: true, cardFeeShare: 50 };
 }
 
 export async function catalogCounts(accountId: string) {
