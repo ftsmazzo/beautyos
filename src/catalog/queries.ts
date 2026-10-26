@@ -633,6 +633,33 @@ export async function listPurchases(accountId: string, supplierId?: string) {
   `;
 }
 
+export async function getPurchase(accountId: string, id: string) {
+  const rows = await db()<{ id: string; supplierName: string; document: string; day: string }[]>`
+    SELECT p.id, s.name AS "supplierName", p.document, to_char(p.purchased_on, 'DD/MM/YYYY') AS day
+    FROM purchases p
+    JOIN suppliers s ON s.id = p.supplier_id
+    WHERE p.account_id = ${accountId} AND p.id = ${id}
+  `;
+  if (!rows[0]) return null;
+  const [lines, bills] = await Promise.all([
+    db()<{ productId: string; name: string; qty: number; costCents: number }[]>`
+      SELECT l.product_id AS "productId", pr.name, l.qty, l.cost_cents AS "costCents"
+      FROM purchase_lines l
+      JOIN products pr ON pr.id = l.product_id
+      WHERE l.purchase_id = ${id}
+      ORDER BY pr.name
+    `,
+    db()<{ due: string; amountCents: number; paid: string | null }[]>`
+      SELECT to_char(due_on, 'DD/MM/YYYY') AS due, amount_cents AS "amountCents",
+             to_char(paid_on, 'DD/MM/YYYY') AS paid
+      FROM payables
+      WHERE account_id = ${accountId} AND purchase_id = ${id}
+      ORDER BY installment_index
+    `,
+  ]);
+  return { ...rows[0], lines, bills };
+}
+
 export type PayableRow = {
   id: string;
   description: string;

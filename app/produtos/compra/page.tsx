@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listProducts, listPurchases, listSupplierLabels, listSuppliers } from "@/catalog/queries";
@@ -56,7 +57,7 @@ export default async function PurchasePage({
                 <tr key={purchase.id}>
                   <td>{purchase.day}</td>
                   <td>{purchase.supplierName}</td>
-                  <td>{purchase.document}</td>
+                  <td><Link href={`/produtos/compra/${purchase.id}`}>{purchase.document}</Link></td>
                   <td>{formatReais(purchase.totalCents)}</td>
                 </tr>
               ))}

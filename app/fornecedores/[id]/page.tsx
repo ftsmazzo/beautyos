@@ -120,7 +120,7 @@ export default async function SupplierFormPage({
                 <tbody>
                   {purchases.map((purchase) => (
                     <tr key={purchase.id}>
-                      <td>{purchase.document}</td>
+                      <td><Link href={`/produtos/compra/${purchase.id}`}>{purchase.document}</Link></td>
                       <td>{purchase.day}</td>
                       <td>{formatReais(purchase.totalCents)}</td>
                     </tr>

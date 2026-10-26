@@ -101,35 +101,72 @@ export function parseNfeXml(xml: string): RawInvoice | null {
   };
 }
 
+function moneyHits(row: string) {
+  return [...row.matchAll(/\d{1,3}(?:\.\d{3})*,\d{2}/g)];
+}
+
+function lineFromRow(row: string): RawLine | null {
+  const hits = moneyHits(row);
+  if (hits.length >= 2) {
+    const unit = hits[hits.length - 2];
+    const before = row.slice(0, unit.index ?? 0).trim();
+    const qtyMatch = before.match(/(\d{1,4}(?:[.,]\d{1,4})?)\s*$/);
+    if (qtyMatch?.index == null) return null;
+    const label = before
+      .slice(0, qtyMatch.index)
+      .replace(/\s+\d{4,8}\s+\d{2,3}\s+\d{4}\s+[A-Za-z]{1,4}\s*$/i, "")
+      .replace(/^\d{1,14}\s+/, "")
+      .trim();
+    if (label.length < 3 || /^(total|icms|frete|desconto|valor|descri|produto|codigo|dados)/i.test(label)) return null;
+    return { label: label.slice(0, 120), qty: brQty(qtyMatch[1]), costCents: brCents(unit[0]) };
+  }
+  const money = row.match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+\.\d{2})\s*$/);
+  if (!money || money.index == null) return null;
+  const rest = row.slice(0, money.index).trim();
+  const qtyMatch = rest.match(/^(.*?)(?:\s+)(\d{1,4}(?:[.,]\d{1,4})?)$/);
+  const label = (qtyMatch ? qtyMatch[1] : rest).trim();
+  if (label.length < 3 || /^(total|icms|frete|desconto|valor)/i.test(label)) return null;
+  return { label: label.slice(0, 120), qty: qtyMatch ? brQty(qtyMatch[2]) : 1, costCents: brCents(money[1]) };
+}
+
 function parseLoose(text: string): RawInvoice | null {
   const cnpj = text.match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}/)?.[0] ?? "";
-  const document = text.match(/(?:NF-?e|n[º°o.]?\s*|#)\s*(\d{1,12})/i)?.[1] ?? "";
-  const day = asDay(text);
+  const numbered = text.match(/(?:NF-?e[^\d]{0,20}|N[º°o.]\s*)(\d{1,3}(?:\.\d{3})+|\d{1,12})/i)?.[1] ?? "";
+  const received = text.match(/recebemos de\s+([^\n|]{3,80})/i)?.[1] ?? "";
+  const razao = text.match(/raz[aã]o social\s*[:\-]?\s*([^\n]{3,80})/i)?.[1] ?? "";
+  const supplierName = (received || razao).replace(/\s{2,}.*/, "").trim();
   const lines: RawLine[] = [];
   for (const row of text.split(/\r?\n/)) {
-    const money = row.match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+\.\d{2})\s*$/);
-    if (!money || money.index == null) continue;
-    const rest = row.slice(0, money.index).trim();
-    const qtyMatch = rest.match(/^(.*?)(?:\s+)(\d{1,4}(?:[.,]\d{1,4})?)$/);
-    const label = (qtyMatch ? qtyMatch[1] : rest).trim();
-    if (label.length < 3 || /^(total|icms|frete|desconto|valor)/i.test(label)) continue;
-    lines.push({
-      label: label.slice(0, 120),
-      qty: qtyMatch ? brQty(qtyMatch[2]) : 1,
-      costCents: brCents(money[1]),
-    });
+    const line = lineFromRow(row);
+    if (!line) continue;
+    lines.push(line);
     if (lines.length >= 40) break;
   }
-  if (!cnpj && !document && lines.length === 0) return null;
-  return { supplierName: "", cnpj: digits(cnpj), document, day, lines };
+  if (!cnpj && !numbered && lines.length === 0 && !supplierName) return null;
+  return { supplierName, cnpj: digits(cnpj), document: numbered.replace(/\./g, ""), day: asDay(text), lines };
 }
 
 async function pdfText(bytes: Uint8Array) {
-  const { extractText, getDocumentProxy } = await import("unpdf");
+  const { extractTextItems, getDocumentProxy } = await import("unpdf");
   const pdf = await getDocumentProxy(bytes);
-  const extracted = await extractText(pdf, { mergePages: true });
-  const text = extracted.text;
-  return (Array.isArray(text) ? text.join("\n") : text).slice(0, 12_000);
+  const extracted = await extractTextItems(pdf);
+  const lines: string[] = [];
+  for (const page of extracted.items) {
+    const groups: { y: number; cells: { x: number; str: string }[] }[] = [];
+    for (const item of page) {
+      const text = item.str.trim();
+      if (!text) continue;
+      const group = groups.find((row) => Math.abs(row.y - item.y) <= 2);
+      if (group) group.cells.push({ x: item.x, str: text });
+      else groups.push({ y: item.y, cells: [{ x: item.x, str: text }] });
+    }
+    groups.sort((left, right) => right.y - left.y);
+    for (const group of groups) {
+      group.cells.sort((left, right) => left.x - right.x);
+      lines.push(group.cells.map((cell) => cell.str).join(" "));
+    }
+  }
+  return lines.join("\n").slice(0, 12_000);
 }
 
 async function askModel(userContent: string | { mime: string; base64: string }) {
