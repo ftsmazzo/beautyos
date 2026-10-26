@@ -300,9 +300,10 @@ export default async function ProfessionalFormPage({
               </table>
             ) : null}
           </div>
+          {Object.keys(fixedHours).length > 0 ? (
           <div className="queue" style={{ overflowX: "auto" }}>
             <div className="desk-bar"><span className="day-label">Horário fixo</span></div>
-            {Object.keys(fixedHours).length === 0 ? <p className="queue-empty">Sem horário fixo.</p> : (
+            {(
               <table>
                 <thead>
                   <tr>
@@ -323,6 +324,7 @@ export default async function ProfessionalFormPage({
               </table>
             )}
           </div>
+          ) : null}
           {override ? (
             <div className="queue" style={{ overflowX: "auto" }}>
               <div className="desk-bar">

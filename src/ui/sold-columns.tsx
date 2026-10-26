@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Modal } from "@/ui/modal";
 
 const COLUMNS = [
   { id: "telefone", label: "Telefone" },
@@ -59,20 +60,6 @@ export function SoldColumns({ rows }: { rows: SoldColumnRow[] }) {
 
   return (
     <>
-      <div className="row">
-        {COLUMNS.map((column) => (
-          <label key={column.id} className="check">
-            <input type="checkbox" checked={shown(column.id)} onChange={() => toggle(column.id)} />
-            {column.label}
-          </label>
-        ))}
-        <button type="button" className="btn quiet" onClick={() => setHidden(COLUMNS.map((column) => column.id))}>
-          Só o nome
-        </button>
-        <button type="button" className="btn quiet" onClick={() => setHidden([])}>
-          Todas as colunas
-        </button>
-      </div>
       <table>
         <thead>
           <tr>
@@ -83,7 +70,24 @@ export function SoldColumns({ rows }: { rows: SoldColumnRow[] }) {
             {shown("proxima") ? <th>Próxima</th> : null}
             {shown("prazo") ? <th>Prazo</th> : null}
             {shown("pago") ? <th>Pago</th> : null}
-            <th></th>
+            <th>
+              <Modal label="Colunas" title="Colunas" tone="navy">
+                {COLUMNS.map((column) => (
+                  <label key={column.id} className="check">
+                    <input type="checkbox" checked={shown(column.id)} onChange={() => toggle(column.id)} />
+                    {column.label}
+                  </label>
+                ))}
+                <div className="row">
+                  <button type="button" className="btn quiet" onClick={() => setHidden(COLUMNS.map((column) => column.id))}>
+                    Só o nome
+                  </button>
+                  <button type="button" className="btn quiet" onClick={() => setHidden([])}>
+                    Todas
+                  </button>
+                </div>
+              </Modal>
+            </th>
           </tr>
         </thead>
         <tbody>

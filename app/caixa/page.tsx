@@ -212,6 +212,11 @@ export default async function CashPage({
         ) : (
           <span className="chip">Em aberto {formatReais(0)}</span>
         )}
+        {cash.byMethod.map((row) => (
+          <span className="chip" key={row.method}>
+            {methodLabel(row.method)} {formatReais(row.amountCents)}
+          </span>
+        ))}
       </div>
       {cash.openGaps.length > 0 ? (
         <div className="desk-floor">
@@ -259,19 +264,6 @@ export default async function CashPage({
           </table>
         ) : null}
       </div>
-      {cash.byMethod.length > 0 ? (
-        <div className="queue">
-          <div className="queue-head">
-            <h2>Por forma</h2>
-          </div>
-          {cash.byMethod.map((row) => (
-            <div className="queue-row" key={row.method}>
-              <strong>{methodLabel(row.method)}</strong>
-              <span>{formatReais(row.amountCents)}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
       {cash.banks.length > 0 ? (
         <div className="queue" style={{ overflowX: "auto" }}>
           <div className="queue-head">
