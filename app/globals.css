@@ -1132,6 +1132,24 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
   transform-origin: left center;
   background: #1f6b6b;
 }
+.hour-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 12px 14px;
+}
+.hour-cell {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 44px;
+  padding: 6px 0;
+  border-radius: 8px;
+  background: #e7eef0;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.hour-cell strong { font-size: 0.85rem; }
 .statement-head h2 {
   margin: 0;
   font-size: 1.35rem;

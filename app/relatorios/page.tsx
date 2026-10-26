@@ -120,7 +120,7 @@ export default async function ReportsPage({
           <button className="btn" type="submit">Ver</button>
           <span className="chip">{tooLong ? `máx. ${SPAN} dias` : `${formatDay(start)} – ${formatDay(end)}`}</span>
           {lowStock.length > 0 ? (
-            <Link className="chip warn" href="/produtos?filtro=minimo">
+            <Link className="chip warn" href={`/relatorios/estoque?de=${start}&ate=${end}&filtro=minimo`}>
               Estoque {lowStock.length}
             </Link>
           ) : null}
@@ -263,6 +263,9 @@ export default async function ReportsPage({
         ) : null}
         {!tooLong ? (
           <div className="desk-bar">
+            <Link className="btn quiet" href={`/relatorios/agenda?de=${start}&ate=${end}`}>Agenda</Link>
+            <Link className="btn quiet" href={`/relatorios/comandas?de=${start}&ate=${end}`}>Comandas</Link>
+            <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
             <Link className="btn quiet" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
             <Link className="btn quiet" href={`/comissao?de=${start}&ate=${end}`}>Comissão</Link>
             {user.role === "administrador" ? (
