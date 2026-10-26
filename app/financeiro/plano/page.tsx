@@ -2,7 +2,6 @@ import { requireAdmin } from "@/catalog/access";
 import { deleteChart, saveChart } from "@/finance/actions";
 import { listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
-import { FinanceNav } from "@/ui/finance-nav";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -23,10 +22,9 @@ export default async function ChartPage({
   const rows = await listChart(user.accountId);
 
   return (
-    <Panel user={user} current="/financeiro" title="Plano de contas">
+    <Panel user={user} current="/financeiro/plano" title="Plano de contas">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <FinanceNav current="plano" />
       <div className="desk">
       <div className="desk-bar">
       <Modal label="Nova conta" title="Nova conta" tone="teal">

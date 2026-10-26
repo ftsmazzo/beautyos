@@ -4,7 +4,6 @@ import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { deleteBank, saveBank } from "@/finance/actions";
 import { listBankLines, listBanks } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
-import { FinanceNav } from "@/ui/finance-nav";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -30,10 +29,9 @@ export default async function BanksPage({
   const balance = (selected?.openingCents ?? 0) + lines.reduce((sum, line) => sum + line.amountCents, 0);
 
   return (
-    <Panel user={user} current="/financeiro" title="Bancos">
+    <Panel user={user} current="/financeiro/bancos" title="Bancos">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <FinanceNav current="bancos" />
       <div className="desk">
       <div className="desk-bar">
         <Modal label="Novo banco" title="Novo banco" tone="teal">

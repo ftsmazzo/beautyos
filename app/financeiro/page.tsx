@@ -7,7 +7,6 @@ import { deleteTitle, stopRecurrence } from "@/finance/actions";
 import { materializeRecurrences } from "@/finance/recurrence";
 import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
-import { FinanceNav } from "@/ui/finance-nav";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { PayableForm } from "@/ui/payable-form";
@@ -16,13 +15,18 @@ import { SubmitButton } from "@/ui/submit-button";
 
 export const dynamic = "force-dynamic";
 
-const FILTERS = [
+const NOW = [
   { id: "abertos", label: "Abertas" },
   { id: "atrasado", label: "Atrasadas" },
   { id: "semana", label: "Na semana" },
+] as const;
+
+const FILE = [
   { id: "pago", label: "Pagas" },
   { id: "todos", label: "Todas" },
 ] as const;
+
+const FILTERS = [...NOW, ...FILE] as const;
 
 const METHODS: Record<string, string> = {
   dinheiro: "Dinheiro",
@@ -79,13 +83,22 @@ export default async function FinancePage({
       <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <FinanceNav current="pagar" />
       <div className="desk-bar">
-        {FILTERS.map((item) => (
+        {NOW.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro?filtro=${item.id}`}>
             {item.label}
           </Link>
         ))}
+        <Modal label="Arquivo" title="Arquivo" tone="navy">
+          {FILE.map((item) => (
+            <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro?filtro=${item.id}`}>
+              {item.label}
+            </Link>
+          ))}
+        </Modal>
+        {FILE.some((item) => item.id === filter) ? (
+          <span className="chip">{FILE.find((item) => item.id === filter)?.label}</span>
+        ) : null}
         <span className="chip">
           {rows.length} · {formatReais(total)}
         </span>

@@ -35,9 +35,17 @@ const CATALOG: NavLink[] = [
 
 const SYSTEM: NavLink[] = [
   { href: "/logs", label: "Logs", group: "Sistema" },
-  { href: "/financeiro", label: "Financeiro", group: "Sistema" },
   { href: "/acesso", label: "Acesso", group: "Sistema" },
   { href: "/meu", label: "Minha conta", group: "Conta" },
+];
+
+const FINANCE: NavLink[] = [
+  { href: "/financeiro", label: "A pagar", group: "Financeiro" },
+  { href: "/financeiro/receber", label: "A receber", group: "Financeiro" },
+  { href: "/financeiro/bancos", label: "Bancos", group: "Financeiro" },
+  { href: "/financeiro/cartoes", label: "Cartões", group: "Financeiro" },
+  { href: "/financeiro/plano", label: "Plano", group: "Financeiro" },
+  { href: "/financeiro/fluxo", label: "Fluxo", group: "Financeiro" },
 ];
 
 function NavIcon({ href }: { href: string }) {
@@ -87,7 +95,7 @@ function NavIcon({ href }: { href: string }) {
   if (href === "/pacotes/relatorio") {
     return <svg {...common}><path d="M5 19V10M12 19V5M19 19v-7" /></svg>;
   }
-  if (href === "/financeiro") {
+  if (href.startsWith("/financeiro")) {
     return <svg {...common}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M7 11h4M7 15h10" /></svg>;
   }
   if (href === "/agente") {
@@ -119,7 +127,12 @@ export function PanelFrame({
   const [open, setOpen] = useState(false);
   const operator = user.role === "administrador" || user.role === "balcao";
   const links: NavLink[] = (operator
-    ? [...OPERATION, ...CATALOG, ...SYSTEM.filter((l) => l.href === "/logs")]
+    ? [
+        ...OPERATION,
+        ...CATALOG,
+        ...(user.role === "administrador" && modules.financeiro ? FINANCE : []),
+        ...SYSTEM.filter((l) => l.href === "/logs"),
+      ]
     : user.role === "profissional"
       ? OPERATION.filter((l) =>
           ["/inicio", "/agenda", "/comandas", "/espera", "/lembretes", "/comissao"].includes(l.href),
@@ -129,9 +142,6 @@ export function PanelFrame({
           ...SYSTEM.filter((l) => l.href === "/meu"),
         ]
   ).filter((link) => moduleAllows(modules, link.href));
-  if (user.role === "administrador" && modules.financeiro) {
-    links.push(...SYSTEM.filter((l) => l.href === "/financeiro"));
-  }
   if (user.role === "administrador") {
     links.push(...SYSTEM.filter((l) => l.href === "/acesso"));
   }

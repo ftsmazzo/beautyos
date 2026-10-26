@@ -233,7 +233,7 @@ export default async function CashPage({
           <h2>Recebimentos</h2>
           <span className="meta">{cash.receipts.length}</span>
         </div>
-        {cash.receipts.length === 0 ? <p className="queue-empty">Nenhum recebimento na gaveta.</p> : null}
+        {cash.receipts.length === 0 ? <p className="queue-empty">Nenhum recebimento.</p> : null}
         {cash.receipts.length > 0 ? (
           <table>
             <thead>
@@ -252,6 +252,7 @@ export default async function CashPage({
                   <td>{row.who}</td>
                   <td>
                     {paymentMethodLabel(row.method)}
+                    {row.bank ? ` · ${row.bank}` : ""}
                     {row.feeCents > 0 ? ` · taxa ${formatReais(row.feeCents)}` : ""}
                   </td>
                   <td>{formatReais(row.amountCents)}</td>
@@ -264,33 +265,6 @@ export default async function CashPage({
           </table>
         ) : null}
       </div>
-      {cash.banks.length > 0 ? (
-        <div className="queue" style={{ overflowX: "auto" }}>
-          <div className="queue-head">
-            <h2>Banco</h2>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Banco</th>
-                <th>Forma</th>
-                <th>Valor</th>
-                <th>Taxa</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cash.banks.map((row) => (
-                <tr key={`${row.bank}-${row.method}`}>
-                  <td>{row.bank}</td>
-                  <td>{methodLabel(row.method)}</td>
-                  <td>{formatReais(row.amountCents)}</td>
-                  <td>{formatReais(row.feeCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
       {cash.movements.length > 0 ? (
         <div className="queue">
           <div className="queue-head">

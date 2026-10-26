@@ -4,7 +4,6 @@ import { formatReais, todaySaoPaulo } from "@/catalog/format";
 import { deleteCard, payCardInvoice, saveCard } from "@/finance/actions";
 import { listBanks, listCardCharges, listCards } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
-import { FinanceNav } from "@/ui/finance-nav";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -24,10 +23,9 @@ export default async function CardsPage({
   const charges = selected ? await listCardCharges(user.accountId, selected.id) : [];
 
   return (
-    <Panel user={user} current="/financeiro" title="Cartões">
+    <Panel user={user} current="/financeiro/cartoes" title="Cartões">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
-      <FinanceNav current="cartoes" />
       <div className="desk">
       <div className="desk-bar">
         <Modal label="Novo cartão" title="Novo cartão" tone="teal">

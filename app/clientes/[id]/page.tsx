@@ -254,43 +254,48 @@ export default async function ClientFormPage({
               </table>
             </div>
           ) : null}
-          {brief.orders.length > 0 ? (
-            <div className="queue" style={{ overflowX: "auto" }}>
-              <div className="desk-bar"><span className="day-label">Comandas</span></div>
-              <table>
-                <tbody>
-                  {brief.orders.map((order) => (
-                    <tr key={order.id}>
-                      <td><Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link></td>
-                      <td>{formatReais(order.totalCents)}</td>
-                      <td>
-                        {order.paidCents > order.totalCents ? `pago a mais ${formatReais(order.paidCents - order.totalCents)}` : ""}
-                        {order.paidCents < order.totalCents ? `em aberto ${formatReais(order.totalCents - order.paidCents)}` : ""}
-                      </td>
-                      <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-          {brief.notes.length > 0 ? (
-            <div className="queue" style={{ overflowX: "auto" }}>
-              <div className="desk-bar"><span className="day-label">Avaliações</span></div>
-              <table>
-                <tbody>
-                  {brief.notes.map((note) => (
-                    <tr key={note.id}>
-                      <td>{formatDay(note.day)} {note.time}</td>
-                      <td>{note.service}</td>
-                      <td>{note.author}</td>
-                      <td>{note.body}</td>
-                      <td>{note.orderId ? <Link href={`/comandas/${note.orderId}`}>Comanda</Link> : ""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {brief.orders.length > 0 || brief.notes.length > 0 ? (
+            <details className="desk-secondary">
+              <summary>Histórico ({brief.orders.length + brief.notes.length})</summary>
+              {brief.orders.length > 0 ? (
+                <div className="queue" style={{ overflowX: "auto" }}>
+                  <div className="desk-bar"><span className="day-label">Comandas</span></div>
+                  <table>
+                    <tbody>
+                      {brief.orders.map((order) => (
+                        <tr key={order.id}>
+                          <td><Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link></td>
+                          <td>{formatReais(order.totalCents)}</td>
+                          <td>
+                            {order.paidCents > order.totalCents ? `pago a mais ${formatReais(order.paidCents - order.totalCents)}` : ""}
+                            {order.paidCents < order.totalCents ? `em aberto ${formatReais(order.totalCents - order.paidCents)}` : ""}
+                          </td>
+                          <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+              {brief.notes.length > 0 ? (
+                <div className="queue" style={{ overflowX: "auto" }}>
+                  <div className="desk-bar"><span className="day-label">Avaliações</span></div>
+                  <table>
+                    <tbody>
+                      {brief.notes.map((note) => (
+                        <tr key={note.id}>
+                          <td>{formatDay(note.day)} {note.time}</td>
+                          <td>{note.service}</td>
+                          <td>{note.author}</td>
+                          <td>{note.body}</td>
+                          <td>{note.orderId ? <Link href={`/comandas/${note.orderId}`}>Comanda</Link> : ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </details>
           ) : null}
         </div>
   ) : null;

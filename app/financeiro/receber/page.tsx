@@ -3,7 +3,6 @@ import { requireAdmin } from "@/catalog/access";
 import { formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listReceivables, type ReceivableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
-import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
@@ -50,9 +49,8 @@ export default async function ReceivablesPage({
   const total = rows.reduce((sum, row) => sum + (row.totalCents - row.paidCents), 0);
 
   return (
-    <Panel user={user} current="/financeiro" title="Contas a receber">
+    <Panel user={user} current="/financeiro/receber" title="Contas a receber">
       <div className="desk">
-      <FinanceNav current="receber" />
       <div className="desk-bar">
         {FILTERS.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/financeiro/receber?filtro=${item.id}`}>

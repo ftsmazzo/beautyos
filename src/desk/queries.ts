@@ -1027,19 +1027,22 @@ export async function dayCash(accountId: string, day: string) {
       orderId: string;
       who: string;
       method: string;
+      bank: string | null;
       amountCents: number;
       feeCents: number;
       at: string;
     }[]
   >`
     SELECT pay.id, o.id AS "orderId", COALESCE(c.name, 'Sem nome') AS who, pay.method,
+           b.name AS bank,
            pay.amount_cents AS "amountCents", pay.fee_cents AS "feeCents",
            to_char(pay.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS at
     FROM payments pay
     JOIN orders o ON o.id = pay.order_id
     LEFT JOIN clients c ON c.id = o.client_id
+    LEFT JOIN bank_accounts b ON b.id = pay.bank_account_id
     WHERE pay.account_id = ${accountId} AND o.day = ${day}::date
-      AND pay.bank_account_id IS NULL AND pay.method <> 'conta'
+      AND pay.method <> 'conta'
     ORDER BY pay.created_at, c.name NULLS LAST
   `;
   const banks = await db()<{ bank: string; method: string; amountCents: number; feeCents: number }[]>`

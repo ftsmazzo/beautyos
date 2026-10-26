@@ -4,7 +4,6 @@ import { formatDay, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { WEEKDAYS } from "@/catalog/labels";
 import { shiftDay, shiftMonth, weekdayOf } from "@/desk/clock";
 import { listFlowGroups, listInflowDays, listInflowMonths, listOutflowDays, listOutflowMonths, listResultGroups } from "@/finance/queries";
-import { FinanceNav } from "@/ui/finance-nav";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
@@ -195,9 +194,8 @@ export default async function FluxoPage({
   }));
 
   return (
-    <Panel user={user} current="/financeiro" title="Fluxo e resultado">
+    <Panel user={user} current="/financeiro/fluxo" title="Fluxo e resultado">
       <div className="desk">
-      <FinanceNav current="fluxo" />
       <div className="desk-bar">
         <Link className="btn quiet" href={`/financeiro/fluxo?mes=${previous}`}>
           ←
