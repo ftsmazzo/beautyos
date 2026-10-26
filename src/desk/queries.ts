@@ -522,6 +522,7 @@ export async function getOrder(accountId: string, id: string) {
     commissionPercent: number;
     commissionCents: number;
     abatementCents: number;
+    feeShareCents: number;
     referralCents: number;
     courtesy: boolean;
     packageCreditId: string | null;
@@ -538,6 +539,10 @@ export async function getOrder(accountId: string, id: string) {
     SELECT l.id, l.kind, l.description, l.qty, l.price_cents AS "priceCents",
            l.list_price_cents AS "listPriceCents", l.commission_percent AS "commissionPercent",
            l.commission_cents AS "commissionCents", l.abatement_cents AS "abatementCents",
+           COALESCE((
+             SELECT SUM(f.abatement_cents)::int FROM card_fee_shares f
+             WHERE f.line_id = l.id AND f.account_id = l.account_id
+           ), 0) AS "feeShareCents",
            l.referral_cents AS "referralCents",
            l.courtesy, l.package_credit_id AS "packageCreditId", l.appointment_id AS "appointmentId", l.service_id AS "serviceId",
            l.professional_id AS "professionalId",
@@ -1274,12 +1279,15 @@ export type WorkLine = {
   feeCents: number;
   method: string;
   machine: string;
+  personId: string;
+  personName: string;
 };
 
-export async function workStatement(accountId: string, start: string, end: string, professionalId: string) {
+export async function workStatement(accountId: string, start: string, end: string, professionalId: string | null) {
   return db()<WorkLine[]>`
     SELECT id, day, at, "orderId", action, title, who,
-           "inCents", "outCents", "listCents", "baseCents", "feeCents", method, machine
+           "inCents", "outCents", "listCents", "baseCents", "feeCents", method, machine,
+           "personId", "personName"
     FROM (
       SELECT l.id::text AS id,
              to_char(o.day, 'YYYY-MM-DD') AS day,
@@ -1294,14 +1302,17 @@ export async function workStatement(accountId: string, start: string, end: strin
              0 AS "baseCents",
              0 AS "feeCents",
              '' AS method,
-             '' AS machine
+             '' AS machine,
+             pro.id::text AS "personId",
+             COALESCE(NULLIF(pro.nickname, ''), pro.name) AS "personName"
       FROM order_lines l
       JOIN orders o ON o.id = l.order_id
+      JOIN professionals pro ON pro.id = l.professional_id
       LEFT JOIN clients c ON c.id = o.client_id
       WHERE o.account_id = ${accountId}
         AND o.kind = 'cliente'
         AND l.kind <> 'pacote'
-        AND l.professional_id = ${professionalId}
+        AND (${professionalId}::uuid IS NULL OR l.professional_id = ${professionalId})
         AND l.commission_cents > 0
         AND o.day >= ${start}::date AND o.day <= ${end}::date
       UNION ALL
@@ -1313,14 +1324,17 @@ export async function workStatement(accountId: string, start: string, end: strin
              l.description,
              COALESCE(c.name, 'Sem nome'),
              l.commission_cents,
-             0, 0, 0, 0, '', ''
+             0, 0, 0, 0, '', '',
+             pro.id::text,
+             COALESCE(NULLIF(pro.nickname, ''), pro.name)
       FROM order_lines l
       JOIN orders o ON o.id = l.order_id
+      JOIN professionals pro ON pro.id = l.professional_id
       LEFT JOIN clients c ON c.id = o.client_id
       WHERE o.account_id = ${accountId}
         AND o.kind = 'cliente'
         AND l.kind = 'pacote'
-        AND l.professional_id = ${professionalId}
+        AND (${professionalId}::uuid IS NULL OR l.professional_id = ${professionalId})
         AND l.commission_cents > 0
         AND o.day >= ${start}::date AND o.day <= ${end}::date
       UNION ALL
@@ -1332,12 +1346,15 @@ export async function workStatement(accountId: string, start: string, end: strin
              l.description,
              COALESCE(c.name, 'Sem nome'),
              l.referral_cents,
-             0, 0, 0, 0, '', ''
+             0, 0, 0, 0, '', '',
+             pro.id::text,
+             COALESCE(NULLIF(pro.nickname, ''), pro.name)
       FROM order_lines l
       JOIN orders o ON o.id = l.order_id
+      JOIN professionals pro ON pro.id = l.referrer_professional_id
       LEFT JOIN clients c ON c.id = o.client_id
       WHERE o.account_id = ${accountId}
-        AND l.referrer_professional_id = ${professionalId}
+        AND (${professionalId}::uuid IS NULL OR l.referrer_professional_id = ${professionalId})
         AND l.referral_cents > 0
         AND o.day >= ${start}::date AND o.day <= ${end}::date
       UNION ALL
@@ -1353,16 +1370,19 @@ export async function workStatement(accountId: string, start: string, end: strin
              0, 0,
              pay.fee_cents,
              pay.method,
-             COALESCE(NULLIF(concat_ws(' · ', acq.name, brand.name), ''), '')
+             COALESCE(NULLIF(concat_ws(' · ', acq.name, brand.name), ''), ''),
+             pro.id::text,
+             COALESCE(NULLIF(pro.nickname, ''), pro.name)
       FROM card_fee_shares f
       JOIN payments pay ON pay.id = f.payment_id
       JOIN order_lines l ON l.id = f.line_id
       JOIN orders o ON o.id = pay.order_id
+      JOIN professionals pro ON pro.id = l.professional_id
       LEFT JOIN clients c ON c.id = o.client_id
       LEFT JOIN card_acquirers acq ON acq.id = pay.acquirer_id
       LEFT JOIN card_brands brand ON brand.id = pay.brand_id
       WHERE f.account_id = ${accountId}
-        AND l.professional_id = ${professionalId}
+        AND (${professionalId}::uuid IS NULL OR l.professional_id = ${professionalId})
         AND (pay.created_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${start}::date
         AND (pay.created_at AT TIME ZONE 'America/Sao_Paulo')::date <= ${end}::date
       UNION ALL
@@ -1377,13 +1397,16 @@ export async function workStatement(accountId: string, start: string, end: strin
              l.abatement_cents,
              l.list_price_cents,
              l.abatement_cents,
-             0, '', ''
+             0, '', '',
+             pro.id::text,
+             COALESCE(NULLIF(pro.nickname, ''), pro.name)
       FROM order_lines l
       JOIN orders o ON o.id = l.order_id
+      JOIN professionals pro ON pro.id = o.professional_id
       WHERE o.account_id = ${accountId}
         AND o.kind = 'consumo'
         AND l.kind = 'produto'
-        AND o.professional_id = ${professionalId}
+        AND (${professionalId}::uuid IS NULL OR o.professional_id = ${professionalId})
         AND l.abatement_cents > 0
         AND o.day >= ${start}::date AND o.day <= ${end}::date
       UNION ALL
@@ -1398,14 +1421,17 @@ export async function workStatement(accountId: string, start: string, end: strin
              0,
              l.list_price_cents,
              l.abatement_cents,
-             0, '', ''
+             0, '', '',
+             pro.id::text,
+             COALESCE(NULLIF(pro.nickname, ''), pro.name)
       FROM order_lines l
       JOIN orders o ON o.id = l.order_id
       JOIN professionals recv ON recv.id = o.professional_id
+      JOIN professionals pro ON pro.id = l.professional_id
       WHERE o.account_id = ${accountId}
         AND o.kind = 'consumo'
         AND l.kind = 'servico'
-        AND l.professional_id = ${professionalId}
+        AND (${professionalId}::uuid IS NULL OR l.professional_id = ${professionalId})
         AND l.commission_cents > 0
         AND o.day >= ${start}::date AND o.day <= ${end}::date
       UNION ALL
@@ -1420,14 +1446,17 @@ export async function workStatement(accountId: string, start: string, end: strin
              l.abatement_cents,
              l.list_price_cents,
              l.abatement_cents,
-             0, '', ''
+             0, '', '',
+             pro.id::text,
+             COALESCE(NULLIF(pro.nickname, ''), pro.name)
       FROM order_lines l
       JOIN orders o ON o.id = l.order_id
       JOIN professionals exec ON exec.id = l.professional_id
+      JOIN professionals pro ON pro.id = o.professional_id
       WHERE o.account_id = ${accountId}
         AND o.kind = 'consumo'
         AND l.kind = 'servico'
-        AND o.professional_id = ${professionalId}
+        AND (${professionalId}::uuid IS NULL OR o.professional_id = ${professionalId})
         AND l.abatement_cents > 0
         AND o.day >= ${start}::date AND o.day <= ${end}::date
     ) rows

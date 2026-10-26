@@ -20,8 +20,8 @@ import {
   linkedProfessional,
   openIncompleteOrders,
   overdueReturns,
-  ownCommission,
   unpaidPackageSales,
+  workStatement,
 } from "@/desk/queries";
 import { openConsumption } from "@/desk/actions";
 import { shiftDay } from "@/desk/clock";
@@ -51,7 +51,8 @@ export default async function StartPage({
   const lateVisits = operator ? await latePackageVisits(user.accountId) : [];
   const lateClients = operator ? await overdueReturns(user.accountId, today) : [];
   const own = user.role === "profissional" ? await linkedProfessional(user.id) : null;
-  const mine = own ? await ownCommission(user.accountId, own, today) : null;
+  const mine = own ? await workStatement(user.accountId, today, today, own) : [];
+  const mineNet = mine.reduce((sum, row) => sum + row.inCents - row.outCents, 0);
   const pulse =
     operator || own
       ? await deskPulse(user.accountId, today, operator ? null : own)
@@ -105,10 +106,11 @@ export default async function StartPage({
         ) : null}
         {user.role === "profissional" ? (
           <>
-            <Link className="btn quiet" href="/comissao">
-              Comissão {formatReais(mine?.commissionCents ?? 0)}
-            </Link>
-            <span className="chip">Abate {formatReais(mine?.abatementCents ?? 0)}</span>
+            {own ? (
+              <Link className="btn quiet" href="/comissao">
+                Extrato {formatReais(mineNet)}
+              </Link>
+            ) : null}
             {own && pulse?.consumption ? (
               <Link className="btn quiet" href={`/comandas/${pulse.consumption.id}`}>
                 Consumo {pulse.consumption.status === "aberta" ? "aberto" : "fechado"}

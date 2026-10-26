@@ -32,6 +32,22 @@ import {
 import { clientLedger, clientOptions, clientOtherDues, clientPackages, consumptionProducts, dayRoster, getOrder, linkedProfessional, orderTrail, packageServiceIds, packageVisits, packagesForSale, productOptions, serviceOptions, visitNotes } from "@/desk/queries";
 import { listBanks } from "@/finance/queries";
 import { APPOINTMENT_STATUS, PAYMENT_METHODS } from "@/desk/statuses";
+
+function lineMoney(
+  line: { kind: string; commissionCents: number; abatementCents: number; feeShareCents: number; referralCents: number },
+  orderKind: string,
+) {
+  const rest = Math.max(0, line.abatementCents - line.feeShareCents);
+  const bits = [
+    line.commissionCents > 0 ? formatReais(line.commissionCents) : "",
+    line.feeShareCents > 0 ? `taxa ${formatReais(line.feeShareCents)}` : "",
+    rest > 0 && orderKind === "consumo" && line.kind === "servico" ? `sai de quem recebeu ${formatReais(rest)}` : "",
+    rest > 0 && orderKind === "consumo" && line.kind === "produto" ? `consumo ${formatReais(rest)}` : "",
+    rest > 0 && !(orderKind === "consumo" && (line.kind === "servico" || line.kind === "produto")) ? `abate ${formatReais(rest)}` : "",
+    line.referralCents > 0 ? `indicação ${formatReais(line.referralCents)}` : "",
+  ].filter(Boolean);
+  return bits.join(" · ") || "—";
+}
 import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { OrderServiceForm } from "@/ui/order-service-form";
 import { StaffServiceForm } from "@/ui/staff-service-form";
@@ -376,13 +392,7 @@ export default async function OrderPage({
                   </td>
                   <td data-label="Valor">{formatReais(line.priceCents)}</td>
                   <td data-label="Comissão">
-                    {formatReais(line.commissionCents)}
-                    {line.abatementCents > 0
-                      ? order.kind === "consumo" && line.kind === "servico"
-                        ? ` · abate de quem recebeu ${formatReais(line.abatementCents)}`
-                        : ` · abate ${formatReais(line.abatementCents)}`
-                      : ""}
-                    {line.referralCents > 0 ? ` · indicação ${formatReais(line.referralCents)}` : ""}
+                    {lineMoney(line, order.kind)}
                   </td>
                   <td data-label="Ações">
                     <div className="line-actions">
@@ -694,7 +704,7 @@ export default async function OrderPage({
                     </td>
                     <td data-label="Valor">
                       {formatReais(payment.amountCents)}
-                      {payment.feeCents > 0 ? ` · taxa ${formatReais(payment.feeCents)}` : ""}
+                      {payment.feeCents > 0 ? ` · taxa da máquina ${formatReais(payment.feeCents)}` : ""}
                     </td>
                     <td data-label="Ações">
                       {operator && open ? (

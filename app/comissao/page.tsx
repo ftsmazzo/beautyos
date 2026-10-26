@@ -3,7 +3,7 @@ import { requireDesk } from "@/catalog/access";
 import { formatDay, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { getProfessional, houseRules, listProfessionals } from "@/catalog/queries";
 import { dayParam, daysBetween, monthBounds, weekBounds } from "@/desk/clock";
-import { commissionBook, extrasBook, linkedProfessional, rankNet, rankStaff, workStatement, type CommissionLine, type WorkLine } from "@/desk/queries";
+import { extrasBook, linkedProfessional, workStatement, type WorkLine } from "@/desk/queries";
 import { paymentMethodLabel } from "@/desk/statuses";
 import { Panel } from "@/ui/panel";
 
@@ -138,24 +138,25 @@ function periodHref(start: string, end: string, professional: string) {
   return `/comissao?de=${start}&ate=${end}${who}`;
 }
 
-function peopleOf(rows: CommissionLine[]) {
-  const map = new Map<string, { id: string; name: string; commissionCents: number; referralCents: number; abatementCents: number; feeCents: number }>();
+function rankWork(rows: WorkLine[], staffIds: Set<string> | null) {
+  const map = new Map<string, { id: string; name: string; visits: number; inCents: number; outCents: number }>();
   for (const row of rows) {
+    if (staffIds && !staffIds.has(row.personId)) continue;
     const current = map.get(row.personId) ?? {
       id: row.personId,
       name: row.personName,
-      commissionCents: 0,
-      referralCents: 0,
-      abatementCents: 0,
-      feeCents: 0,
+      visits: 0,
+      inCents: 0,
+      outCents: 0,
     };
-    if (row.origin === "indicacao") current.referralCents += row.commissionCents;
-    else current.commissionCents += row.commissionCents;
-    current.abatementCents += row.abatementCents;
-    current.feeCents += row.feeCents;
+    if (row.action === "comissao" || row.action === "servico_feito") current.visits += 1;
+    current.inCents += row.inCents;
+    current.outCents += row.outCents;
     map.set(row.personId, current);
   }
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  return [...map.values()].sort(
+    (a, b) => b.inCents - b.outCents - (a.inCents - a.outCents) || a.name.localeCompare(b.name, "pt-BR"),
+  );
 }
 
 export default async function CommissionPage({
@@ -177,8 +178,8 @@ export default async function CommissionPage({
   const blocked = (user.role === "profissional" && !own) || tooLong;
   const focused = Boolean(professionalId) && !blocked;
   const rules = await houseRules(user.accountId);
-  const [rows, roster, extras, lines, person] = await Promise.all([
-    !focused && !blocked ? commissionBook(user.accountId, start, end, null) : Promise.resolve([]),
+  const [house, roster, extras, lines, person] = await Promise.all([
+    !focused && !blocked ? workStatement(user.accountId, start, end, null) : Promise.resolve([]),
     operator ? listProfessionals(user.accountId) : Promise.resolve([]),
     operator && rules.extrasLadder && !focused && !blocked
       ? extrasBook(user.accountId, start, end)
@@ -186,13 +187,10 @@ export default async function CommissionPage({
     focused && professionalId ? workStatement(user.accountId, start, end, professionalId) : Promise.resolve([]),
     focused && professionalId ? getProfessional(user.accountId, professionalId) : Promise.resolve(null),
   ]);
-  const people = peopleOf(rows);
   const staffIds = new Set(roster.map((person) => person.id));
-  const ranking = rankStaff(rows, operator ? staffIds : null);
-  const commission = people.reduce((sum, person) => sum + person.commissionCents, 0);
-  const referral = people.reduce((sum, person) => sum + person.referralCents, 0);
-  const abatement = people.reduce((sum, person) => sum + person.abatementCents, 0);
-  const fee = people.reduce((sum, person) => sum + person.feeCents, 0);
+  const ranking = rankWork(house, operator ? staffIds : null);
+  const entered = ranking.reduce((sum, person) => sum + person.inCents, 0);
+  const left = ranking.reduce((sum, person) => sum + person.outCents, 0);
   const week = weekBounds(today);
   const month = monthBounds(today);
   const selected = own ?? asked;
@@ -237,11 +235,9 @@ export default async function CommissionPage({
         </Link>
         {!blocked && !focused ? (
           <>
-            <span className="chip">Comissão {formatReais(commission)}</span>
-            <span className="chip">Indicação {formatReais(referral)}</span>
-            <span className="chip warn">Abate {formatReais(abatement)}</span>
-            <span className="chip">Taxa {formatReais(fee)}</span>
-            <span className="chip ok">Líquido {formatReais(commission + referral - abatement - fee)}</span>
+            <span className="chip">Entrou {formatReais(entered)}</span>
+            <span className="chip warn">Saiu {formatReais(left)}</span>
+            <span className="chip ok">Líquido {formatReais(entered - left)}</span>
           </>
         ) : null}
       </form>
@@ -259,12 +255,10 @@ export default async function CommissionPage({
               <tr>
                 <th>#</th>
                 <th>Pessoa</th>
-                <th>Atend.</th>
-                <th>Comissão</th>
-                <th>Indicação</th>
-                <th>Abate</th>
-                <th>Taxa</th>
-                <th>Líquido</th>
+                    <th>Atend.</th>
+                    <th>Entrou</th>
+                    <th>Saiu</th>
+                    <th>Líquido</th>
               </tr>
             </thead>
             <tbody>
@@ -273,11 +267,9 @@ export default async function CommissionPage({
                   <td>{index + 1}</td>
                   <td><Link href={periodHref(start, end, person.id)}>{person.name}</Link></td>
                   <td>{person.visits}</td>
-                  <td>{formatReais(person.commissionCents)}</td>
-                  <td>{formatReais(person.referralCents)}</td>
-                  <td>{formatReais(person.abatementCents)}</td>
-                  <td>{formatReais(person.feeCents)}</td>
-                  <td>{formatReais(rankNet(person))}</td>
+                  <td>{formatReais(person.inCents)}</td>
+                  <td>{formatReais(person.outCents)}</td>
+                  <td>{formatReais(person.inCents - person.outCents)}</td>
                 </tr>
               ))}
             </tbody>
