@@ -3,14 +3,18 @@ import { requireOperator } from "@/catalog/access";
 import { formatDay, formatPhone, todaySaoPaulo } from "@/catalog/format";
 import { returnRegister } from "@/desk/queries";
 import { RETURN_OUTCOMES, RETURN_WORD, type ReturnOutcome } from "@/desk/returns";
+import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 
 export const dynamic = "force-dynamic";
 
-const FILTERS = [
+const NOW = [
   { id: "todas", label: "Todas" },
-  ...RETURN_OUTCOMES.map((id) => ({ id, label: RETURN_WORD[id] })),
+  { id: "passou", label: RETURN_WORD.passou },
+  { id: "nao_veio", label: RETURN_WORD.nao_veio },
 ] as const;
+
+const FILE = (["avulso", "renovou", "voltou", "fora"] as const).map((id) => ({ id, label: RETURN_WORD[id] }));
 
 function isFilter(value: string | undefined): value is "todas" | ReturnOutcome {
   return value === "todas" || RETURN_OUTCOMES.some((item) => item === value);
@@ -31,11 +35,21 @@ export default async function ReturnPage({
     <Panel user={user} current="/volta" title="Volta">
       <div className="desk">
       <div className="desk-bar">
-        {FILTERS.map((item) => (
+        {NOW.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={item.id === "todas" ? "/volta" : `/volta?filtro=${item.id}`}>
             {item.label}
           </Link>
         ))}
+        <Modal label="Arquivo" title="Arquivo da volta" tone="navy">
+          {FILE.map((item) => (
+            <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/volta?filtro=${item.id}`}>
+              {item.label}
+            </Link>
+          ))}
+        </Modal>
+        {FILE.some((item) => item.id === filter) ? (
+          <span className="chip">{FILE.find((item) => item.id === filter)?.label}</span>
+        ) : null}
         <span className="chip">{visible.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>

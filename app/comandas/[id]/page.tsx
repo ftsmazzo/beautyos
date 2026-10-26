@@ -672,7 +672,6 @@ export default async function OrderPage({
               </Modal>
             ) : null}
           </div>
-          {order.payments.length === 0 ? <p className="queue-empty">Nenhum pagamento ainda.</p> : null}
           {order.payments.length > 0 ? (
             <table className="sheet">
               <thead>

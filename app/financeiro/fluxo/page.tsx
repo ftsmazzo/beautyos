@@ -215,14 +215,18 @@ export default async function FluxoPage({
         <div className="queue-head"><h2>Doze meses</h2></div>
         <MonthTable rows={months} />
       </div>
-      <div className="queue" style={{ overflowX: "auto" }}>
-        <div className="queue-head"><h2>Fluxo</h2></div>
-        <GroupTable rows={flow} />
-      </div>
-      <div className="queue" style={{ overflowX: "auto" }}>
-        <div className="queue-head"><h2>Resultado</h2></div>
-        <GroupTable rows={result} />
-      </div>
+      {flow.length > 0 ? (
+        <div className="queue" style={{ overflowX: "auto" }}>
+          <div className="queue-head"><h2>Fluxo</h2></div>
+          <GroupTable rows={flow} />
+        </div>
+      ) : null}
+      {result.length > 0 ? (
+        <div className="queue" style={{ overflowX: "auto" }}>
+          <div className="queue-head"><h2>Resultado</h2></div>
+          <GroupTable rows={result} />
+        </div>
+      ) : null}
       </div>
     </Panel>
   );

@@ -325,7 +325,7 @@ export default async function ProfessionalFormPage({
             )}
           </div>
           ) : null}
-          {override ? (
+          {override && Object.keys(periodHours).length > 0 ? (
             <div className="queue" style={{ overflowX: "auto" }}>
               <div className="desk-bar">
                 <span className="day-label">

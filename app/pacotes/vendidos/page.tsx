@@ -20,17 +20,22 @@ function paidLabel(row: SoldPackage) {
 
 export const dynamic = "force-dynamic";
 
-const FILTERS = [
+const NOW = [
   { id: "aberto", label: "Ativas" },
   { id: "receber", label: "A receber" },
   { id: "expirado", label: "Vencidas" },
+  { id: "falta", label: "Falta agendar" },
+] as const;
+
+const FILE = [
   { id: "estourado", label: "Estouradas sem perdão" },
   { id: "perdoado", label: "Perdoadas" },
-  { id: "falta", label: "Falta agendar" },
   { id: "concluido", label: "Concluídas" },
   { id: "cancelado", label: "Canceladas" },
   { id: "encerrado", label: "Encerradas" },
 ] as const;
+
+const FILTERS = [...NOW, ...FILE] as const;
 
 type FilterId = (typeof FILTERS)[number]["id"];
 
@@ -126,11 +131,21 @@ export default async function SoldPackagesPage({
         <Link className="btn quiet" href="/pacotes/relatorio">
           Relatório
         </Link>
-        {FILTERS.map((item) => (
+        {NOW.map((item) => (
           <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/pacotes/vendidos?filtro=${item.id}`}>
             {item.label}
           </Link>
         ))}
+        <Modal label="Arquivo" title="Arquivo" tone="navy">
+          {FILE.map((item) => (
+            <Link key={item.id} className={item.id === filter ? "btn" : "btn quiet"} href={`/pacotes/vendidos?filtro=${item.id}`}>
+              {item.label}
+            </Link>
+          ))}
+        </Modal>
+        {FILE.some((item) => item.id === filter) ? (
+          <span className="chip">{FILE.find((item) => item.id === filter)?.label}</span>
+        ) : null}
         <span className="chip">{visible.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>

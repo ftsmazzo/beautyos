@@ -215,29 +215,6 @@ export default async function ClientFormPage({
               </table>
             </div>
           ) : null}
-          {brief.orders.some((order) => order.paidCents !== order.totalCents) ? (
-            <div className="queue" style={{ overflowX: "auto" }}>
-              <div className="desk-bar"><span className="day-label">Conta</span></div>
-              <table>
-                <tbody>
-                  {brief.orders
-                    .filter((order) => order.paidCents !== order.totalCents)
-                    .map((order) => (
-                      <tr key={`conta-${order.id}`}>
-                        <td><Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link></td>
-                        <td>{formatReais(order.totalCents)}</td>
-                        <td>
-                          {order.paidCents > order.totalCents
-                            ? `pago a mais ${formatReais(order.paidCents - order.totalCents)}`
-                            : `em aberto ${formatReais(order.totalCents - order.paidCents)}`}
-                        </td>
-                        <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
           {ledger && (ledger.sources.length > 0 || ledger.uses.length > 0) ? (
             <div className="queue" style={{ overflowX: "auto" }}>
               <div className="desk-bar"><span className="day-label">Crédito</span></div>

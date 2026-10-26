@@ -53,9 +53,12 @@ export default async function MeuPortalPage() {
         <span className="chip">{user.accountName}</span>
         <Link className="btn quiet" href="/inicio">Início</Link>
       </div>
+      {appointments.length === 0 && packages.length === 0 && history.length === 0 ? (
+        <p className="queue-empty">Nada marcado ainda.</p>
+      ) : null}
+      {appointments.length > 0 ? (
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="desk-bar"><span className="day-label">Horários</span></div>
-        {appointments.length === 0 ? <p className="queue-empty">Nenhum horário marcado.</p> : null}
         {appointments.length > 0 ? (
           <table>
             <tbody>
@@ -71,9 +74,10 @@ export default async function MeuPortalPage() {
           </table>
         ) : null}
       </div>
+      ) : null}
+      {packages.length > 0 ? (
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="desk-bar"><span className="day-label">Pacotes</span></div>
-        {packages.length === 0 ? <p className="queue-empty">Nenhum pacote ativo.</p> : null}
         {packages.length > 0 ? (
           <table>
             <tbody>
@@ -97,9 +101,10 @@ export default async function MeuPortalPage() {
           </table>
         ) : null}
       </div>
+      ) : null}
+      {history.length > 0 ? (
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="desk-bar"><span className="day-label">Histórico</span></div>
-        {history.length === 0 ? <p className="queue-empty">Nenhuma visita fechada ainda.</p> : null}
         {history.length > 0 ? (
           <table>
             <thead>
@@ -123,6 +128,7 @@ export default async function MeuPortalPage() {
           </table>
         ) : null}
       </div>
+      ) : null}
       </div>
     </Panel>
   );

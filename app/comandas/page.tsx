@@ -13,16 +13,21 @@ export const dynamic = "force-dynamic";
 
 const SPAN = 92;
 
-const OPEN_FILTERS = [
-  { id: "todas", label: "Todas" },
+const OPEN_NOW = [
   { id: "falta", label: "Com falta" },
   { id: "atrasada", label: "Atrasadas" },
   { id: "hoje", label: "Hoje" },
+  { id: "semnome", label: "Sem nome" },
+  { id: "vazia", label: "Vazias" },
+] as const;
+
+const OPEN_MORE = [
+  { id: "todas", label: "Todas" },
   { id: "vencer", label: "A vencer" },
   { id: "credito", label: "Com crédito" },
-  { id: "vazia", label: "Vazias" },
-  { id: "semnome", label: "Sem nome" },
 ] as const;
+
+const OPEN_FILTERS = [...OPEN_NOW, ...OPEN_MORE] as const;
 
 type OpenFilter = (typeof OPEN_FILTERS)[number]["id"];
 
@@ -307,7 +312,7 @@ export default async function OrdersPage({
         {lista === "abertas" ? (
           <>
             <div className="desk-bar">
-              {OPEN_FILTERS.map((item) => (
+              {OPEN_NOW.map((item) => (
                 <Link
                   key={item.id}
                   className={item.id === openFilter ? "btn" : "btn quiet"}
@@ -320,6 +325,24 @@ export default async function OrdersPage({
                   {item.label}
                 </Link>
               ))}
+              <Modal label="Outras" title="Outras abertas" tone="navy">
+                {OPEN_MORE.map((item) => (
+                  <Link
+                    key={item.id}
+                    className={item.id === openFilter ? "btn" : "btn quiet"}
+                    href={
+                      q
+                        ? `/comandas?lista=abertas&filtro=${item.id}&q=${encodeURIComponent(q)}`
+                        : `/comandas?lista=abertas&filtro=${item.id}`
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </Modal>
+              {OPEN_MORE.some((item) => item.id === openFilter) ? (
+                <span className="chip">{OPEN_MORE.find((item) => item.id === openFilter)?.label}</span>
+              ) : null}
               <form className="desk-bar" action="/comandas" style={{ margin: 0, flex: "1 1 200px" }}>
                 <input type="hidden" name="lista" value="abertas" />
                 <input type="hidden" name="filtro" value={openFilter} />

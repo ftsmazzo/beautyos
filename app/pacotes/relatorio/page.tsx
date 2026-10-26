@@ -61,9 +61,12 @@ export default async function PackageReportPage({
         <span className="chip">{formatReais(soldCents)}</span>
         <span className="chip">{avulsoCents >= soldCents ? "Abaixo do avulso" : "Acima do avulso"} {formatReais(Math.abs(avulsoCents - soldCents))}</span>
       </div>
+      {report.sales.length === 0 && report.services.length === 0 && report.pardons.times === 0 ? (
+        <p className="queue-empty">Nada neste período.</p>
+      ) : null}
+      {report.sales.length > 0 ? (
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="desk-bar"><span className="day-label">Quais vendem</span></div>
-        {report.sales.length === 0 ? <p className="queue-empty">Nenhum pacote vendido neste período.</p> : null}
         {report.sales.length > 0 ? (
           <table>
             <thead>
@@ -89,9 +92,10 @@ export default async function PackageReportPage({
           </table>
         ) : null}
       </div>
+      ) : null}
+      {report.services.length > 0 ? (
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="desk-bar"><span className="day-label">Serviços</span></div>
-        {report.services.length === 0 ? <p className="queue-empty">Nenhum serviço neste período.</p> : null}
         {report.services.length > 0 ? (
           <table>
             <thead>
@@ -117,9 +121,10 @@ export default async function PackageReportPage({
           </table>
         ) : null}
       </div>
+      ) : null}
+      {report.pardons.times > 0 ? (
       <div className="queue" style={{ overflowX: "auto" }}>
         <div className="desk-bar"><span className="day-label">Perdões</span></div>
-        {report.pardons.times === 0 ? <p className="queue-empty">Nenhum perdão neste período.</p> : null}
         {report.pardons.times > 0 ? (
           <div className="desk-bar">
             <span className="chip">{report.pardons.times} {report.pardons.times === 1 ? "vez" : "vezes"}</span>
@@ -127,7 +132,6 @@ export default async function PackageReportPage({
             <span className="chip">{report.pardons.clients} {report.pardons.clients === 1 ? "cliente" : "clientes"}</span>
           </div>
         ) : null}
-        {report.pardons.times > 0 && report.repeats.length === 0 ? <p className="queue-empty">Ninguém repetiu o perdão neste período.</p> : null}
         {report.repeats.length > 0 ? (
           <table>
             <thead>
@@ -152,6 +156,7 @@ export default async function PackageReportPage({
           </table>
         ) : null}
       </div>
+      ) : null}
       </div>
     </Panel>
   );
