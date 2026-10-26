@@ -1104,6 +1104,61 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
   .agent-inbox.has-thread { grid-template-columns: 1fr; }
 }
 
+.statement-sheet { display: grid; gap: 10px; }
+.statement-head h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+}
+.statement-head p { margin: 2px 0 0; color: var(--muted); }
+.statement-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.statement-total {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.statement-total .label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.statement-total strong {
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.statement-total.out strong { color: #9a3412; }
+.statement-total.net {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #eef3f6;
+}
+.statement-total.net .label { color: #9aa6b2; }
+.statement-day table td.num,
+.statement-day table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.statement-day td.in { color: var(--accent-strong); font-weight: 700; }
+.statement-day td.out { color: #9a3412; font-weight: 700; }
+.statement-day td.action { font-weight: 700; white-space: nowrap; }
+.statement-what { display: grid; gap: 2px; }
+.statement-what span { color: var(--muted); font-size: 0.85rem; font-weight: 500; }
+
+@media (max-width: 720px) {
+  .statement-totals { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   dialog.modal[open], .side { animation: none; transition: none; }
 }

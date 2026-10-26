@@ -1259,6 +1259,182 @@ export async function commissionBook(accountId: string, start: string, end: stri
   `;
 }
 
+export type WorkLine = {
+  id: string;
+  day: string;
+  at: string;
+  orderId: string;
+  action: string;
+  title: string;
+  who: string;
+  inCents: number;
+  outCents: number;
+  listCents: number;
+  baseCents: number;
+  feeCents: number;
+  method: string;
+  machine: string;
+};
+
+export async function workStatement(accountId: string, start: string, end: string, professionalId: string) {
+  return db()<WorkLine[]>`
+    SELECT id, day, at, "orderId", action, title, who,
+           "inCents", "outCents", "listCents", "baseCents", "feeCents", method, machine
+    FROM (
+      SELECT l.id::text AS id,
+             to_char(o.day, 'YYYY-MM-DD') AS day,
+             to_char(l.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS at,
+             o.id::text AS "orderId",
+             'comissao' AS action,
+             l.description AS title,
+             COALESCE(c.name, 'Sem nome') AS who,
+             l.commission_cents AS "inCents",
+             0 AS "outCents",
+             0 AS "listCents",
+             0 AS "baseCents",
+             0 AS "feeCents",
+             '' AS method,
+             '' AS machine
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      LEFT JOIN clients c ON c.id = o.client_id
+      WHERE o.account_id = ${accountId}
+        AND o.kind = 'cliente'
+        AND l.kind <> 'pacote'
+        AND l.professional_id = ${professionalId}
+        AND l.commission_cents > 0
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+      UNION ALL
+      SELECT l.id::text,
+             to_char(o.day, 'YYYY-MM-DD'),
+             to_char(l.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI'),
+             o.id::text,
+             'venda',
+             l.description,
+             COALESCE(c.name, 'Sem nome'),
+             l.commission_cents,
+             0, 0, 0, 0, '', ''
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      LEFT JOIN clients c ON c.id = o.client_id
+      WHERE o.account_id = ${accountId}
+        AND o.kind = 'cliente'
+        AND l.kind = 'pacote'
+        AND l.professional_id = ${professionalId}
+        AND l.commission_cents > 0
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+      UNION ALL
+      SELECT l.id::text,
+             to_char(o.day, 'YYYY-MM-DD'),
+             to_char(l.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI'),
+             o.id::text,
+             'indicacao',
+             l.description,
+             COALESCE(c.name, 'Sem nome'),
+             l.referral_cents,
+             0, 0, 0, 0, '', ''
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      LEFT JOIN clients c ON c.id = o.client_id
+      WHERE o.account_id = ${accountId}
+        AND l.referrer_professional_id = ${professionalId}
+        AND l.referral_cents > 0
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+      UNION ALL
+      SELECT f.id::text,
+             to_char(pay.created_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD'),
+             to_char(pay.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI'),
+             o.id::text,
+             'taxa',
+             l.description,
+             COALESCE(c.name, 'Sem nome'),
+             0,
+             f.abatement_cents,
+             0, 0,
+             pay.fee_cents,
+             pay.method,
+             COALESCE(NULLIF(concat_ws(' · ', acq.name, brand.name), ''), '')
+      FROM card_fee_shares f
+      JOIN payments pay ON pay.id = f.payment_id
+      JOIN order_lines l ON l.id = f.line_id
+      JOIN orders o ON o.id = pay.order_id
+      LEFT JOIN clients c ON c.id = o.client_id
+      LEFT JOIN card_acquirers acq ON acq.id = pay.acquirer_id
+      LEFT JOIN card_brands brand ON brand.id = pay.brand_id
+      WHERE f.account_id = ${accountId}
+        AND l.professional_id = ${professionalId}
+        AND (pay.created_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${start}::date
+        AND (pay.created_at AT TIME ZONE 'America/Sao_Paulo')::date <= ${end}::date
+      UNION ALL
+      SELECT l.id::text,
+             to_char(o.day, 'YYYY-MM-DD'),
+             to_char(l.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI'),
+             o.id::text,
+             'consumo',
+             CASE WHEN l.qty > 1 THEN l.description || ' · ' || l.qty::text ELSE l.description END,
+             '',
+             0,
+             l.abatement_cents,
+             l.list_price_cents,
+             l.abatement_cents,
+             0, '', ''
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      WHERE o.account_id = ${accountId}
+        AND o.kind = 'consumo'
+        AND l.kind = 'produto'
+        AND o.professional_id = ${professionalId}
+        AND l.abatement_cents > 0
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+      UNION ALL
+      SELECT l.id::text,
+             to_char(o.day, 'YYYY-MM-DD'),
+             to_char(l.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI'),
+             o.id::text,
+             'servico_feito',
+             l.description,
+             COALESCE(NULLIF(recv.nickname, ''), recv.name),
+             l.commission_cents,
+             0,
+             l.list_price_cents,
+             l.abatement_cents,
+             0, '', ''
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN professionals recv ON recv.id = o.professional_id
+      WHERE o.account_id = ${accountId}
+        AND o.kind = 'consumo'
+        AND l.kind = 'servico'
+        AND l.professional_id = ${professionalId}
+        AND l.commission_cents > 0
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+      UNION ALL
+      SELECT l.id::text,
+             to_char(o.day, 'YYYY-MM-DD'),
+             to_char(l.created_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI'),
+             o.id::text,
+             'servico_recebido',
+             l.description,
+             COALESCE(NULLIF(exec.nickname, ''), exec.name),
+             0,
+             l.abatement_cents,
+             l.list_price_cents,
+             l.abatement_cents,
+             0, '', ''
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN professionals exec ON exec.id = l.professional_id
+      WHERE o.account_id = ${accountId}
+        AND o.kind = 'consumo'
+        AND l.kind = 'servico'
+        AND o.professional_id = ${professionalId}
+        AND l.abatement_cents > 0
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+    ) rows
+    ORDER BY day, at, action, title
+  `;
+}
+
 export type RankedPerson = {
   id: string;
   name: string;
