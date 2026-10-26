@@ -1,5 +1,7 @@
+import { birthdaysAhead, productsAtMinimum } from "@/catalog/queries";
 import { db } from "@/db/client";
-import { daysBetween, shiftDay } from "@/desk/clock";
+import { daysBetween, shiftDay, weekBounds } from "@/desk/clock";
+import { overdueReturns } from "@/desk/queries";
 
 export type ReportDay = { day: string; cents: number; orders: number };
 export type ReportSlice = { id?: string; name: string; qty: number; cents: number };
@@ -469,4 +471,108 @@ export async function extrasReport(accountId: string, start: string, end: string
     `,
   ]);
   return { people, services, marked: marked[0]?.qty ?? 0 };
+}
+
+export type FinanceMethod = { name: string; qty: number; cents: number; fees: number };
+export type FinanceDay = { day: string; cents: number; fees: number };
+
+export async function financeReport(accountId: string, start: string, end: string) {
+  const previous = previousSpan(start, end);
+  const span = async (from: string, to: string) => {
+    const rows = await db()<{ cents: number; fees: number }[]>`
+      SELECT COALESCE(SUM(pay.amount_cents), 0)::int AS cents,
+             COALESCE(SUM(pay.fee_cents), 0)::int AS fees
+      FROM payments pay
+      JOIN orders o ON o.id = pay.order_id
+      WHERE pay.account_id = ${accountId}
+        AND o.kind = 'cliente'
+        AND pay.method <> 'conta'
+        AND o.day >= ${from}::date AND o.day <= ${to}::date
+    `;
+    return rows[0] ?? { cents: 0, fees: 0 };
+  };
+  const [current, before, methods, days] = await Promise.all([
+    span(start, end),
+    span(previous.start, previous.end),
+    db()<FinanceMethod[]>`
+      SELECT pay.method AS name,
+             count(*)::int AS qty,
+             COALESCE(SUM(pay.amount_cents), 0)::int AS cents,
+             COALESCE(SUM(pay.fee_cents), 0)::int AS fees
+      FROM payments pay
+      JOIN orders o ON o.id = pay.order_id
+      WHERE pay.account_id = ${accountId}
+        AND o.kind = 'cliente'
+        AND pay.method <> 'conta'
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+      GROUP BY pay.method
+      ORDER BY cents DESC, pay.method
+    `,
+    db()<FinanceDay[]>`
+      SELECT to_char(o.day, 'YYYY-MM-DD') AS day,
+             COALESCE(SUM(pay.amount_cents), 0)::int AS cents,
+             COALESCE(SUM(pay.fee_cents), 0)::int AS fees
+      FROM payments pay
+      JOIN orders o ON o.id = pay.order_id
+      WHERE pay.account_id = ${accountId}
+        AND o.kind = 'cliente'
+        AND pay.method <> 'conta'
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+      GROUP BY o.day
+      ORDER BY o.day
+    `,
+  ]);
+  return {
+    cents: current.cents,
+    fees: current.fees,
+    previousCents: before.cents,
+    previousFees: before.fees,
+    methods,
+    days,
+  };
+}
+
+export type ActionRow = { id: string; label: string; count: number; href: string };
+
+export async function actionQueue(accountId: string, today: string) {
+  const week = weekBounds(today);
+  const weekEnd = today < week.end ? today : week.end;
+  const from = shiftDay(today, -91);
+  const [stock, silent, gaps, absent, late, birthdays] = await Promise.all([
+    productsAtMinimum(accountId),
+    clientSilence(accountId, today),
+    db()<{ qty: number }[]>`
+      SELECT count(*)::int AS qty
+      FROM orders o
+      WHERE o.account_id = ${accountId}
+        AND o.kind = 'cliente'
+        AND o.status = 'aberta'
+        AND o.day >= ${from}::date AND o.day <= ${today}::date
+        AND (
+          COALESCE((SELECT SUM(l.price_cents) FROM order_lines l WHERE l.order_id = o.id), 0)
+          - COALESCE((SELECT SUM(pay.amount_cents) FROM payments pay WHERE pay.order_id = o.id), 0)
+        ) > 0
+    `,
+    db()<{ qty: number }[]>`
+      SELECT count(*)::int AS qty
+      FROM appointments a
+      WHERE a.account_id = ${accountId}
+        AND a.kind = 'horario'
+        AND a.status = 'ausente'
+        AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${week.start}::date
+        AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date <= ${weekEnd}::date
+    `,
+    overdueReturns(accountId, today),
+    birthdaysAhead(accountId, today, 7),
+  ]);
+  const rows: ActionRow[] = [
+    { id: "estoque", label: "Estoque no mínimo", count: stock.length, href: `/relatorios/estoque?de=${from}&ate=${today}&filtro=minimo` },
+    { id: "receber", label: "Falta receber", count: gaps[0]?.qty ?? 0, href: `/relatorios/comandas?de=${from}&ate=${today}` },
+    { id: "faltas", label: "Faltas na semana", count: absent[0]?.qty ?? 0, href: `/relatorios/agenda?de=${week.start}&ate=${weekEnd}` },
+    { id: "chamar", label: "Chamar", count: silent.filter((row) => row.days < LOST_AFTER).length, href: `/relatorios/clientes?de=${from}&ate=${today}` },
+    { id: "sumidos", label: "Sumidos", count: silent.filter((row) => row.days >= LOST_AFTER).length, href: `/relatorios/clientes?de=${from}&ate=${today}&lista=sumidos` },
+    { id: "volta", label: "Passou da volta", count: late.length, href: "/volta?filtro=passou" },
+    { id: "niver", label: "Aniversários em 7 dias", count: birthdays.length, href: "/aniversariantes" },
+  ];
+  return rows.filter((row) => row.count > 0);
 }

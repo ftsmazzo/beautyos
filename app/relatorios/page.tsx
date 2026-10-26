@@ -270,6 +270,8 @@ export default async function ReportsPage({
         ) : null}
         {!tooLong ? (
           <div className="desk-bar">
+            <Link className="btn quiet" href="/relatorios/alertas">Alertas</Link>
+            <Link className="btn quiet" href={`/relatorios/financeiro?de=${start}&ate=${end}`}>Financeiro</Link>
             <Link className="btn quiet" href={`/relatorios/agenda?de=${start}&ate=${end}`}>Agenda</Link>
             <Link className="btn quiet" href={`/relatorios/comandas?de=${start}&ate=${end}`}>Comandas</Link>
             <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
