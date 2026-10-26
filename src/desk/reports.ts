@@ -290,3 +290,99 @@ export async function stockReport(accountId: string, start: string, end: string)
              p.name
   `;
 }
+
+export const CALL_AFTER = 30;
+export const LOST_AFTER = 120;
+export const RETURN_GAP = 60;
+
+export type SilentClient = {
+  id: string;
+  name: string;
+  phone: string;
+  lastDay: string;
+  days: number;
+  service: string | null;
+};
+
+export type ReturnedClient = {
+  id: string;
+  name: string;
+  phone: string;
+  day: string;
+  gap: number;
+  service: string | null;
+};
+
+export async function clientSilence(accountId: string, today: string) {
+  return db()<SilentClient[]>`
+    SELECT c.id, c.name, c.phone,
+           to_char(last.day, 'YYYY-MM-DD') AS "lastDay",
+           (${today}::date - last.day)::int AS days,
+           last.service
+    FROM clients c
+    JOIN LATERAL (
+      SELECT (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,
+             s.name AS service
+      FROM appointments a
+      LEFT JOIN services s ON s.id = a.service_id
+      WHERE a.client_id = c.id
+        AND a.account_id = c.account_id
+        AND a.kind = 'horario'
+        AND a.status = 'realizado'
+      ORDER BY a.starts_at DESC
+      LIMIT 1
+    ) last ON true
+    WHERE c.account_id = ${accountId}
+      AND c.active
+      AND NOT c.from_outside
+      AND (${today}::date - last.day) >= ${CALL_AFTER}
+      AND NOT EXISTS (
+        SELECT 1 FROM appointments n
+        WHERE n.client_id = c.id
+          AND n.account_id = c.account_id
+          AND n.kind = 'horario'
+          AND n.status IN ('agendado', 'confirmado', 'chegou', 'em_atendimento')
+          AND (n.starts_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${today}::date
+      )
+    ORDER BY days DESC, c.name
+  `;
+}
+
+export async function clientsReturned(accountId: string, start: string, end: string) {
+  return db()<ReturnedClient[]>`
+    SELECT c.id, c.name, c.phone,
+           to_char(visit.day, 'YYYY-MM-DD') AS day,
+           (visit.day - prev.day)::int AS gap,
+           visit.service
+    FROM clients c
+    JOIN LATERAL (
+      SELECT (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,
+             s.name AS service
+      FROM appointments a
+      LEFT JOIN services s ON s.id = a.service_id
+      WHERE a.client_id = c.id
+        AND a.account_id = c.account_id
+        AND a.kind = 'horario'
+        AND a.status = 'realizado'
+        AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${start}::date
+        AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date <= ${end}::date
+      ORDER BY a.starts_at DESC
+      LIMIT 1
+    ) visit ON true
+    JOIN LATERAL (
+      SELECT (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date AS day
+      FROM appointments a
+      WHERE a.client_id = c.id
+        AND a.account_id = c.account_id
+        AND a.kind = 'horario'
+        AND a.status = 'realizado'
+        AND (a.starts_at AT TIME ZONE 'America/Sao_Paulo')::date < visit.day
+      ORDER BY a.starts_at DESC
+      LIMIT 1
+    ) prev ON true
+    WHERE c.account_id = ${accountId}
+      AND c.active
+      AND (visit.day - prev.day) >= ${RETURN_GAP}
+    ORDER BY gap DESC, c.name
+  `;
+}

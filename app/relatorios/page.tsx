@@ -3,7 +3,7 @@ import { requireOperator } from "@/catalog/access";
 import { formatDay, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { productsAtMinimum } from "@/catalog/queries";
 import { dayParam, daysBetween, monthBounds, shiftDay, weekBounds } from "@/desk/clock";
-import { deltaPercent, managementReport, previousSpan, type ReportSlice } from "@/desk/reports";
+import { clientSilence, deltaPercent, LOST_AFTER, managementReport, previousSpan, type ReportSlice } from "@/desk/reports";
 import { APPOINTMENT_STATUS, paymentMethodLabel } from "@/desk/statuses";
 import { Panel } from "@/ui/panel";
 
@@ -84,10 +84,12 @@ export default async function ReportsPage({
   const tooLong = daysBetween(start, end) > SPAN;
   const week = weekBounds(today);
   const previous = previousSpan(start, end);
-  const [report, lowStock] = await Promise.all([
+  const [report, lowStock, silent] = await Promise.all([
     tooLong ? Promise.resolve(null) : managementReport(user.accountId, start, end),
     productsAtMinimum(user.accountId),
+    clientSilence(user.accountId, today),
   ]);
+  const toCall = silent.filter((row) => row.days < LOST_AFTER).length;
   const revenue = report?.revenueCents ?? 0;
   const delta = report ? deltaPercent(revenue, report.previousCents) : null;
   const closed = report?.closedOrders ?? 0;
@@ -122,6 +124,11 @@ export default async function ReportsPage({
           {lowStock.length > 0 ? (
             <Link className="chip warn" href={`/relatorios/estoque?de=${start}&ate=${end}&filtro=minimo`}>
               Estoque {lowStock.length}
+            </Link>
+          ) : null}
+          {toCall > 0 ? (
+            <Link className="chip" href={`/relatorios/clientes?de=${start}&ate=${end}`}>
+              Chamar {toCall}
             </Link>
           ) : null}
         </form>
@@ -266,6 +273,7 @@ export default async function ReportsPage({
             <Link className="btn quiet" href={`/relatorios/agenda?de=${start}&ate=${end}`}>Agenda</Link>
             <Link className="btn quiet" href={`/relatorios/comandas?de=${start}&ate=${end}`}>Comandas</Link>
             <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
+            <Link className="btn quiet" href={`/relatorios/clientes?de=${start}&ate=${end}`}>Clientes</Link>
             <Link className="btn quiet" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
             <Link className="btn quiet" href={`/comissao?de=${start}&ate=${end}`}>Comissão</Link>
             {user.role === "administrador" ? (
