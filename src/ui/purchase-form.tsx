@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { InvoiceDraft } from "@/catalog/invoice";
 import { savePurchase } from "@/catalog/product-actions";
 import { SubmitButton } from "@/ui/submit-button";
 
@@ -12,6 +13,7 @@ export function PurchaseForm({
   charts,
   aliases,
   today,
+  draft,
 }: {
   products: { id: string; name: string; supplierId: string | null }[];
   suppliers: { id: string; name: string; city: string | null }[];
@@ -20,14 +22,17 @@ export function PurchaseForm({
   charts: { id: string; code: string; name: string }[];
   aliases: { supplierId: string; label: string; productId: string; productName: string }[];
   today: string;
+  draft?: InvoiceDraft;
 }) {
-  const [rows, setRows] = useState([0]);
+  const [rows, setRows] = useState(draft?.lines.length ? draft.lines.map((_, index) => index) : [0]);
   const [bill, setBill] = useState(false);
   const [paid, setPaid] = useState(false);
   const [method, setMethod] = useState("pix");
-  const [supplierId, setSupplierId] = useState("");
-  const [supplierTouched, setSupplierTouched] = useState(false);
-  const [picked, setPicked] = useState<Record<number, string>>({});
+  const [supplierId, setSupplierId] = useState(draft?.supplierId ?? "");
+  const [supplierTouched, setSupplierTouched] = useState(Boolean(draft?.supplierId));
+  const [picked, setPicked] = useState<Record<number, string>>(
+    Object.fromEntries((draft?.lines ?? []).map((line, index) => [index, line.productId])),
+  );
   const known = aliases.filter((item) => item.supplierId === supplierId);
 
   function fillSupplier(productId: string) {
@@ -74,7 +79,7 @@ export function PurchaseForm({
       <div className="split">
         <label>
           Nome, se for novo
-          <input name="supplier_name" />
+          <input name="supplier_name" defaultValue={draft && !draft.supplierId ? draft.supplierName : ""} />
         </label>
         <label>
           Telefone
@@ -82,7 +87,7 @@ export function PurchaseForm({
         </label>
         <label>
           CNPJ
-          <input name="supplier_cnpj" />
+          <input name="supplier_cnpj" defaultValue={draft && !draft.supplierId ? draft.cnpj : ""} />
         </label>
         <label>
           Cidade
@@ -92,11 +97,11 @@ export function PurchaseForm({
       <div className="split">
         <label>
           Número da nota
-          <input name="document" required />
+          <input name="document" required defaultValue={draft?.document ?? ""} />
         </label>
         <label>
           Data
-          <input type="date" name="day" required defaultValue={today} />
+          <input type="date" name="day" required defaultValue={draft?.day || today} />
         </label>
       </div>
       {known.length > 0 ? (
@@ -112,7 +117,7 @@ export function PurchaseForm({
         <div className="split" key={row}>
           <label>
             Como veio na nota
-            <input name="label" onChange={(event) => remember(row, event.target.value)} />
+            <input name="label" defaultValue={draft?.lines[row]?.label ?? ""} onChange={(event) => remember(row, event.target.value)} />
           </label>
           <label>
             Produto
@@ -131,11 +136,11 @@ export function PurchaseForm({
           </label>
           <label>
             Quantidade
-            <input name="qty" type="number" min={1} defaultValue={1} />
+            <input name="qty" type="number" min={1} defaultValue={draft?.lines[row]?.qty ?? 1} />
           </label>
           <label>
             Custo unitário
-            <input name="cost" placeholder="0,00" />
+            <input name="cost" placeholder="0,00" defaultValue={draft?.lines[row]?.cost ?? ""} />
           </label>
         </div>
       ))}

@@ -3,7 +3,9 @@
 import { randomUUID } from "crypto";
 import { requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
-import { checked, digits, parseIntField, parsePercent, parseReais, staffPriceCents, textOrNull } from "@/catalog/format";
+import { checked, digits, parseIntField, parsePercent, parseReais, staffPriceCents, textOrNull, todaySaoPaulo } from "@/catalog/format";
+import { draftFromRaw, readInvoiceFile } from "@/catalog/invoice";
+import { listProducts, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 
 const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
 
@@ -236,6 +238,32 @@ export async function moveStock(formData: FormData) {
     if (back === "lista") return "/produtos?ok=movimento";
     return `${failBase}?ok=movimento`;
   });
+}
+
+export async function readInvoice(formData: FormData) {
+  const user = await requireOperator();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size < 32 || file.size > 8_000_000) return { ok: false as const, error: "arquivo" };
+  const mime = file.type || "";
+  const image = mime.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name);
+  if (image && file.size > 4_000_000) return { ok: false as const, error: "arquivo" };
+  const raw = await readInvoiceFile(file.name, mime, new Uint8Array(await file.arrayBuffer()));
+  if (!raw || (!raw.document && !raw.supplierName && !raw.cnpj && raw.lines.length === 0)) {
+    return { ok: false as const, error: "leitura" };
+  }
+  const [products, suppliers, aliases] = await Promise.all([
+    listProducts(user.accountId),
+    listSuppliers(user.accountId),
+    listSupplierLabels(user.accountId),
+  ]);
+  const draft = draftFromRaw(
+    raw,
+    suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, cnpj: supplier.cnpj })),
+    products.filter((product) => product.active).map((product) => ({ id: product.id, name: product.name })),
+    aliases,
+  );
+  if (!draft.day) draft.day = todaySaoPaulo();
+  return { ok: true as const, draft };
 }
 
 export async function savePurchase(formData: FormData) {

@@ -42,6 +42,8 @@ export const FORM_ERRORS: Record<string, string> = {
   igual: "A contagem fechou igual ao saldo.",
   estoque: "Revise a quantidade deste movimento.",
   nota: "Essa nota desse fornecedor já entrou.",
+  arquivo: "Envie um XML, um PDF ou uma foto. A foto fica em até 4 MB.",
+  leitura: "Não consegui ler essa nota. O XML da NF-e entra direto. Foto e PDF sem texto precisam da chave de leitura.",
   avaliacao: "Escreva a avaliação da visita.",
   linha: "A mesma nota não repete o produto.",
   bandeira: "No cartão, informe a bandeira.",
