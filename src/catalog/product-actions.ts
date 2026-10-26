@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
 import { checked, digits, parseIntField, parsePercent, parseReais, staffPriceCents, textOrNull, todaySaoPaulo } from "@/catalog/format";
-import { draftFromRaw, readInvoiceFile } from "@/catalog/invoice";
+import { draftFromRaw, fetchCoupon, readInvoiceFile } from "@/catalog/invoice";
 import { listProducts, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 
 const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
@@ -251,10 +251,14 @@ export async function readInvoice(formData: FormData) {
   if (!raw || (!raw.document && !raw.supplierName && !raw.cnpj && raw.lines.length === 0)) {
     return { ok: false as const, error: "leitura" };
   }
+  return { ok: true as const, draft: await draftFor(user.accountId, raw) };
+}
+
+async function draftFor(accountId: string, raw: { supplierName: string; cnpj: string; document: string; day: string; lines: { label: string; qty: number; costCents: number }[] }) {
   const [products, suppliers, aliases] = await Promise.all([
-    listProducts(user.accountId),
-    listSuppliers(user.accountId),
-    listSupplierLabels(user.accountId),
+    listProducts(accountId),
+    listSuppliers(accountId),
+    listSupplierLabels(accountId),
   ]);
   const draft = draftFromRaw(
     raw,
@@ -263,7 +267,19 @@ export async function readInvoice(formData: FormData) {
     aliases,
   );
   if (!draft.day) draft.day = todaySaoPaulo();
-  return { ok: true as const, draft };
+  return draft;
+}
+
+export async function readCoupon(payload: string) {
+  const user = await requireOperator();
+  let raw: Awaited<ReturnType<typeof fetchCoupon>> = null;
+  try {
+    raw = await fetchCoupon(payload);
+  } catch {
+    return { ok: false as const, error: "consulta" };
+  }
+  if (!raw || raw.lines.length === 0) return { ok: false as const, error: "consulta" };
+  return { ok: true as const, draft: await draftFor(user.accountId, raw) };
 }
 
 export async function savePurchase(formData: FormData) {

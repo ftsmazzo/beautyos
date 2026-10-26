@@ -241,6 +241,68 @@ function score(label: string, name: string) {
   return 0;
 }
 
+export function parseCouponPage(html: string): RawInvoice | null {
+  if (/<infNFe[\s>]|<nfeProc[\s>]/i.test(html)) return parseNfeXml(html);
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h\d|td)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/[ \t]+/g, " ");
+  const cnpj = text.match(/CNPJ:\s*([\d./-]{14,18})/i)?.[1] ?? "";
+  const document = text.match(/N[úu]mero:\s*(\d+)/i)?.[1] ?? "";
+  const emitted = text.match(/Emiss[ãa]o:\s*(\d{2}\/\d{2}\/\d{4})/i)?.[1] ?? "";
+  const beforeCnpj = text.split(/CNPJ:/i)[0] ?? "";
+  const supplierName = beforeCnpj
+    .split("\n")
+    .map((row) => row.trim())
+    .filter((row) => row.length > 2 && !/documento auxiliar|nota fiscal|consulta/i.test(row))
+    .pop() ?? "";
+  const lines: RawLine[] = [];
+  const pattern = /([^\n()]{3,80}?)\s*\(C[óo]digo:[^)]*\)\s*Qtde\.?:\s*([\d.,]+)[\s\S]{0,40}?Vl\.?\s*Unit\.?:\s*([\d.,]+)/gi;
+  for (const match of text.matchAll(pattern)) {
+    const label = match[1].replace(/\s+/g, " ").trim();
+    if (label.length < 3 || /^(qtd|valor|forma|troco)/i.test(label)) continue;
+    lines.push({ label: label.slice(0, 120), qty: brQty(match[2]), costCents: brCents(match[3]) });
+    if (lines.length >= 80) break;
+  }
+  if (!cnpj && !document && lines.length === 0) return null;
+  return { supplierName, cnpj: digits(cnpj), document, day: asDay(emitted), lines };
+}
+
+export function couponUrl(raw: string) {
+  const text = raw.trim();
+  let url: URL;
+  try {
+    url = new URL(text);
+  } catch {
+    return "";
+  }
+  if (url.protocol !== "https:" || url.username || url.password) return "";
+  const host = url.hostname.toLowerCase();
+  if (!host.endsWith(".gov.br")) return "";
+  if (!/(nfce|nfe|sefaz|fazenda|svrs)/.test(host)) return "";
+  return url.toString();
+}
+
+export async function fetchCoupon(raw: string) {
+  const target = couponUrl(raw);
+  if (!target) return null;
+  const response = await fetch(target, {
+    redirect: "follow",
+    headers: { Accept: "text/html,application/xml,text/xml" },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!couponUrl(response.url) || !response.ok) return null;
+  const body = await response.text();
+  if (body.length > 1_500_000) return null;
+  return parseCouponPage(body.slice(0, 400_000));
+}
+
 export async function readInvoiceFile(
   fileName: string,
   mime: string,

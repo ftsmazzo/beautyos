@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import type { InvoiceDraft } from "@/catalog/invoice";
 import { FORM_ERRORS } from "@/catalog/labels";
-import { readInvoice } from "@/catalog/product-actions";
+import { readCoupon, readInvoice } from "@/catalog/product-actions";
+import { CouponScan } from "@/ui/coupon-scan";
 import { Modal } from "@/ui/modal";
 import { PurchaseForm } from "@/ui/purchase-form";
 import { SubmitButton } from "@/ui/submit-button";
@@ -24,12 +25,33 @@ export function PurchaseLaunch(props: LaunchProps) {
   const [draft, setDraft] = useState<InvoiceDraft | null>(null);
   const [token, setToken] = useState(0);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const pending = draft?.lines.filter((line) => !line.productId).length ?? 0;
+  const openDraft = useCallback((next: InvoiceDraft) => {
+    setToken((current) => current + 1);
+    setDraft(next);
+  }, []);
+  const onCoupon = useCallback(async (payload: string) => {
+    setError("");
+    if (!payload) {
+      setError(FORM_ERRORS.cupom);
+      return;
+    }
+    setBusy(true);
+    const result = await readCoupon(payload);
+    setBusy(false);
+    if (!result.ok) {
+      setError(FORM_ERRORS[result.error] ?? FORM_ERRORS.consulta);
+      return;
+    }
+    openDraft(result.draft);
+  }, [openDraft]);
   const form = <PurchaseForm {...props} />;
   return (
     <>
       <div className="desk-bar">
         <Link className="btn quiet" href="/produtos">Produtos</Link>
+        {props.products.length > 0 ? <CouponScan busy={busy} onCode={(value) => void onCoupon(value)} /> : null}
         {props.products.length > 0 ? (
           <form
             className="desk-bar"
@@ -41,13 +63,12 @@ export function PurchaseLaunch(props: LaunchProps) {
                 setError(FORM_ERRORS[result.error] ?? FORM_ERRORS.leitura);
                 return;
               }
-              setToken((current) => current + 1);
-              setDraft(result.draft);
+              openDraft(result.draft);
             }}
           >
             <label>
-              Arquivo
-              <input name="file" type="file" accept=".xml,.pdf,image/jpeg,image/png,image/webp" required />
+              XML ou PDF
+              <input name="file" type="file" accept=".xml,.pdf,application/pdf,text/xml" required />
             </label>
             <SubmitButton label="Ler nota" pendingLabel="Lendo…" />
           </form>
