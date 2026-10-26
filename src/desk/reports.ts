@@ -386,3 +386,87 @@ export async function clientsReturned(accountId: string, start: string, end: str
     ORDER BY gap DESC, c.name
   `;
 }
+
+export type ExtraPerson = {
+  id: string;
+  name: string;
+  qty: number;
+  cents: number;
+  clients: number;
+  items: number;
+};
+
+export type ExtraService = { id: string; name: string; qty: number; cents: number };
+
+export async function extrasReport(accountId: string, start: string, end: string) {
+  const [people, services, marked] = await Promise.all([
+    db()<ExtraPerson[]>`
+      SELECT pr.id,
+             COALESCE(NULLIF(pr.nickname, ''), pr.name) AS name,
+             COALESCE(extra.qty, 0)::int AS qty,
+             COALESCE(extra.cents, 0)::int AS cents,
+             COALESCE(work.clients, 0)::int AS clients,
+             COALESCE(work.items, 0)::int AS items
+      FROM professionals pr
+      LEFT JOIN LATERAL (
+        SELECT count(*)::int AS qty,
+               COALESCE(SUM(l.price_cents), 0)::int AS cents
+        FROM order_lines l
+        JOIN orders o ON o.id = l.order_id
+        JOIN services s ON s.id = l.service_id
+        WHERE l.professional_id = pr.id
+          AND o.account_id = pr.account_id
+          AND o.kind = 'cliente'
+          AND o.day >= ${start}::date AND o.day <= ${end}::date
+          AND l.kind = 'servico'
+          AND s.extras_goal
+          AND NOT l.courtesy
+          AND NOT EXISTS (
+            SELECT 1 FROM appointments a
+            WHERE a.id = l.appointment_id AND a.status = 'cancelado'
+          )
+      ) extra ON true
+      LEFT JOIN LATERAL (
+        SELECT count(DISTINCT o.client_id)::int AS clients,
+               count(*)::int AS items
+        FROM order_lines l
+        JOIN orders o ON o.id = l.order_id
+        WHERE l.professional_id = pr.id
+          AND o.account_id = pr.account_id
+          AND o.kind = 'cliente'
+          AND o.day >= ${start}::date AND o.day <= ${end}::date
+          AND l.kind = 'servico'
+          AND NOT l.courtesy
+          AND o.client_id IS NOT NULL
+      ) work ON true
+      WHERE pr.account_id = ${accountId}
+        AND pr.active
+        AND (COALESCE(work.items, 0) > 0 OR COALESCE(extra.qty, 0) > 0)
+      ORDER BY cents DESC, qty DESC, name
+    `,
+    db()<ExtraService[]>`
+      SELECT s.id, s.name,
+             count(*)::int AS qty,
+             COALESCE(SUM(l.price_cents), 0)::int AS cents
+      FROM order_lines l
+      JOIN orders o ON o.id = l.order_id
+      JOIN services s ON s.id = l.service_id
+      WHERE o.account_id = ${accountId}
+        AND o.kind = 'cliente'
+        AND o.day >= ${start}::date AND o.day <= ${end}::date
+        AND l.kind = 'servico'
+        AND s.extras_goal
+        AND NOT l.courtesy
+      GROUP BY s.id, s.name
+      ORDER BY cents DESC, qty DESC, s.name
+    `,
+    db()<{ qty: number }[]>`
+      SELECT count(*)::int AS qty
+      FROM services
+      WHERE account_id = ${accountId}
+        AND active
+        AND extras_goal
+    `,
+  ]);
+  return { people, services, marked: marked[0]?.qty ?? 0 };
+}

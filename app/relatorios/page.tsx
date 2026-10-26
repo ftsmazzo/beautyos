@@ -274,6 +274,7 @@ export default async function ReportsPage({
             <Link className="btn quiet" href={`/relatorios/comandas?de=${start}&ate=${end}`}>Comandas</Link>
             <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
             <Link className="btn quiet" href={`/relatorios/clientes?de=${start}&ate=${end}`}>Clientes</Link>
+            <Link className="btn quiet" href={`/relatorios/extras?de=${start}&ate=${end}`}>Extras</Link>
             <Link className="btn quiet" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
             <Link className="btn quiet" href={`/comissao?de=${start}&ate=${end}`}>Comissão</Link>
             {user.role === "administrador" ? (
