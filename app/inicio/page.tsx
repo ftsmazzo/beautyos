@@ -422,6 +422,9 @@ export default async function StartPage({
                 <Link className="meta" href="/produtos?filtro=minimo">
                   Lista
                 </Link>
+                <Link className="meta" href="/produtos/compra?pedir=1">
+                  Montar compra
+                </Link>
               </div>
               {lowStock.slice(0, 10).map((product) => (
                 <div className="queue-row" key={product.id}>
