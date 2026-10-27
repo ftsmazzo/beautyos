@@ -601,12 +601,14 @@ export async function listSuppliers(accountId: string) {
   `;
 }
 
-export async function listSupplierLabels(accountId: string) {
-  return db()<{ supplierId: string; label: string; productId: string; productName: string }[]>`
-    SELECT sl.supplier_id AS "supplierId", sl.label, sl.product_id AS "productId", p.name AS "productName"
+export async function listSupplierLabels(accountId: string, supplierId?: string) {
+  const sql = db();
+  return sql<{ id: string; supplierId: string; label: string; productId: string; productName: string }[]>`
+    SELECT sl.id, sl.supplier_id AS "supplierId", sl.label, sl.product_id AS "productId", p.name AS "productName"
     FROM supplier_labels sl
     JOIN products p ON p.id = sl.product_id
     WHERE sl.account_id = ${accountId}
+      ${supplierId ? sql`AND sl.supplier_id = ${supplierId}` : sql``}
     ORDER BY p.name, sl.label
   `;
 }

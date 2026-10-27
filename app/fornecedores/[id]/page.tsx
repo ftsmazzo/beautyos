@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOperator } from "@/catalog/access";
 import { formatPhone, formatReais } from "@/catalog/format";
-import { listProducts, listPurchases, listSuppliers } from "@/catalog/queries";
-import { deleteSupplier, saveSupplier } from "@/catalog/product-actions";
-import { ErrorNote } from "@/ui/error-note";
+import { listProducts, listPurchases, listSupplierLabels, listSuppliers } from "@/catalog/queries";
+import { deleteSupplier, deleteSupplierLabel, saveSupplier, saveSupplierLabel } from "@/catalog/product-actions";
+import { ErrorNote, SavedNote } from "@/ui/error-note";
 import { Modal } from "@/ui/modal";
 import { Panel } from "@/ui/panel";
 import { SubmitButton } from "@/ui/submit-button";
@@ -18,7 +18,7 @@ export default async function SupplierFormPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ erro?: string }>;
+  searchParams: Promise<{ erro?: string; ok?: string }>;
 }) {
   const user = await requireOperator();
   const { id } = await params;
@@ -27,10 +27,10 @@ export default async function SupplierFormPage({
   if (!creating && !UUID.test(id)) redirect("/fornecedores");
   const supplier = creating ? null : (await listSuppliers(user.accountId)).find((row) => row.id === id) ?? null;
   if (!creating && !supplier) redirect("/fornecedores");
-  const products = supplier
-    ? (await listProducts(user.accountId)).filter((product) => product.supplierId === supplier.id)
-    : [];
+  const catalog = supplier ? await listProducts(user.accountId) : [];
+  const products = supplier ? catalog.filter((product) => product.supplierId === supplier.id) : [];
   const purchases = supplier ? await listPurchases(user.accountId, supplier.id) : [];
+  const aliases = supplier ? await listSupplierLabels(user.accountId, supplier.id) : [];
 
   const editor = (
     <form action={saveSupplier}>
@@ -59,6 +59,7 @@ export default async function SupplierFormPage({
 
   return (
     <Panel user={user} current="/fornecedores" title={supplier ? supplier.name : "Novo fornecedor"}>
+      <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       {supplier ? (
         <div className="desk">
@@ -67,6 +68,7 @@ export default async function SupplierFormPage({
             {supplier.cnpj ? <span className="chip">{supplier.cnpj}</span> : null}
             {supplier.city ? <span className="chip">{supplier.city}</span> : null}
             <span className="chip">{products.length} produtos</span>
+            <span className="chip">{aliases.length} nomes na nota</span>
             <Modal label="Editar" title={`Editar · ${supplier.name}`} tone="navy">
               {editor}
             </Modal>
@@ -107,8 +109,69 @@ export default async function SupplierFormPage({
               </table>
             ) : null}
           </div>
+          <div className="queue" style={{ overflowX: "auto" }}>
+            <div className="queue-head"><h2>Como veio na nota</h2></div>
+            {aliases.length === 0 ? <p className="queue-empty">Nenhum nome de nota ainda. Eles nascem ao lançar a compra.</p> : null}
+            {aliases.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Na nota</th>
+                    <th>Produto</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aliases.map((alias) => (
+                    <tr key={alias.id}>
+                      <td>{alias.label}</td>
+                      <td>
+                        <form action={saveSupplierLabel} className="row">
+                          <input type="hidden" name="supplier" value={supplier.id} />
+                          <input type="hidden" name="label" value={alias.label} />
+                          <select name="product" defaultValue={alias.productId}>
+                            {catalog.map((product) => (
+                              <option key={product.id} value={product.id}>
+                                {product.name}
+                              </option>
+                            ))}
+                          </select>
+                          <SubmitButton label="Trocar" pendingLabel="…" className="quiet" />
+                        </form>
+                      </td>
+                      <td>
+                        <form action={deleteSupplierLabel}>
+                          <input type="hidden" name="supplier" value={supplier.id} />
+                          <input type="hidden" name="id" value={alias.id} />
+                          <SubmitButton label="Tirar" pendingLabel="…" className="quiet" />
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+            <form action={saveSupplierLabel} className="desk-bar" style={{ marginTop: 8 }}>
+              <input type="hidden" name="supplier" value={supplier.id} />
+              <label>
+                Nome na nota
+                <input name="label" required minLength={2} />
+              </label>
+              <label>
+                Produto
+                <select name="product" required defaultValue="">
+                  <option value="" disabled>Escolha</option>
+                  {catalog.map((product) => (
+                    <option key={product.id} value={product.id}>{product.name}</option>
+                  ))}
+                </select>
+              </label>
+              <SubmitButton label="Ligar" pendingLabel="Ligando…" />
+            </form>
+          </div>
           {purchases.length > 0 ? (
             <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="queue-head"><h2>Notas</h2></div>
               <table>
                 <thead>
                   <tr>

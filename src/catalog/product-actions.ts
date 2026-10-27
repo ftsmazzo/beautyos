@@ -254,16 +254,32 @@ export async function readInvoice(formData: FormData) {
   return { ok: true as const, draft: await draftFor(user.accountId, raw) };
 }
 
-async function draftFor(accountId: string, raw: { supplierName: string; cnpj: string; document: string; day: string; lines: { label: string; qty: number; costCents: number }[] }) {
+async function draftFor(
+  accountId: string,
+  raw: {
+    supplierName: string;
+    cnpj: string;
+    document: string;
+    day: string;
+    lines: { label: string; qty: number; costCents: number; barcode?: string }[];
+  },
+) {
   const [products, suppliers, aliases] = await Promise.all([
     listProducts(accountId),
     listSuppliers(accountId),
     listSupplierLabels(accountId),
   ]);
   const draft = draftFromRaw(
-    raw,
+    {
+      ...raw,
+      lines: raw.lines.map((line) => ({ ...line, barcode: line.barcode ?? "" })),
+    },
     suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, cnpj: supplier.cnpj })),
-    products.filter((product) => product.active).map((product) => ({ id: product.id, name: product.name })),
+    products.filter((product) => product.active).map((product) => ({
+      id: product.id,
+      name: product.name,
+      barcode: product.barcode,
+    })),
     aliases,
   );
   if (!draft.day) draft.day = todaySaoPaulo();
@@ -296,7 +312,8 @@ export async function savePurchase(formData: FormData) {
     const qtys = formData.getAll("qty").map(String);
     const costs = formData.getAll("cost").map(String);
     const labels = formData.getAll("label").map(String);
-    const lines: { productId: string; create: boolean; qty: number; costCents: number; label: string }[] = [];
+    const barcodes = formData.getAll("barcode").map(String);
+    const lines: { productId: string; create: boolean; qty: number; costCents: number; label: string; barcode: string }[] = [];
     const seen = new Set<string>();
     for (let index = 0; index < productIds.length; index += 1) {
       const productId = productIds[index];
@@ -309,9 +326,10 @@ export async function savePurchase(formData: FormData) {
       const qty = parseIntField(qtys[index] ?? null);
       const costCents = parseReais(costs[index] ?? "");
       const label = labelKey(labels[index] ?? "");
+      const barcode = digits(barcodes[index] ?? "").slice(0, 32);
       if (qty == null || qty < 1 || costCents == null) throw new FormError("estoque");
       if (create && label.length < 2) throw new FormError("dados");
-      lines.push({ productId: create ? "" : productId, create, qty, costCents, label });
+      lines.push({ productId: create ? "" : productId, create, qty, costCents, label, barcode });
     }
     if (document.length < 1 || lines.length === 0) throw new FormError("dados");
     const bill = checked(formData, "bill");
@@ -381,18 +399,34 @@ export async function savePurchase(formData: FormData) {
       }
       for (const line of lines) {
         if (!line.create) continue;
+        if (line.barcode) {
+          const byCode = await tx<{ id: string }[]>`
+            SELECT id FROM products
+            WHERE account_id = ${user.accountId} AND barcode = ${line.barcode}
+            LIMIT 1
+          `;
+          if (byCode[0]) {
+            if (seen.has(byCode[0].id)) throw new FormError("linha");
+            seen.add(byCode[0].id);
+            line.productId = byCode[0].id;
+            line.create = false;
+            continue;
+          }
+        }
         const productId = randomUUID();
         await tx`
           INSERT INTO products (
-            id, account_id, name, active, sells_to_client, is_supply,
+            id, account_id, name, barcode, active, sells_to_client, is_supply,
             sale_price_cents, commission_percent, cost_cents, min_qty, supplier_id
           ) VALUES (
-            ${productId}, ${user.accountId}, ${line.label.slice(0, 120)}, true, false, true,
+            ${productId}, ${user.accountId}, ${line.label.slice(0, 120)},
+            ${line.barcode || null}, true, false, true,
             0, 0, ${line.costCents}, 0, ${supplierId}
           )
         `;
         line.productId = productId;
         line.create = false;
+        seen.add(productId);
       }
       const owned = await tx<{ id: string }[]>`
         SELECT id FROM products
@@ -532,5 +566,40 @@ export async function deleteSupplier(formData: FormData) {
     await db()`DELETE FROM supplier_labels WHERE supplier_id = ${id}`;
     await db()`DELETE FROM suppliers WHERE id = ${id} AND account_id = ${user.accountId}`;
     return "/fornecedores";
+  });
+}
+
+export async function saveSupplierLabel(formData: FormData) {
+  const user = await requireOperator();
+  const supplierId = String(formData.get("supplier") ?? "");
+  return settle(`/fornecedores/${supplierId}`, async () => {
+    if (!UUID.test(supplierId)) throw new FormError("fora");
+    const productId = String(formData.get("product") ?? "");
+    const label = labelKey(String(formData.get("label") ?? ""));
+    if (!UUID.test(productId) || label.length < 2) throw new FormError("dados");
+    const supplier = await db()`SELECT id FROM suppliers WHERE id = ${supplierId} AND account_id = ${user.accountId}`;
+    if (!supplier.length) throw new FormError("fora");
+    const product = await db()`SELECT id FROM products WHERE id = ${productId} AND account_id = ${user.accountId}`;
+    if (!product.length) throw new FormError("fora");
+    await db()`
+      INSERT INTO supplier_labels (id, account_id, supplier_id, label, product_id)
+      VALUES (${randomUUID()}, ${user.accountId}, ${supplierId}, ${label}, ${productId})
+      ON CONFLICT (supplier_id, label) DO UPDATE SET product_id = EXCLUDED.product_id
+    `;
+    return `/fornecedores/${supplierId}?ok=salvo`;
+  });
+}
+
+export async function deleteSupplierLabel(formData: FormData) {
+  const user = await requireOperator();
+  const supplierId = String(formData.get("supplier") ?? "");
+  const id = String(formData.get("id") ?? "");
+  return settle(`/fornecedores/${supplierId}`, async () => {
+    if (!UUID.test(supplierId) || !UUID.test(id)) throw new FormError("fora");
+    await db()`
+      DELETE FROM supplier_labels
+      WHERE id = ${id} AND supplier_id = ${supplierId} AND account_id = ${user.accountId}
+    `;
+    return `/fornecedores/${supplierId}?ok=salvo`;
   });
 }

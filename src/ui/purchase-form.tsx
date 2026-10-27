@@ -121,6 +121,7 @@ export function PurchaseForm({
             Como veio na nota
             <input name="label" defaultValue={draft?.lines[row]?.label ?? ""} onChange={(event) => remember(row, event.target.value)} />
           </label>
+          <input type="hidden" name="barcode" value={draft?.lines[row]?.barcode ?? ""} />
           <label>
             Produto
             <select
@@ -145,6 +146,7 @@ export function PurchaseForm({
             Custo unitário
             <input name="cost" placeholder="0,00" defaultValue={draft?.lines[row]?.cost ?? ""} />
           </label>
+          {draft?.lines[row]?.barcode ? <span className="chip">{draft.lines[row].barcode}</span> : null}
         </div>
       ))}
       <button type="button" className="btn quiet" onClick={() => setRows((current) => [...current, current.length])}>

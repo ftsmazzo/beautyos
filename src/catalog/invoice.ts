@@ -1,6 +1,6 @@
 import { centsToInput, digits } from "@/catalog/format";
 
-export type InvoiceLine = { label: string; qty: number; cost: string; productId: string };
+export type InvoiceLine = { label: string; qty: number; cost: string; productId: string; barcode: string };
 export type InvoiceDraft = {
   supplierId: string;
   supplierName: string;
@@ -10,7 +10,7 @@ export type InvoiceDraft = {
   lines: InvoiceLine[];
 };
 
-type RawLine = { label: string; qty: number; costCents: number };
+type RawLine = { label: string; qty: number; costCents: number; barcode: string };
 type RawInvoice = { supplierName: string; cnpj: string; document: string; day: string; lines: RawLine[] };
 
 function fold(value: string) {
@@ -89,7 +89,9 @@ export function parseNfeXml(xml: string): RawInvoice | null {
     const unit = tag(prod, "vUnCom");
     const total = tag(prod, "vProd");
     const costCents = unit ? xmlCents(unit) : Math.round(xmlCents(total) / qty);
-    lines.push({ label, qty, costCents });
+    const ean = digits(tag(prod, "cEAN") || tag(prod, "cEANTrib"));
+    const barcode = ean.length >= 8 ? ean : digits(tag(prod, "cProd")).slice(0, 32);
+    lines.push({ label, qty, costCents, barcode: barcode.length >= 3 ? barcode : "" });
     if (lines.length >= 40) break;
   }
   return {
@@ -118,7 +120,7 @@ function lineFromRow(row: string): RawLine | null {
       .replace(/^\d{1,14}\s+/, "")
       .trim();
     if (label.length < 3 || /^(total|icms|frete|desconto|valor|descri|produto|codigo|dados)/i.test(label)) return null;
-    return { label: label.slice(0, 120), qty: brQty(qtyMatch[1]), costCents: brCents(unit[0]) };
+    return { label: label.slice(0, 120), qty: brQty(qtyMatch[1]), costCents: brCents(unit[0]), barcode: "" };
   }
   const money = row.match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+\.\d{2})\s*$/);
   if (!money || money.index == null) return null;
@@ -126,7 +128,7 @@ function lineFromRow(row: string): RawLine | null {
   const qtyMatch = rest.match(/^(.*?)(?:\s+)(\d{1,4}(?:[.,]\d{1,4})?)$/);
   const label = (qtyMatch ? qtyMatch[1] : rest).trim();
   if (label.length < 3 || /^(total|icms|frete|desconto|valor)/i.test(label)) return null;
-  return { label: label.slice(0, 120), qty: qtyMatch ? brQty(qtyMatch[2]) : 1, costCents: brCents(money[1]) };
+  return { label: label.slice(0, 120), qty: qtyMatch ? brQty(qtyMatch[2]) : 1, costCents: brCents(money[1]), barcode: "" };
 }
 
 function parseLoose(text: string): RawInvoice | null {
@@ -217,6 +219,7 @@ function jsonInvoice(raw: string): RawInvoice | null {
         label: String(line.label ?? "").trim().slice(0, 120),
         qty: Math.max(1, Math.round(Number(line.qty) || 1)),
         costCents: Math.max(0, Math.round(Number(line.unitCents) || 0)),
+        barcode: "",
       }))
       .filter((line) => line.label.length >= 2)
       .slice(0, 40);
@@ -263,11 +266,18 @@ export function parseCouponPage(html: string): RawInvoice | null {
     .filter((row) => row.length > 2 && !/documento auxiliar|nota fiscal|consulta/i.test(row))
     .pop() ?? "";
   const lines: RawLine[] = [];
-  const pattern = /([^\n()]{3,80}?)\s*\(C[óo]digo:[^)]*\)\s*Qtde\.?:\s*([\d.,]+)[\s\S]{0,40}?Vl\.?\s*Unit\.?:\s*([\d.,]+)/gi;
+  const pattern =
+    /([^\n()]{3,80}?)\s*\(C[óo]digo:\s*([^)]*?)\)\s*Qtde\.?:\s*([\d.,]+)[\s\S]{0,40}?Vl\.?\s*Unit\.?:\s*([\d.,]+)/gi;
   for (const match of text.matchAll(pattern)) {
     const label = match[1].replace(/\s+/g, " ").trim();
     if (label.length < 3 || /^(qtd|valor|forma|troco)/i.test(label)) continue;
-    lines.push({ label: label.slice(0, 120), qty: brQty(match[2]), costCents: brCents(match[3]) });
+    const barcode = digits(match[2]).slice(0, 32);
+    lines.push({
+      label: label.slice(0, 120),
+      qty: brQty(match[3]),
+      costCents: brCents(match[4]),
+      barcode: barcode.length >= 3 ? barcode : "",
+    });
     if (lines.length >= 80) break;
   }
   if (!cnpj && !document && lines.length === 0) return null;
@@ -334,7 +344,7 @@ export async function readInvoiceFile(
 export function draftFromRaw(
   raw: RawInvoice,
   suppliers: { id: string; name: string; cnpj: string | null }[],
-  products: { id: string; name: string }[],
+  products: { id: string; name: string; barcode: string | null }[],
   aliases: { supplierId: string; label: string; productId: string }[],
 ): InvoiceDraft {
   const cnpj = digits(raw.cnpj);
@@ -345,6 +355,9 @@ export function draftFromRaw(
     const key = fold(line.label);
     const alias = labels.find((item) => fold(item.label) === key);
     let productId = alias?.productId ?? "";
+    if (!productId && line.barcode) {
+      productId = products.find((product) => product.barcode && product.barcode === line.barcode)?.id ?? "";
+    }
     if (!productId) {
       let best = 0;
       for (const product of products) {
@@ -355,7 +368,13 @@ export function draftFromRaw(
         }
       }
     }
-    return { label: line.label, qty: line.qty, cost: centsToInput(line.costCents), productId };
+    return {
+      label: line.label,
+      qty: line.qty,
+      cost: centsToInput(line.costCents),
+      productId,
+      barcode: line.barcode,
+    };
   });
   return {
     supplierId: supplier?.id ?? "",
