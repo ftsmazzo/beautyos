@@ -40,6 +40,7 @@ export default async function StockReportPage({
   const low = rows.filter((row) => need(row.balance, row.minQty) > 0);
   const zero = rows.filter((row) => row.balance <= 0);
   const parked = rows.reduce((sum, row) => sum + Math.max(0, row.balance) * row.saleCents, 0);
+  const parkedCost = rows.reduce((sum, row) => sum + Math.max(0, row.balance) * row.costCents, 0);
   const orderUnits = low.reduce((sum, row) => sum + need(row.balance, row.minQty), 0);
   const orderCost = low.reduce((sum, row) => sum + need(row.balance, row.minQty) * row.costCents, 0);
   const extra = { ...(uso ? { uso } : {}), ...(onlyLow ? { filtro: "minimo" } : {}) };
@@ -60,6 +61,8 @@ export default async function StockReportPage({
           <Link className={onlyLow ? "btn" : "btn quiet"} href={base({ uso, filtro: onlyLow ? "" : "minimo" })}>
             {onlyLow ? "Todos os saldos" : "No mínimo"}
           </Link>
+          <Link className="btn quiet" href={`/relatorios/compras?de=${start}&ate=${end}`}>Compras</Link>
+          <Link className="btn quiet" href={`/produtos/movimentos?de=${start}&ate=${end}`}>Movimentos</Link>
           <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
@@ -76,9 +79,14 @@ export default async function StockReportPage({
                 <span className="report-delta">{zero.length} zerado{zero.length === 1 ? "" : "s"}</span>
               </div>
               <div className="statement-total net">
-                <span className="label">Parado</span>
+                <span className="label">Parado venda</span>
                 <strong>{formatReais(parked)}</strong>
-                <span className="report-delta">saldo × venda</span>
+                <span className="report-delta">saldo × preço</span>
+              </div>
+              <div className="statement-total out">
+                <span className="label">Parado custo</span>
+                <strong>{formatReais(parkedCost)}</strong>
+                <span className="report-delta">saldo × custo</span>
               </div>
               <div className="statement-total">
                 <span className="label">A pedir</span>
@@ -95,6 +103,8 @@ export default async function StockReportPage({
                       <th>Produto</th>
                       <th className="num">Saldo</th>
                       <th className="num">Mínimo</th>
+                      <th className="num">Custo</th>
+                      <th className="num">Margem</th>
                       <th className="num">Vendeu</th>
                       <th className="num">Valor</th>
                       <th className="num">Pedir</th>
@@ -104,11 +114,14 @@ export default async function StockReportPage({
                   <tbody>
                     {scoped.map((row) => {
                       const ask = need(row.balance, row.minQty);
+                      const margin = row.saleCents - row.costCents;
                       return (
                         <tr key={row.id}>
                           <td><Link href={`/produtos/${row.id}`}>{row.name}</Link></td>
                           <td className="num">{row.balance}</td>
                           <td className="num">{row.minQty > 0 ? row.minQty : ""}</td>
+                          <td className="num">{row.costCents > 0 ? formatReais(row.costCents) : ""}</td>
+                          <td className="num">{row.sells ? formatReais(margin) : ""}</td>
                           <td className="num">{row.soldQty > 0 ? row.soldQty : ""}</td>
                           <td className="num">{row.soldCents > 0 ? formatReais(row.soldCents) : ""}</td>
                           <td className="num">{ask > 0 ? ask : ""}</td>

@@ -293,6 +293,53 @@ export async function stockReport(accountId: string, start: string, end: string)
   `;
 }
 
+export type PurchaseReportRow = {
+  id: string;
+  supplierName: string;
+  document: string;
+  day: string;
+  lines: number;
+  totalCents: number;
+};
+
+export type PurchaseSupplierSlice = { name: string; qty: number; cents: number };
+
+export async function purchasesReport(accountId: string, start: string, end: string) {
+  const [rows, suppliers] = await Promise.all([
+    db()<PurchaseReportRow[]>`
+      SELECT p.id, s.name AS "supplierName", p.document,
+             to_char(p.purchased_on, 'DD/MM/YYYY') AS day,
+             (SELECT COUNT(*) FROM purchase_lines l WHERE l.purchase_id = p.id)::int AS lines,
+             COALESCE((SELECT SUM(l.qty * l.cost_cents) FROM purchase_lines l WHERE l.purchase_id = p.id), 0)::int AS "totalCents"
+      FROM purchases p
+      JOIN suppliers s ON s.id = p.supplier_id
+      WHERE p.account_id = ${accountId}
+        AND p.purchased_on >= ${start}::date
+        AND p.purchased_on <= ${end}::date
+      ORDER BY p.purchased_on DESC, p.created_at DESC
+      LIMIT 200
+    `,
+    db()<PurchaseSupplierSlice[]>`
+      SELECT s.name,
+             COUNT(p.id)::int AS qty,
+             COALESCE(SUM(line.total), 0)::int AS cents
+      FROM purchases p
+      JOIN suppliers s ON s.id = p.supplier_id
+      LEFT JOIN LATERAL (
+        SELECT SUM(l.qty * l.cost_cents)::int AS total
+        FROM purchase_lines l
+        WHERE l.purchase_id = p.id
+      ) line ON true
+      WHERE p.account_id = ${accountId}
+        AND p.purchased_on >= ${start}::date
+        AND p.purchased_on <= ${end}::date
+      GROUP BY s.id, s.name
+      ORDER BY cents DESC, s.name
+    `,
+  ]);
+  return { rows, suppliers };
+}
+
 export const CALL_AFTER = 30;
 export const LOST_AFTER = 120;
 export const RETURN_GAP = 60;

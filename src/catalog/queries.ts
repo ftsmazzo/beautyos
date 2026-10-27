@@ -781,6 +781,35 @@ export async function listMovements(productId: string) {
   `;
 }
 
+export type AccountMovement = {
+  id: string;
+  productId: string;
+  productName: string;
+  qty: number;
+  reason: string;
+  note: string | null;
+  at: string;
+  who: string | null;
+};
+
+export async function listAccountMovements(accountId: string, start: string, end: string, reason?: string) {
+  const sql = db();
+  return sql<AccountMovement[]>`
+    SELECT m.id, m.product_id AS "productId", p.name AS "productName", m.qty, m.reason, m.note,
+           to_char(m.created_at AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') AS at,
+           u.name AS who
+    FROM stock_movements m
+    JOIN products p ON p.id = m.product_id
+    LEFT JOIN users u ON u.id = m.created_by
+    WHERE m.account_id = ${accountId}
+      AND (m.created_at AT TIME ZONE 'America/Sao_Paulo')::date >= ${start}::date
+      AND (m.created_at AT TIME ZONE 'America/Sao_Paulo')::date <= ${end}::date
+      ${reason ? sql`AND m.reason = ${reason}` : sql``}
+    ORDER BY m.created_at DESC
+    LIMIT 250
+  `;
+}
+
 export type PackageListRow = {
   id: string;
   name: string;

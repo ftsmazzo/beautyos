@@ -50,6 +50,12 @@ export default async function ProductsPage({
         <Link className="btn quiet" href="/produtos/compra">
           Compra
         </Link>
+        <Link className="btn quiet" href="/produtos/movimentos">
+          Movimentos
+        </Link>
+        <Link className="btn quiet" href="/relatorios/compras">
+          Compras
+        </Link>
         <Link className={counting ? "btn" : "btn quiet"} href={listHref({ modo: !counting })}>
           {counting ? "Lista" : "Conferência"}
         </Link>

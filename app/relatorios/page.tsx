@@ -275,6 +275,8 @@ export default async function ReportsPage({
             <Link className="btn quiet" href={`/relatorios/agenda?de=${start}&ate=${end}`}>Agenda</Link>
             <Link className="btn quiet" href={`/relatorios/comandas?de=${start}&ate=${end}`}>Comandas</Link>
             <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
+            <Link className="btn quiet" href={`/relatorios/compras?de=${start}&ate=${end}`}>Compras</Link>
+            <Link className="btn quiet" href={`/produtos/movimentos?de=${start}&ate=${end}`}>Movimentos</Link>
             <Link className="btn quiet" href={`/relatorios/clientes?de=${start}&ate=${end}`}>Clientes</Link>
             <Link className="btn quiet" href={`/relatorios/extras?de=${start}&ate=${end}`}>Extras</Link>
             <Link className="btn quiet" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
