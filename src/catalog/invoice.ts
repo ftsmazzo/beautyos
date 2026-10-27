@@ -341,6 +341,61 @@ export async function readInvoiceFile(
   return null;
 }
 
+export function restockDraft(
+  products: {
+    id: string;
+    name: string;
+    barcode: string | null;
+    active: boolean;
+    minQty: number;
+    balance: number;
+    costCents: number;
+    supplierId: string | null;
+  }[],
+  suppliers: { id: string; name: string; cnpj: string | null }[],
+  today: string,
+  supplierId?: string,
+): InvoiceDraft | null {
+  const low = products.filter(
+    (product) => product.active && product.minQty > 0 && product.balance < product.minQty,
+  );
+  if (low.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const product of low) {
+    if (!product.supplierId) continue;
+    counts.set(product.supplierId, (counts.get(product.supplierId) ?? 0) + 1);
+  }
+  let chosen = supplierId && counts.has(supplierId) ? supplierId : "";
+  if (!chosen) {
+    let best = 0;
+    for (const [id, qty] of counts) {
+      if (qty > best) {
+        best = qty;
+        chosen = id;
+      }
+    }
+  }
+  const supplier = suppliers.find((item) => item.id === chosen);
+  const lines = low
+    .filter((product) => !chosen || !product.supplierId || product.supplierId === chosen)
+    .map((product) => ({
+      label: product.name,
+      qty: product.minQty - product.balance,
+      cost: centsToInput(product.costCents),
+      productId: product.id,
+      barcode: product.barcode ?? "",
+    }));
+  if (lines.length === 0) return null;
+  return {
+    supplierId: supplier?.id ?? "",
+    supplierName: supplier?.name ?? "",
+    cnpj: digits(supplier?.cnpj ?? ""),
+    document: `LISTA ${today.replace(/-/g, "")}`,
+    day: today,
+    lines,
+  };
+}
+
 export function draftFromRaw(
   raw: RawInvoice,
   suppliers: { id: string; name: string; cnpj: string | null }[],

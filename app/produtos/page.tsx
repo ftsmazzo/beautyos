@@ -50,6 +50,11 @@ export default async function ProductsPage({
         <Link className="btn quiet" href="/produtos/compra">
           Compra
         </Link>
+        {onlyMin ? (
+          <Link className="btn" href="/produtos/compra?pedir=1">
+            Montar compra
+          </Link>
+        ) : null}
         <Link className="btn quiet" href="/produtos/movimentos">
           Movimentos
         </Link>

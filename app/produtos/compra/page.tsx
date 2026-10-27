@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
+import { restockDraft } from "@/catalog/invoice";
 import { listProducts, listPurchases, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
@@ -12,23 +13,46 @@ export const dynamic = "force-dynamic";
 export default async function PurchasePage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; erro?: string }>;
+  searchParams: Promise<{ ok?: string; erro?: string; pedir?: string; fornecedor?: string }>;
 }) {
   const user = await requireOperator();
   const query = await searchParams;
-  const products = (await listProducts(user.accountId)).filter((product) => product.active);
+  const today = todaySaoPaulo();
+  const catalog = await listProducts(user.accountId);
+  const products = catalog.filter((product) => product.active);
   const suppliers = await listSuppliers(user.accountId);
   const banks = await listBanks(user.accountId);
   const cards = await listCards(user.accountId);
   const charts = await listChart(user.accountId);
   const purchases = await listPurchases(user.accountId);
   const aliases = await listSupplierLabels(user.accountId);
+  const lowCount = products.filter(
+    (product) => product.minQty > 0 && product.balance < product.minQty,
+  ).length;
+  const asking = query.pedir === "1";
+  const seed = asking
+    ? restockDraft(
+        products,
+        suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, cnpj: supplier.cnpj })),
+        today,
+        query.fornecedor,
+      )
+    : null;
+  const leftOut = asking && seed
+    ? lowCount - seed.lines.length
+    : 0;
+  const seedNote = seed
+    ? `${seed.lines.length} no mínimo${seed.supplierName ? ` · ${seed.supplierName}` : ""}${leftOut > 0 ? ` · ${leftOut} de outro fornecedor fora` : ""}. Número da lista já veio preenchido.`
+    : asking
+      ? "Nenhum produto abaixo do mínimo."
+      : "";
 
   return (
     <Panel user={user} current="/produtos" title="Compra por nota">
       <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
+      {asking && !seed ? <p className="desk-alert">{seedNote}</p> : null}
       <PurchaseLaunch
         purchaseCount={purchases.length}
         products={products.map((product) => ({ id: product.id, name: product.name, supplierId: product.supplierId }))}
@@ -37,7 +61,10 @@ export default async function PurchasePage({
         cards={cards.map((card) => ({ id: card.id, name: card.name }))}
         charts={charts.map((chart) => ({ id: chart.id, code: chart.code, name: chart.name }))}
         aliases={aliases}
-        today={todaySaoPaulo()}
+        today={today}
+        seed={seed}
+        seedNote={seed ? seedNote : undefined}
+        lowCount={lowCount}
       />
       {products.length === 0 ? <p className="queue-empty">Cadastre um produto antes de lançar a nota.</p> : null}
       <div className="queue" style={{ overflowX: "auto" }}>

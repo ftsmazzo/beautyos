@@ -19,11 +19,14 @@ type LaunchProps = {
   charts: { id: string; code: string; name: string }[];
   aliases: { supplierId: string; label: string; productId: string; productName: string }[];
   today: string;
+  seed?: InvoiceDraft | null;
+  seedNote?: string;
+  lowCount?: number;
 };
 
 export function PurchaseLaunch(props: LaunchProps) {
-  const [draft, setDraft] = useState<InvoiceDraft | null>(null);
-  const [token, setToken] = useState(0);
+  const [draft, setDraft] = useState<InvoiceDraft | null>(props.seed ?? null);
+  const [token, setToken] = useState(props.seed ? 1 : 0);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [photo, setPhoto] = useState("");
@@ -83,13 +86,19 @@ export function PurchaseLaunch(props: LaunchProps) {
         {props.products.length > 0 ? (
           <Modal label="Lançar nota" title="Lançar nota" tone="teal">{form}</Modal>
         ) : null}
+        {(props.lowCount ?? 0) > 0 ? (
+          <Link className="btn quiet" href="/produtos/compra?pedir=1">
+            Lista de compra · {props.lowCount}
+          </Link>
+        ) : null}
         <span className="chip">{props.purchaseCount} notas</span>
       </div>
       {error ? <p className="desk-alert">{error}</p> : null}
       {photo ? <img className="coupon-shot" alt="Cupom enviado pelo celular" src={photo} /> : null}
       {draft ? (
-        <Modal key={token} label="Nota lida" title="Confira a nota" tone="teal" startOpen>
+        <Modal key={token} label="Nota lida" title={props.seedNote ? "Lista de compra" : "Confira a nota"} tone="teal" startOpen>
           <p className="desk-alert">
+            {props.seedNote ? `${props.seedNote} ` : ""}
             {draft.lines.length === 0 ? "A leitura não trouxe itens. " : ""}
             {pending > 0 ? `${pending} sem produto. ` : ""}
             Confira antes de lançar.

@@ -62,6 +62,11 @@ export default async function StockReportPage({
             {onlyLow ? "Todos os saldos" : "No mínimo"}
           </Link>
           <Link className="btn quiet" href={`/relatorios/compras?de=${start}&ate=${end}`}>Compras</Link>
+          {low.length > 0 ? (
+            <Link className="btn" href="/produtos/compra?pedir=1">
+              Montar compra · {low.length}
+            </Link>
+          ) : null}
           <Link className="btn quiet" href={`/produtos/movimentos?de=${start}&ate=${end}`}>Movimentos</Link>
           <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
