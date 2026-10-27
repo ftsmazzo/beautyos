@@ -31,7 +31,9 @@ export function PurchaseForm({
   const [supplierId, setSupplierId] = useState(draft?.supplierId ?? "");
   const [supplierTouched, setSupplierTouched] = useState(Boolean(draft?.supplierId));
   const [picked, setPicked] = useState<Record<number, string>>(
-    Object.fromEntries((draft?.lines ?? []).map((line, index) => [index, line.productId])),
+    Object.fromEntries(
+      (draft?.lines ?? []).map((line, index) => [index, line.productId || (line.label.trim() ? "__new__" : "")]),
+    ),
   );
   const known = aliases.filter((item) => item.supplierId === supplierId);
 
@@ -127,6 +129,7 @@ export function PurchaseForm({
               onChange={(event) => chooseProduct(row, event.target.value)}
             >
               <option value="">Não incluir</option>
+              <option value="__new__">Criar com este nome</option>
               {products.map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.name}

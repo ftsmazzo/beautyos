@@ -296,17 +296,22 @@ export async function savePurchase(formData: FormData) {
     const qtys = formData.getAll("qty").map(String);
     const costs = formData.getAll("cost").map(String);
     const labels = formData.getAll("label").map(String);
-    const lines: { productId: string; qty: number; costCents: number; label: string }[] = [];
+    const lines: { productId: string; create: boolean; qty: number; costCents: number; label: string }[] = [];
     const seen = new Set<string>();
     for (let index = 0; index < productIds.length; index += 1) {
       const productId = productIds[index];
       if (!productId) continue;
-      if (seen.has(productId)) throw new FormError("linha");
-      seen.add(productId);
+      const create = productId === "__new__";
+      if (!create) {
+        if (seen.has(productId)) throw new FormError("linha");
+        seen.add(productId);
+      }
       const qty = parseIntField(qtys[index] ?? null);
       const costCents = parseReais(costs[index] ?? "");
+      const label = labelKey(labels[index] ?? "");
       if (qty == null || qty < 1 || costCents == null) throw new FormError("estoque");
-      lines.push({ productId, qty, costCents, label: labelKey(labels[index] ?? "") });
+      if (create && label.length < 2) throw new FormError("dados");
+      lines.push({ productId: create ? "" : productId, create, qty, costCents, label });
     }
     if (document.length < 1 || lines.length === 0) throw new FormError("dados");
     const bill = checked(formData, "bill");
@@ -373,6 +378,21 @@ export async function savePurchase(formData: FormData) {
             VALUES (${supplierId}, ${user.accountId}, ${name}, ${phone}, ${cnpj}, ${city})
           `;
         }
+      }
+      for (const line of lines) {
+        if (!line.create) continue;
+        const productId = randomUUID();
+        await tx`
+          INSERT INTO products (
+            id, account_id, name, active, sells_to_client, is_supply,
+            sale_price_cents, commission_percent, cost_cents, min_qty, supplier_id
+          ) VALUES (
+            ${productId}, ${user.accountId}, ${line.label.slice(0, 120)}, true, false, true,
+            0, 0, ${line.costCents}, 0, ${supplierId}
+          )
+        `;
+        line.productId = productId;
+        line.create = false;
       }
       const owned = await tx<{ id: string }[]>`
         SELECT id FROM products
