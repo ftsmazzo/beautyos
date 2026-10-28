@@ -19,8 +19,8 @@ Arquitetura do dia a dia coerente (uma conta, movimento de estoque, comissão na
 | Comissão na linha + taxa cartão | Entregue | Extrato, `card_fee_share`, pacote no preço interno | Compartilhar comissão (secretária) fora | Admin / profissional |
 | Estoque / compra / NFC-e / celular | Parcial | XML/PDF, QR→SEFAZ, bridge celular, criar produto, barcode, lista mínimo | OCR sem chave; parser HTML SP-shaped; E2E cupom | Balcão |
 | Movimentos + compras + margem | Entregue | Painel movimentos, relatório compras, estoque custo/margem | Aceite operacional formal | Balcão / admin |
-| Alertas / ação | Parcial | Fila com estoque→montar compra, receber, pagar atrasado | Balcão não abre financeiro admin | Misto |
-| Financeiro (pagar/receber/bancos/fluxo) | Entregue | Tesouraria admin, compra→payable | Contrato balcão vs admin nos alertas | Admin |
+| Alertas / ação | Parcial | Fila estoque→montar compra; receber abre `/financeiro/receber` no balcão; pagar atrasado admin | Smoke S7 logado | Misto |
+| Financeiro (pagar/receber/bancos/fluxo) | Entregue | Tesouraria admin; balcão só A receber | Contas a pagar / bancos só admin | Admin / balcão |
 | Pacotes vendidos / perdão / relatório | Entregue | Filtros, idas, perdão, cobrar diferença | Smoke venda+uso no mesmo dia | Balcão |
 | Relatórios gerenciais | Entregue | Hub + detalhe (agenda, comandas, clientes, extras, financeiro, estoque) | Meta mensal de extras (adiado) | Admin / balcão |
 | Agente / Donna | Parcial | Módulo, webhook, tools; LLM opcional | Sem `OPENAI_KEY` em prod; cérebro fora deste ciclo | Admin |
@@ -77,6 +77,7 @@ CI (`tsc` / lint / build) **não** substitui isto. Só depois de `inspectAppServ
 | Atualizar `docs/06` | Feito |
 | Contrato alertas → a receber no balcão | Feito (`requireOperator` + menu A receber) |
 | Contas a pagar só admin | Mantido |
-| Smoke S1/S2 automatizado | `npx tsx scripts/smoke-cupom.mts` |
+| Smoke S1/S2 automatizado | Feito (`scripts/smoke-cupom.mts`; live SEFAZ pode SKIP por rede) |
+| Deploy SHA = HEAD | Feito (`579f025`) |
 | Smoke S3–S8 / walkthrough logado | Pendente (precisa sessão no ambiente) |
 | Escolher domínio A vs B | Depois dos P0 logados |
