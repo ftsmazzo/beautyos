@@ -10,6 +10,50 @@ type RawInvoice = {
   lines: RawLine[];
 };
 
+export type LookupResult = {
+  invoice: RawInvoice | null;
+  /** Proxy configurado mas sem itens (rede/WAF/timeout/parse). */
+  proxyFailed: boolean;
+};
+
+function normalizeLines(
+  rows: { label?: string; qty?: number; costCents?: number; unitCents?: number; barcode?: string }[] | undefined,
+): RawLine[] {
+  return (rows ?? [])
+    .map((line) => ({
+      label: String(line.label ?? "").trim().slice(0, 120),
+      qty: Math.max(1, Math.round(Number(line.qty) || 1)),
+      costCents: Math.max(0, Math.round(Number(line.costCents ?? line.unitCents) || 0)),
+      barcode: String(line.barcode ?? "").replace(/\D/g, "").slice(0, 32),
+    }))
+    .filter((line) => line.label.length >= 2);
+}
+
+function fromProxyPayload(data: {
+  html?: string;
+  supplierName?: string;
+  cnpj?: string;
+  document?: string;
+  day?: string;
+  lines?: { label?: string; qty?: number; costCents?: number; unitCents?: number; barcode?: string }[];
+}): RawInvoice | null {
+  const lines = normalizeLines(data.lines);
+  if (lines.length > 0) {
+    return {
+      supplierName: String(data.supplierName ?? "").trim(),
+      cnpj: String(data.cnpj ?? "").replace(/\D/g, ""),
+      document: String(data.document ?? "").trim(),
+      day: String(data.day ?? "").trim(),
+      lines,
+    };
+  }
+  if (typeof data.html === "string" && data.html.length > 100) {
+    const parsed = rawFromCouponText(data.html) ?? parseCouponPage(data.html);
+    if (parsed && parsed.lines.length > 0) return parsed;
+  }
+  return null;
+}
+
 /**
  * Consulta NFC-e do consumidor (sem certificado).
  *
@@ -23,9 +67,9 @@ type RawInvoice = {
  *
  * Ordem: NFCE_LOOKUP_URL (proxy BR ou API comercial) → fetch direto do app.
  */
-export async function lookupCoupon(raw: string): Promise<RawInvoice | null> {
+export async function lookupCoupon(raw: string): Promise<LookupResult> {
   const target = couponUrl(raw);
-  if (!target) return null;
+  if (!target) return { invoice: null, proxyFailed: false };
 
   const proxy = process.env.NFCE_LOOKUP_URL?.trim();
   if (proxy) {
@@ -41,53 +85,40 @@ export async function lookupCoupon(raw: string): Promise<RawInvoice | null> {
         headers,
         body: JSON.stringify({ qr: target }),
         signal: AbortSignal.timeout(90_000),
+        cache: "no-store",
       });
-      if (response.ok) {
-        const ctype = response.headers.get("content-type") ?? "";
-        if (ctype.includes("application/json")) {
-          const data = (await response.json()) as {
-            html?: string;
-            supplierName?: string;
-            cnpj?: string;
-            document?: string;
-            day?: string;
-            lines?: { label?: string; qty?: number; costCents?: number; unitCents?: number; barcode?: string }[];
-          };
-          const lines = (data.lines ?? [])
-            .map((line) => ({
-              label: String(line.label ?? "").trim().slice(0, 120),
-              qty: Math.max(1, Math.round(Number(line.qty) || 1)),
-              costCents: Math.max(0, Math.round(Number(line.costCents ?? line.unitCents) || 0)),
-              barcode: String(line.barcode ?? "").replace(/\D/g, "").slice(0, 32),
-            }))
-            .filter((line) => line.label.length >= 2);
-          if (lines.length > 0) {
-            return {
-              supplierName: String(data.supplierName ?? "").trim(),
-              cnpj: String(data.cnpj ?? "").replace(/\D/g, ""),
-              document: String(data.document ?? "").trim(),
-              day: String(data.day ?? "").trim(),
-              lines,
-            };
-          }
-          if (typeof data.html === "string" && data.html.length > 100) {
-            const parsed = rawFromCouponText(data.html) ?? parseCouponPage(data.html);
-            if (parsed && parsed.lines.length > 0) return parsed;
-          }
-        } else {
-          const html = await response.text();
-          const parsed = rawFromCouponText(html) ?? parseCouponPage(html);
-          if (parsed && parsed.lines.length > 0) return parsed;
+      const body = await response.text();
+      if (!response.ok) {
+        console.error("[nfce-lookup] proxy http", response.status, body.slice(0, 200));
+        return { invoice: null, proxyFailed: true };
+      }
+      const ctype = response.headers.get("content-type") ?? "";
+      if (ctype.includes("json") || body.trimStart().startsWith("{")) {
+        try {
+          const data = JSON.parse(body) as Parameters<typeof fromProxyPayload>[0];
+          const invoice = fromProxyPayload(data);
+          if (invoice) return { invoice, proxyFailed: false };
+          console.error("[nfce-lookup] proxy json sem itens", body.slice(0, 200));
+          return { invoice: null, proxyFailed: true };
+        } catch (error) {
+          console.error("[nfce-lookup] proxy json inválido", error);
+          return { invoice: null, proxyFailed: true };
         }
       }
-    } catch {
-      /* cai no fetch direto */
+      const parsed = rawFromCouponText(body) ?? parseCouponPage(body);
+      if (parsed && parsed.lines.length > 0) return { invoice: parsed, proxyFailed: false };
+      console.error("[nfce-lookup] proxy html sem itens", body.slice(0, 200));
+      return { invoice: null, proxyFailed: true };
+    } catch (error) {
+      console.error("[nfce-lookup] proxy falhou", error);
+      return { invoice: null, proxyFailed: true };
     }
   }
 
   try {
-    return await fetchCoupon(target);
-  } catch {
-    return null;
+    return { invoice: await fetchCoupon(target), proxyFailed: false };
+  } catch (error) {
+    console.error("[nfce-lookup] fetch direto falhou", error);
+    return { invoice: null, proxyFailed: false };
   }
 }

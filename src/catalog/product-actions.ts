@@ -301,7 +301,7 @@ export async function readCoupon(payload: string, _photoJpeg = "", _ocrText = ""
     return { ok: false as const, error: "cupom" as const };
   }
 
-  const raw = await lookupCoupon(payload);
+  const { invoice: raw, proxyFailed } = await lookupCoupon(payload);
   if (raw && raw.lines.length > 0) {
     return { ok: true as const, draft: await draftFor(user.accountId, raw), partial: false as const };
   }
@@ -319,8 +319,10 @@ export async function readCoupon(payload: string, _photoJpeg = "", _ocrText = ""
       ok: true as const,
       draft: await draftFor(user.accountId, header),
       partial: true as const,
+      proxyFailed,
     };
   }
+  if (proxyFailed) return { ok: false as const, error: "proxy" as const };
   return { ok: false as const, error: "consulta" as const };
 }
 

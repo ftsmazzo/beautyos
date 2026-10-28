@@ -55,7 +55,9 @@ export function PurchaseLaunch(props: LaunchProps) {
       setError(FORM_ERRORS[result.error] ?? FORM_ERRORS.consulta);
       return;
     }
-    if (result.partial) setNote(FORM_ERRORS.parcial);
+    if (result.partial) {
+      setNote(result.proxyFailed ? FORM_ERRORS.parcialProxy : FORM_ERRORS.parcial);
+    }
     openDraft(result.draft);
   }, [openDraft]);
   const form = <PurchaseForm {...props} />;
