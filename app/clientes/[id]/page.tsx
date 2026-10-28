@@ -162,7 +162,7 @@ export default async function ClientFormPage({
           <div className="desk-bar">
             <span className="chip">{formatPhone(person.phone)}</span>
             {brief.money.dueCents > 0 ? (
-              <Link className="chip hot" href="/comandas?lista=abertas&filtro=falta">
+              <Link className="chip hot" href="/financeiro/receber">
                 A receber {formatReais(brief.money.dueCents)}
               </Link>
             ) : null}
@@ -234,6 +234,33 @@ export default async function ClientFormPage({
                       <td>{formatReais(row.cents)}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {brief.orders.some((order) => order.paidCents < order.totalCents) ? (
+            <div className="queue" style={{ overflowX: "auto" }}>
+              <div className="desk-bar">
+                <span className="day-label">Em aberto</span>
+                <Link className="meta" href="/financeiro/receber">
+                  A receber
+                </Link>
+              </div>
+              <table>
+                <tbody>
+                  {brief.orders
+                    .filter((order) => order.paidCents < order.totalCents)
+                    .map((order) => (
+                      <tr key={`devido-${order.id}`}>
+                        <td>
+                          <Link href={`/comandas/${order.id}`}>{formatDay(order.day)}</Link>
+                        </td>
+                        <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
+                        <td>
+                          <span className="chip warn">{formatReais(order.totalCents - order.paidCents)}</span>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>

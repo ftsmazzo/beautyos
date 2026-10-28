@@ -94,7 +94,11 @@ export default async function StartPage({
         ) : null}
         {pulse && pulse.tomorrowQty > 0 ? <span className="chip">Amanhã {pulse.tomorrowQty}</span> : null}
         {dueOpen.length > 0 ? <span className="chip hot">{dueOpen.length} com falta</span> : null}
-        {receivables.length > 0 ? <span className="chip warn">A receber {formatReais(dueTotal)}</span> : null}
+        {receivables.length > 0 ? (
+          <Link className="chip warn" href="/financeiro/receber">
+            A receber {formatReais(dueTotal)}
+          </Link>
+        ) : null}
         {birthdayToday > 0 ? (
           <Link className="chip warn" href="/aniversariantes">
             {birthdayToday} aniversário{birthdayToday === 1 ? "" : "s"} hoje
@@ -337,7 +341,7 @@ export default async function StartPage({
         <div className="queue">
           <div className="queue-head">
             <h2>A receber · {formatReais(dueTotal)}</h2>
-            <Link className="meta" href="/comandas?lista=abertas&filtro=falta">
+            <Link className="meta" href="/financeiro/receber">
               {receivables.length} comanda{receivables.length === 1 ? "" : "s"}
             </Link>
           </div>
@@ -353,7 +357,7 @@ export default async function StartPage({
           ))}
           {receivables.length > 12 ? (
             <div className="queue-row">
-              <Link href="/comandas?lista=abertas&filtro=falta">Ver as {receivables.length}</Link>
+              <Link href="/financeiro/receber">Ver as {receivables.length}</Link>
             </div>
           ) : null}
         </div>

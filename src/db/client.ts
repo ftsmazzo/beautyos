@@ -599,7 +599,7 @@ async function ensureSchema() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS order_events_order_idx ON order_events (order_id, created_at)`;
   await sql`ALTER TABLE order_events DROP CONSTRAINT IF EXISTS order_events_kind_check`;
-  await sql`ALTER TABLE order_events ADD CONSTRAINT order_events_kind_check CHECK (kind IN ('valor', 'cancelamento', 'cliente'))`;
+  await sql`ALTER TABLE order_events ADD CONSTRAINT order_events_kind_check CHECK (kind IN ('valor', 'cancelamento', 'cliente', 'reabertura'))`;
   await sql`
     CREATE TABLE IF NOT EXISTS client_packages (
       id uuid PRIMARY KEY,

@@ -2090,6 +2090,17 @@ export async function reopenOrder(formData: FormData) {
       DELETE FROM cash_movements
       WHERE order_id = ${orderId} AND account_id = ${user.accountId} AND origin = 'consumo_interno'
     `;
+    await writeEvent(tx, {
+      accountId: user.accountId,
+      orderId,
+      lineId: null,
+      appointmentId: null,
+      actorId: user.id,
+      kind: "reabertura",
+      summary: "Comanda reaberta.",
+      beforeCents: null,
+      afterCents: null,
+    });
     return [{ day: order[0].day }];
   });
   const { redirect } = await import("next/navigation");
@@ -2416,7 +2427,7 @@ async function writeEvent(
     lineId: string | null;
     appointmentId: string | null;
     actorId: string;
-    kind: "valor" | "cancelamento" | "cliente";
+    kind: "valor" | "cancelamento" | "cliente" | "reabertura";
     summary: string;
     beforeCents: number | null;
     afterCents: number | null;

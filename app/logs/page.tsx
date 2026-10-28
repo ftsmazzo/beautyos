@@ -13,6 +13,7 @@ const KIND_WORD: Record<string, string> = {
   valor: "Valor",
   cancelamento: "Cancelamento",
   cliente: "Cliente",
+  reabertura: "Reabertura",
 };
 
 const KINDS = [
@@ -20,6 +21,7 @@ const KINDS = [
   { id: "valor", label: "Valor" },
   { id: "cliente", label: "Cliente" },
   { id: "cancelamento", label: "Cancelamento" },
+  { id: "reabertura", label: "Reabertura" },
 ] as const;
 
 export default async function LogsPage({

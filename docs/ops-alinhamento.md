@@ -80,4 +80,6 @@ CI (`tsc` / lint / build) **não** substitui isto. Só depois de `inspectAppServ
 | Smoke S1/S2 automatizado | Feito (`scripts/smoke-cupom.mts`; live SEFAZ pode SKIP por rede) |
 | Deploy SHA = HEAD | Feito (`579f025`) |
 | Smoke S3–S8 / walkthrough logado | Pendente (precisa sessão no ambiente) |
-| Escolher domínio A vs B | Depois dos P0 logados |
+| Domínio A: alertas/papel + atalhos A receber | Feito (pagar só admin; início/cliente → receber) |
+| Domínio B: log de reabertura | Feito (`order_events.kind = reabertura`) |
+| Escolher próximo corte | Depois dos P0 logados |

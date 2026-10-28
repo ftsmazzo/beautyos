@@ -733,7 +733,13 @@ export default async function OrderPage({
               <div className="queue-row" key={row.id}>
                 <span>{row.at}</span>
                 <strong>
-                  {row.kind === "valor" ? "Valor" : row.kind === "cliente" ? "Cliente" : "Cancelamento"}
+                  {row.kind === "valor"
+                    ? "Valor"
+                    : row.kind === "cliente"
+                      ? "Cliente"
+                      : row.kind === "reabertura"
+                        ? "Reabertura"
+                        : "Cancelamento"}
                 </strong>
                 {row.actorName ? <span>{row.actorName}</span> : null}
                 <span>{row.summary}</span>

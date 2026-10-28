@@ -629,12 +629,16 @@ export async function actionQueue(accountId: string, today: string, admin = fals
       count: gaps[0]?.qty ?? 0,
       href: "/financeiro/receber",
     },
-    {
-      id: "pagar",
-      label: "Contas atrasadas",
-      count: bills[0]?.qty ?? 0,
-      href: "/financeiro?filtro=atrasado",
-    },
+    ...(admin
+      ? [
+          {
+            id: "pagar",
+            label: "Contas atrasadas",
+            count: bills[0]?.qty ?? 0,
+            href: "/financeiro?filtro=atrasado",
+          } satisfies ActionRow,
+        ]
+      : []),
     { id: "faltas", label: "Faltas na semana", count: absent[0]?.qty ?? 0, href: `/relatorios/agenda?de=${week.start}&ate=${weekEnd}` },
     { id: "chamar", label: "Chamar", count: silent.filter((row) => row.days < LOST_AFTER).length, href: `/relatorios/clientes?de=${from}&ate=${today}` },
     { id: "sumidos", label: "Sumidos", count: silent.filter((row) => row.days >= LOST_AFTER).length, href: `/relatorios/clientes?de=${from}&ate=${today}&lista=sumidos` },
