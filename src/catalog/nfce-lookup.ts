@@ -40,7 +40,7 @@ export async function lookupCoupon(raw: string): Promise<RawInvoice | null> {
         method: "POST",
         headers,
         body: JSON.stringify({ qr: target }),
-        signal: AbortSignal.timeout(25_000),
+        signal: AbortSignal.timeout(90_000),
       });
       if (response.ok) {
         const ctype = response.headers.get("content-type") ?? "";
@@ -53,10 +53,6 @@ export async function lookupCoupon(raw: string): Promise<RawInvoice | null> {
             day?: string;
             lines?: { label?: string; qty?: number; costCents?: number; unitCents?: number; barcode?: string }[];
           };
-          if (typeof data.html === "string" && data.html.length > 100) {
-            const parsed = rawFromCouponText(data.html) ?? parseCouponPage(data.html);
-            if (parsed && parsed.lines.length > 0) return parsed;
-          }
           const lines = (data.lines ?? [])
             .map((line) => ({
               label: String(line.label ?? "").trim().slice(0, 120),
@@ -73,6 +69,10 @@ export async function lookupCoupon(raw: string): Promise<RawInvoice | null> {
               day: String(data.day ?? "").trim(),
               lines,
             };
+          }
+          if (typeof data.html === "string" && data.html.length > 100) {
+            const parsed = rawFromCouponText(data.html) ?? parseCouponPage(data.html);
+            if (parsed && parsed.lines.length > 0) return parsed;
           }
         } else {
           const html = await response.text();
