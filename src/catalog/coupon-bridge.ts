@@ -28,14 +28,22 @@ export async function couponLinkOpen(token: string) {
   return rows.length > 0;
 }
 
+/** Celular envia o texto do QR. Foto é opcional (só preview no balcão). */
 export async function sendCouponPhoto(token: string, jpeg: string, qr: string) {
   await databaseReady();
   if (!TOKEN.test(token)) return { ok: false as const };
-  const raw = jpeg.replace(/^data:image\/jpeg;base64,/, "");
-  if (raw.length < 100 || raw.length > 1_200_000) return { ok: false as const };
-  const photo = Buffer.from(raw, "base64");
-  if (photo.length < 80 || photo.length > 900_000) return { ok: false as const };
   const code = qr.trim().slice(0, 1500);
+  if (code.length < 12) return { ok: false as const };
+
+  let photo: Buffer | null = null;
+  if (jpeg) {
+    const raw = jpeg.replace(/^data:image\/jpeg;base64,/, "");
+    if (raw.length >= 100 && raw.length <= 1_200_000) {
+      const bytes = Buffer.from(raw, "base64");
+      if (bytes.length >= 80 && bytes.length <= 900_000) photo = bytes;
+    }
+  }
+
   const updated = await db()`
     UPDATE coupon_drops
     SET photo = ${photo}, qr = ${code}
@@ -52,12 +60,19 @@ export async function pullCouponShot(token: string) {
     SELECT photo, qr FROM coupon_drops
     WHERE token = ${token}
       AND account_id = ${user.accountId}
-      AND photo IS NOT NULL
+      AND qr IS NOT NULL
+      AND length(trim(qr)) > 0
       AND expires_at > now()
   `;
-  const row = rows[0] as { photo: Buffer | Uint8Array; qr: string | null } | undefined;
+  const row = rows[0] as { photo: Buffer | Uint8Array | null; qr: string | null } | undefined;
   if (!row) return null;
   await db()`DELETE FROM coupon_drops WHERE token = ${token} AND account_id = ${user.accountId}`;
-  const bytes = Buffer.isBuffer(row.photo) ? row.photo : Buffer.from(row.photo);
-  return { photo: `data:image/jpeg;base64,${bytes.toString("base64")}`, qr: String(row.qr ?? "") };
+  const qr = String(row.qr ?? "").trim();
+  if (!qr) return null;
+  let photo = "";
+  if (row.photo) {
+    const bytes = Buffer.isBuffer(row.photo) ? row.photo : Buffer.from(row.photo);
+    if (bytes.length > 0) photo = `data:image/jpeg;base64,${bytes.toString("base64")}`;
+  }
+  return { photo, qr };
 }

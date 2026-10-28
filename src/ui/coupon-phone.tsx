@@ -4,18 +4,80 @@ import { useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { sendCouponPhoto } from "@/catalog/coupon-bridge";
 
-function frameCode(video: HTMLVideoElement) {
+type Detector = { detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue: string }>> };
+
+function grabFrame(video: HTMLVideoElement, maxSide = 1600) {
   const canvas = document.createElement("canvas");
   const longest = Math.max(video.videoWidth, video.videoHeight);
-  const scale = longest > 1400 ? 1400 / longest : 1;
+  const scale = longest > maxSide ? maxSide / longest : 1;
   canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
   canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return { jpeg: "", qr: "" };
+  if (!ctx) return null;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const found = jsQR(image.data, image.width, image.height, { inversionAttempts: "attemptBoth" });
-  return { jpeg: canvas.toDataURL("image/jpeg", 0.72), qr: found?.data ?? "" };
+  return { canvas, ctx, width: canvas.width, height: canvas.height };
+}
+
+function jsFromRegion(
+  ctx: CanvasRenderingContext2D,
+  sx: number,
+  sy: number,
+  sw: number,
+  sh: number,
+  zoom = 1,
+) {
+  const w = Math.max(1, Math.round(sw * zoom));
+  const h = Math.max(1, Math.round(sh * zoom));
+  const crop = document.createElement("canvas");
+  crop.width = w;
+  crop.height = h;
+  const cropCtx = crop.getContext("2d", { willReadFrequently: true });
+  if (!cropCtx) return "";
+  cropCtx.imageSmoothingEnabled = false;
+  cropCtx.drawImage(ctx.canvas, sx, sy, sw, sh, 0, 0, w, h);
+  const image = cropCtx.getImageData(0, 0, w, h);
+  return jsQR(image.data, image.width, image.height, { inversionAttempts: "attemptBoth" })?.data ?? "";
+}
+
+async function readQr(video: HTMLVideoElement, detector: Detector | null) {
+  if (detector) {
+    try {
+      const codes = await detector.detect(video);
+      const value = codes.find((item) => item.rawValue)?.rawValue?.trim();
+      if (value) return value;
+    } catch {
+      /* cai no jsQR */
+    }
+  }
+  const frame = grabFrame(video);
+  if (!frame) return "";
+  const { ctx, width, height } = frame;
+  const full = jsFromRegion(ctx, 0, 0, width, height, 1);
+  if (full) return full;
+  // QR pequeno no cupom: zoom no centro e nos quadrantes
+  const cw = Math.round(width * 0.55);
+  const ch = Math.round(height * 0.55);
+  const cx = Math.round((width - cw) / 2);
+  const cy = Math.round((height - ch) / 2);
+  const center = jsFromRegion(ctx, cx, cy, cw, ch, 2.2);
+  if (center) return center;
+  const pads = [
+    [0, 0],
+    [width - cw, 0],
+    [0, height - ch],
+    [width - cw, height - ch],
+  ] as const;
+  for (const [x, y] of pads) {
+    const hit = jsFromRegion(ctx, x, y, cw, ch, 2);
+    if (hit) return hit;
+  }
+  return "";
+}
+
+function thumb(video: HTMLVideoElement) {
+  const frame = grabFrame(video, 640);
+  if (!frame) return "";
+  return frame.canvas.toDataURL("image/jpeg", 0.55);
 }
 
 export function CouponPhone({ token }: { token: string }) {
@@ -24,29 +86,48 @@ export function CouponPhone({ token }: { token: string }) {
   const [blocked, setBlocked] = useState(false);
   const [done, setDone] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [hint, setHint] = useState("Aponte para o QR do cupom — não precisa aproximar até embacar.");
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     let frame = 0;
     let last = 0;
     let stopped = false;
+    let detector: Detector | null = null;
+    const DetectorCtor = (window as unknown as { BarcodeDetector?: new (opts: { formats: string[] }) => Detector }).BarcodeDetector;
+    if (DetectorCtor) {
+      try {
+        detector = new DetectorCtor({ formats: ["qr_code"] });
+      } catch {
+        detector = null;
+      }
+    }
+
     const tick = (now: number) => {
       if (stopped || sent.current) return;
       const video = videoRef.current;
-      if (video && video.videoWidth > 0 && now - last > 280) {
+      if (video && video.videoWidth > 0 && now - last > 220) {
         last = now;
-        const shot = frameCode(video);
-        if (shot.qr) {
+        void readQr(video, detector).then((qr) => {
+          if (stopped || sent.current || !qr) return;
           sent.current = true;
           stopped = true;
-          void deliver(shot.jpeg, shot.qr);
-          return;
-        }
+          setHint("QR lido. Enviando ao balcão…");
+          void deliver(qr);
+        });
       }
       frame = requestAnimationFrame(tick);
     };
+
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+      .getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: false,
+      })
       .then(async (next) => {
         stream = next;
         if (stopped) {
@@ -62,6 +143,7 @@ export function CouponPhone({ token }: { token: string }) {
       .catch(() => {
         if (!stopped) setBlocked(true);
       });
+
     return () => {
       stopped = true;
       cancelAnimationFrame(frame);
@@ -69,37 +151,31 @@ export function CouponPhone({ token }: { token: string }) {
     };
   }, [token]);
 
-  async function deliver(jpeg: string, qr: string) {
+  async function deliver(qr: string) {
     const video = videoRef.current;
+    const jpeg = video && video.videoWidth > 0 ? thumb(video) : "";
     const stream = video?.srcObject;
     if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
     const result = await sendCouponPhoto(token, jpeg, qr);
     if (!result.ok) {
       sent.current = false;
       setFailed(true);
+      setHint("Não chegou ao balcão. Gere outro código lá.");
       return;
     }
     setDone(true);
   }
 
-  async function sendNow() {
-    const video = videoRef.current;
-    if (!video || sent.current || video.videoWidth === 0) return;
-    sent.current = true;
-    const shot = frameCode(video);
-    await deliver(shot.jpeg, shot.qr);
-  }
-
   if (done) {
-    return <p className="ok banner">Foto no balcão. Pode fechar esta página.</p>;
+    return <p className="ok banner">QR no balcão. Pode fechar esta página.</p>;
   }
 
   return (
     <div className="coupon-phone">
       <video ref={videoRef} playsInline muted autoPlay />
+      <p className="desk-hint">{hint}</p>
       {blocked ? <p className="error">A câmera do celular não abriu. Libere o acesso e recarregue.</p> : null}
-      {failed ? <p className="error">A foto não chegou. Gere outro código no balcão.</p> : null}
-      <button className="btn teal" type="button" onClick={() => void sendNow()}>Enviar foto</button>
+      {failed ? <p className="error">O QR não chegou. Gere outro código no balcão.</p> : null}
     </div>
   );
 }

@@ -52,7 +52,7 @@ export function CouponScan({
   return (
     <div className="coupon-pair">
       <div dangerouslySetInnerHTML={{ __html: svg }} />
-      <p className="desk-hint">Aponte a câmera do celular para este código. A foto do cupom chega nesta tela.</p>
+      <p className="desk-hint">Escaneie este código no celular. Depois aponte para o QR do cupom — o texto do QR chega aqui, sem depender da foto.</p>
       <button className="btn quiet" type="button" onClick={() => { setToken(""); setSvg(""); }}>
         Fechar
       </button>
