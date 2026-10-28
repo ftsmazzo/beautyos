@@ -79,10 +79,10 @@ CI (`tsc` / lint / build) **não** substitui isto. Só depois de `inspectAppServ
 | Contas a pagar só admin | Mantido |
 | Smoke S1/S2 automatizado | Feito (`scripts/smoke-cupom.mts`; live SEFAZ pode SKIP por rede) |
 | Deploy SHA = HEAD | Feito (`579f025`) |
-| Smoke S3–S8 / walkthrough logado | Parcial (admin+balcão; falta cupom celular + abater crédito na comanda) |
+| Smoke S3–S8 / walkthrough logado | Parcial (admin+balcão; falta só cupom celular) |
 | Domínio A: alertas/papel + atalhos A receber | Feito + prova E2E admin e balcão |
 | Domínio B: log de reabertura | Feito + prova E2E (histórico + Logs) |
-| Escolher próximo corte | Cupom celular / abater pacote, ou fechar sprint |
+| Escolher próximo corte | Cupom celular, ou fechar sprint |
 
 ### Prova admin (2026-10-28)
 
@@ -107,4 +107,5 @@ Criado usuário `balcao.smoke@beautyos.test` (papel Balcão) — casa só tinha 
 | S7 `/financeiro/receber` | PASS lista 4 · R$320 |
 | S7 `/financeiro` (pagar) | PASS redireciona para `/inicio` |
 | S7 alertas | PASS só “Falta receber” → receber; sem contas atrasadas |
-| P0.3 visita pacote | PASS Barba agendada 29/10 09:00 (abate na execução ainda pendente) |
+| P0.3 visita pacote | PASS Barba 29/10 → Realizado abate crédito (5/6); linha R$0 na comanda |
+| Correção | `236c606` — visita futura sem linha passava Realizado sem abater |
