@@ -1,11 +1,12 @@
 /**
- * Proxy mínimo de consulta NFC-e para rodar em IP brasileiro.
- * Uso: NFCE_LOOKUP_URL=https://seu-host/lookup  TOKEN=... node server.mjs
+ * Proxy NFC-e no PC (IP residencial). Usa Chromium — fetch Node é bloqueado pela WAF da SEFAZ.
  *
- * POST /lookup  { "qr": "https://...gov.br/..." }
- * → text/html do portal (o BeautyOS faz o parse) ou 502 se a SEFAZ rejeitar.
+ *   $env:HOST="10.66.66.1"; $env:PORT="8787"; $env:TOKEN="segredo"; node server.mjs
+ *
+ * POST /lookup  { "qr": "https://...gov.br/..." }  → HTML do portal
  */
 import http from "node:http";
+import { chromium } from "playwright";
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = (process.env.HOST || "127.0.0.1").trim();
@@ -23,28 +24,30 @@ function allow(url) {
 }
 
 async function pull(qr) {
-  const response = await fetch(qr, {
-    redirect: "follow",
-    headers: {
-      Accept: "text/html,application/xhtml+xml",
-      "Accept-Language": "pt-BR,pt;q=0.9",
-      "User-Agent":
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({
+      userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
-  const html = await response.text();
-  if (!response.ok) throw new Error(`http_${response.status}`);
-  if (/request rejected|access denied|captcha/i.test(html.slice(0, 2_000))) {
-    throw new Error("sefaz_blocked");
+      locale: "pt-BR",
+    });
+    const response = await page.goto(qr, { waitUntil: "domcontentloaded", timeout: 25_000 });
+    await page.waitForTimeout(800);
+    const html = await page.content();
+    const status = response?.status() ?? 0;
+    if (status && status >= 400) throw new Error(`http_${status}`);
+    if (/request rejected|access denied/i.test(html.slice(0, 2_000))) throw new Error("sefaz_blocked");
+    if (html.length < 400) throw new Error("empty");
+    return html;
+  } finally {
+    await browser.close();
   }
-  return html;
 }
 
 const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, service: "nfce-proxy" }));
+    res.end(JSON.stringify({ ok: true, service: "nfce-proxy", engine: "playwright" }));
     return;
   }
   if (req.method !== "POST" || req.url !== "/lookup") {
@@ -86,5 +89,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`nfce-proxy em http://${HOST}:${PORT}/lookup`);
+  console.log(`nfce-proxy (playwright) em http://${HOST}:${PORT}/lookup`);
 });
