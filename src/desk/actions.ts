@@ -212,7 +212,7 @@ export async function setStatus(formData: FormData) {
   } else {
     await db().begin(async (tx) => {
       await markAttendance(tx, user.accountId, appointmentId, status);
-      if (status === "realizado") await finishPackageVisit(tx, user.accountId, appointmentId);
+      if (status === "realizado") await finishPackageVisit(tx, user.accountId, appointmentId, user.id);
       await applyServiceUse(tx, user.accountId, appointmentId, user.id);
     });
   }
@@ -599,7 +599,12 @@ async function applyServiceUse(tx: TransactionSql, accountId: string, appointmen
   }
 }
 
-async function finishPackageVisit(tx: TransactionSql, accountId: string, appointmentId: string) {
+async function finishPackageVisit(
+  tx: TransactionSql,
+  accountId: string,
+  appointmentId: string,
+  actorId: string,
+) {
   const lines = await tx<{ packageCreditId: string; day: string }[]>`
     SELECT l.package_credit_id AS "packageCreditId", to_char(o.day, 'YYYY-MM-DD') AS day
     FROM order_lines l
@@ -635,6 +640,108 @@ async function finishPackageVisit(tx: TransactionSql, accountId: string, appoint
     if ((left[0]?.n ?? 0) === 0) {
       await tx`UPDATE client_packages SET status = 'concluido' WHERE id = ${credit[0].clientPackageId}`;
     }
+  }
+
+  // Visita futura de pacote: só appointment + credit, sem linha — Realizado precisa abrir a comanda e abater.
+  const hanging = await tx<{
+    creditId: string;
+    clientPackageId: string;
+    serviceId: string;
+    serviceName: string;
+    internalPriceCents: number;
+    clientId: string;
+    professionalId: string;
+    day: string;
+    start: string;
+    started: boolean;
+    validityDays: number;
+  }[]>`
+    SELECT c.id AS "creditId", c.client_package_id AS "clientPackageId",
+           c.service_id AS "serviceId", s.name AS "serviceName",
+           c.internal_price_cents AS "internalPriceCents",
+           cp.client_id AS "clientId", a.professional_id AS "professionalId",
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM-DD') AS day,
+           to_char(a.starts_at AT TIME ZONE 'America/Sao_Paulo', 'HH24:MI') AS start,
+           cp.first_used_on IS NOT NULL AS started, cp.validity_days AS "validityDays"
+    FROM package_credits c
+    JOIN client_packages cp ON cp.id = c.client_package_id
+    JOIN services s ON s.id = c.service_id
+    JOIN appointments a ON a.id = c.appointment_id
+    WHERE c.account_id = ${accountId}
+      AND c.appointment_id = ${appointmentId}
+      AND c.status = 'agendado'
+      AND c.order_line_id IS NULL
+      AND cp.status = 'ativo'
+  `;
+  for (const row of hanging) {
+    const offer = await tx<{ commissionPercent: number; priceCents: number }[]>`
+      SELECT COALESCE(ps.commission_percent, s.commission_percent) AS "commissionPercent",
+             COALESCE(ps.price_cents, s.price_cents) AS "priceCents"
+      FROM services s
+      JOIN professional_services ps ON ps.service_id = s.id AND ps.professional_id = ${row.professionalId}
+      WHERE s.id = ${row.serviceId} AND s.account_id = ${accountId}
+    `;
+    if (!offer[0]) continue;
+    const existing = await tx<{ id: string; status: string }[]>`
+      SELECT id, status FROM orders
+      WHERE account_id = ${accountId} AND client_id = ${row.clientId}
+        AND day = ${row.day}::date AND kind = 'cliente'
+    `;
+    if (existing[0]?.status === "fechada") continue;
+    const orderId = existing[0]?.id ?? randomUUID();
+    if (!existing[0]) {
+      await tx`
+        INSERT INTO orders (id, account_id, client_id, day, kind, status)
+        VALUES (${orderId}, ${accountId}, ${row.clientId}, ${row.day}::date, 'cliente', 'aberta')
+      `;
+    }
+    const lineId = randomUUID();
+    const commission = Math.round(row.internalPriceCents * offer[0].commissionPercent / 100);
+    await tx`
+      UPDATE appointments SET order_id = ${orderId}
+      WHERE id = ${appointmentId} AND account_id = ${accountId}
+    `;
+    await tx`
+      INSERT INTO order_lines (
+        id, account_id, order_id, appointment_id, kind, service_id, professional_id,
+        description, qty, price_cents, list_price_cents, commission_percent, commission_cents, package_credit_id
+      ) VALUES (
+        ${lineId}, ${accountId}, ${orderId}, ${appointmentId}, 'servico', ${row.serviceId}, ${row.professionalId},
+        ${row.serviceName}, 1, 0, ${offer[0].priceCents}, ${offer[0].commissionPercent}, ${commission}, ${row.creditId}
+      )
+    `;
+    await stampReferral(tx, accountId, orderId, lineId, row.internalPriceCents);
+    await tx`
+      UPDATE package_credits
+      SET status = 'usado', order_line_id = ${lineId}, appointment_id = ${appointmentId}, used_on = ${row.day}::date
+      WHERE id = ${row.creditId}
+    `;
+    if (!row.started) {
+      await tx`
+        UPDATE client_packages
+        SET first_used_on = ${row.day}::date,
+            valid_until = ${shiftDay(row.day, row.validityDays)}::date
+        WHERE id = ${row.clientPackageId} AND first_used_on IS NULL
+      `;
+    }
+    const left = await tx<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM package_credits
+      WHERE client_package_id = ${row.clientPackageId} AND status <> 'usado'
+    `;
+    if ((left[0]?.n ?? 0) === 0) {
+      await tx`UPDATE client_packages SET status = 'concluido' WHERE id = ${row.clientPackageId}`;
+    }
+    await writeEvent(tx, {
+      accountId,
+      orderId,
+      lineId,
+      appointmentId,
+      actorId,
+      kind: "valor",
+      summary: `Usou ${row.serviceName} do pacote em ${formatDay(row.day)} ${row.start}. Cobrança zerada. Comissão ${formatReais(commission)} sobre o interno ${formatReais(row.internalPriceCents)}.`,
+      beforeCents: offer[0].priceCents,
+      afterCents: 0,
+    });
   }
 }
 
@@ -2578,7 +2685,7 @@ export async function paintSlot(input: { id: string; status: string }) {
         await tx`DELETE FROM order_lines WHERE appointment_id = ${id} AND account_id = ${user.accountId}`;
       } else {
         await markAttendance(tx, user.accountId, id, input.status);
-        if (input.status === "realizado") await finishPackageVisit(tx, user.accountId, id);
+        if (input.status === "realizado") await finishPackageVisit(tx, user.accountId, id, user.id);
         await applyServiceUse(tx, user.accountId, id, user.id);
       }
     });
