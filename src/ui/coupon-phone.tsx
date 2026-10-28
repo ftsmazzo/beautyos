@@ -81,52 +81,13 @@ async function readQr(video: HTMLVideoElement, detector: Detector | null) {
   return "";
 }
 
-function shot(video: HTMLVideoElement) {
-  const frame = grabFrame(video, 1600);
-  if (!frame) return "";
-  return frame.canvas.toDataURL("image/jpeg", 0.82);
-}
-
-async function trySefazHtml(url: string) {
-  try {
-    const response = await fetch(url, {
-      mode: "cors",
-      redirect: "follow",
-      signal: AbortSignal.timeout(10_000),
-      headers: { Accept: "text/html,application/xhtml+xml" },
-    });
-    if (!response.ok) return "";
-    const text = await response.text();
-    if (text.length < 200 || /request rejected|access denied|captcha/i.test(text.slice(0, 800))) return "";
-    return text.slice(0, 400_000);
-  } catch {
-    return "";
-  }
-}
-
-async function ocrJpeg(dataUrl: string) {
-  if (!dataUrl) return "";
-  try {
-    const { createWorker } = await import("tesseract.js");
-    const worker = await createWorker("por");
-    try {
-      const { data } = await worker.recognize(dataUrl);
-      return String(data.text ?? "").slice(0, 40_000);
-    } finally {
-      await worker.terminate();
-    }
-  } catch {
-    return "";
-  }
-}
-
 export function CouponPhone({ token }: { token: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sent = useRef(false);
   const [blocked, setBlocked] = useState(false);
   const [done, setDone] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [hint, setHint] = useState("Aponte para o QR da NFC-e. Em seguida o celular lê os itens do cupom.");
+  const [hint, setHint] = useState("Aponte para o QR da NFC-e. O celular envia o link .gov.br ao balcão.");
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -153,7 +114,7 @@ export function CouponPhone({ token }: { token: string }) {
           sent.current = true;
           stopped = true;
           const host = couponHost(qr);
-          setHint(host ? `QR lido (${host}). Lendo os produtos…` : "QR lido. Lendo os produtos…");
+          setHint(host ? `QR lido (${host}). Enviando o link…` : "QR lido. Enviando o link…");
           void deliver(qr);
         });
       }
@@ -194,27 +155,20 @@ export function CouponPhone({ token }: { token: string }) {
 
   async function deliver(qr: string) {
     const video = videoRef.current;
-    const jpeg = video && video.videoWidth > 0 ? shot(video) : "";
     const stream = video?.srcObject;
     if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
-
-    setHint("Extraindo os itens do cupom no celular…");
-    const [html, ocr] = await Promise.all([trySefazHtml(qr), ocrJpeg(jpeg)]);
-    if (!ocr && !html) setHint("Enviando o QR ao balcão…");
-    else setHint("Itens lidos. Enviando ao balcão…");
-
-    const result = await sendCouponPhoto(token, jpeg, qr, ocr, html);
+    const result = await sendCouponPhoto(token, "", qr, "", "");
     if (!result.ok) {
       sent.current = false;
       setFailed(true);
-      setHint("Não chegou ao balcão. Gere outro código lá.");
+      setHint("O link não chegou ao balcão. Gere outro código lá.");
       return;
     }
     setDone(true);
   }
 
   if (done) {
-    return <p className="ok banner">Cupom no balcão. Pode fechar esta página.</p>;
+    return <p className="ok banner">Link do QR no balcão. Pode fechar esta página.</p>;
   }
 
   return (

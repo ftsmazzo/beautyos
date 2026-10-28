@@ -7,12 +7,12 @@ import { checked, digits, parseIntField, parsePercent, parseReais, staffPriceCen
 import {
   couponUrl,
   draftFromRaw,
-  fetchCoupon,
   mergeCouponRaw,
   rawFromCouponQr,
   rawFromCouponText,
   readInvoiceFile,
 } from "@/catalog/invoice";
+import { lookupCoupon } from "@/catalog/nfce-lookup";
 import { listProducts, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 
 const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
@@ -294,19 +294,14 @@ async function draftFor(
   return draft;
 }
 
-export async function readCoupon(payload: string, photoJpeg = "", ocrText = "", htmlText = "") {
+export async function readCoupon(payload: string, _photoJpeg = "", _ocrText = "", htmlText = "") {
   const user = await requireOperator();
   const header = rawFromCouponQr(payload);
   if (!couponUrl(payload) && !header) {
     return { ok: false as const, error: "cupom" as const };
   }
 
-  let raw: Awaited<ReturnType<typeof fetchCoupon>> = null;
-  try {
-    raw = await fetchCoupon(payload);
-  } catch {
-    raw = null;
-  }
+  const raw = await lookupCoupon(payload);
   if (raw && raw.lines.length > 0) {
     return { ok: true as const, draft: await draftFor(user.accountId, raw), partial: false as const };
   }
@@ -316,25 +311,6 @@ export async function readCoupon(payload: string, photoJpeg = "", ocrText = "", 
     const merged = mergeCouponRaw(header, fromHtml);
     if (merged && merged.lines.length > 0) {
       return { ok: true as const, draft: await draftFor(user.accountId, merged), partial: false as const };
-    }
-  }
-
-  if (ocrText) {
-    const fromOcr = rawFromCouponText(ocrText);
-    const merged = mergeCouponRaw(header, fromOcr);
-    if (merged && merged.lines.length > 0) {
-      return { ok: true as const, draft: await draftFor(user.accountId, merged), partial: false as const };
-    }
-  }
-
-  if (photoJpeg.startsWith("data:image/")) {
-    const bytes = Buffer.from(photoJpeg.replace(/^data:image\/\w+;base64,/, ""), "base64");
-    if (bytes.length > 80 && bytes.length < 1_200_000) {
-      const fromPhoto = await readInvoiceFile("cupom.jpg", "image/jpeg", bytes);
-      const merged = mergeCouponRaw(header, fromPhoto);
-      if (merged && merged.lines.length > 0) {
-        return { ok: true as const, draft: await draftFor(user.accountId, merged), partial: false as const };
-      }
     }
   }
 

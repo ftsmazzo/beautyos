@@ -52,7 +52,7 @@ export function CouponScan({
   return (
     <div className="coupon-pair">
       <div dangerouslySetInnerHTML={{ __html: svg }} />
-      <p className="desk-hint">Escaneie no celular e aponte para o QR da NFC-e. O aparelho lê o link e os itens do cupom.</p>
+      <p className="desk-hint">Escaneie no celular e aponte para o QR da NFC-e. O link .gov.br vem para cá; os itens saem da consulta SEFAZ ou do XML.</p>
       <button className="btn quiet" type="button" onClick={() => { setToken(""); setSvg(""); }}>
         Fechar
       </button>
