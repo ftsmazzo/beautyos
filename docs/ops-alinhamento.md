@@ -79,10 +79,10 @@ CI (`tsc` / lint / build) **não** substitui isto. Só depois de `inspectAppServ
 | Contas a pagar só admin | Mantido |
 | Smoke S1/S2 automatizado | Feito (`scripts/smoke-cupom.mts`; live SEFAZ pode SKIP por rede) |
 | Deploy SHA = HEAD | Feito (`579f025`) |
-| Smoke S3–S8 / walkthrough logado | Parcial (admin em `78024e8`; falta login balcão + cupom celular) |
-| Domínio A: alertas/papel + atalhos A receber | Feito (pagar só admin; início/cliente → receber) |
+| Smoke S3–S8 / walkthrough logado | Parcial (admin+balcão; falta cupom celular + abater crédito na comanda) |
+| Domínio A: alertas/papel + atalhos A receber | Feito + prova E2E admin e balcão |
 | Domínio B: log de reabertura | Feito + prova E2E (histórico + Logs) |
-| Escolher próximo corte | Depois do S7 balcão |
+| Escolher próximo corte | Cupom celular / abater pacote, ou fechar sprint |
 
 ### Prova admin (2026-10-28)
 
@@ -94,7 +94,17 @@ CI (`tsc` / lint / build) **não** substitui isto. Só depois de `inspectAppServ
 | P0.5 Parcial | PASS “Falta R$30” após só o pix |
 | Fechar/reabrir + log | PASS Histórico “Reabertura”; Logs filtro |
 | S7 admin alertas | PASS “Falta receber” → `/financeiro/receber` |
-| S7 balcão | Pendente (trocar sessão) |
 | S3 bridge celular | UI “Ler no celular” ok; leitura real pendente |
-| P0.3 crédito pacote | Pendente nesta rodada |
 | P0.6 NFC-e live | Pendente (rede SEFAZ / celular) |
+
+### Prova balcão (2026-10-28)
+
+Criado usuário `balcao.smoke@beautyos.test` (papel Balcão) — casa só tinha admin.
+
+| ID | Resultado |
+|----|-----------|
+| S7 menu | PASS Financeiro só “A receber” (sem A pagar/bancos/fluxo) |
+| S7 `/financeiro/receber` | PASS lista 4 · R$320 |
+| S7 `/financeiro` (pagar) | PASS redireciona para `/inicio` |
+| S7 alertas | PASS só “Falta receber” → receber; sem contas atrasadas |
+| P0.3 visita pacote | PASS Barba agendada 29/10 09:00 (abate na execução ainda pendente) |
