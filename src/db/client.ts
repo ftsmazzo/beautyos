@@ -787,6 +787,8 @@ async function ensureSchema() {
       expires_at timestamptz NOT NULL
     )
   `;
+  await sql`ALTER TABLE coupon_drops ADD COLUMN IF NOT EXISTS ocr text`;
+  await sql`ALTER TABLE coupon_drops ADD COLUMN IF NOT EXISTS html text`;
   const legacyFees = await sql<{ id: string; debit: number; credit: number }[]>`
     SELECT a.id, a.card_debit_percent AS debit, a.card_credit_percent AS credit
     FROM accounts a

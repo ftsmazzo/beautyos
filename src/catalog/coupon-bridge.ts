@@ -28,8 +28,8 @@ export async function couponLinkOpen(token: string) {
   return rows.length > 0;
 }
 
-/** Celular envia o texto do QR. Foto é opcional (só preview no balcão). */
-export async function sendCouponPhoto(token: string, jpeg: string, qr: string) {
+/** Celular envia o link do QR + OCR/HTML dos itens quando a SEFAZ não abre no servidor. */
+export async function sendCouponPhoto(token: string, jpeg: string, qr: string, ocr = "", html = "") {
   await databaseReady();
   if (!TOKEN.test(token)) return { ok: false as const };
   const code = qr.trim().slice(0, 1500);
@@ -38,15 +38,18 @@ export async function sendCouponPhoto(token: string, jpeg: string, qr: string) {
   let photo: Buffer | null = null;
   if (jpeg) {
     const raw = jpeg.replace(/^data:image\/jpeg;base64,/, "");
-    if (raw.length >= 100 && raw.length <= 1_200_000) {
+    if (raw.length >= 100 && raw.length <= 1_800_000) {
       const bytes = Buffer.from(raw, "base64");
-      if (bytes.length >= 80 && bytes.length <= 900_000) photo = bytes;
+      if (bytes.length >= 80 && bytes.length <= 1_200_000) photo = bytes;
     }
   }
 
+  const ocrText = ocr.trim().slice(0, 40_000);
+  const htmlText = html.trim().slice(0, 400_000);
+
   const updated = await db()`
     UPDATE coupon_drops
-    SET photo = ${photo}, qr = ${code}
+    SET photo = ${photo}, qr = ${code}, ocr = ${ocrText || null}, html = ${htmlText || null}
     WHERE token = ${token} AND expires_at > now()
     RETURNING token
   `;
@@ -57,14 +60,19 @@ export async function pullCouponShot(token: string) {
   const user = await requireOperator();
   if (!TOKEN.test(token)) return null;
   const rows = await db()`
-    SELECT photo, qr FROM coupon_drops
+    SELECT photo, qr, ocr, html FROM coupon_drops
     WHERE token = ${token}
       AND account_id = ${user.accountId}
       AND qr IS NOT NULL
       AND length(trim(qr)) > 0
       AND expires_at > now()
   `;
-  const row = rows[0] as { photo: Buffer | Uint8Array | null; qr: string | null } | undefined;
+  const row = rows[0] as {
+    photo: Buffer | Uint8Array | null;
+    qr: string | null;
+    ocr: string | null;
+    html: string | null;
+  } | undefined;
   if (!row) return null;
   await db()`DELETE FROM coupon_drops WHERE token = ${token} AND account_id = ${user.accountId}`;
   const qr = String(row.qr ?? "").trim();
@@ -74,5 +82,10 @@ export async function pullCouponShot(token: string) {
     const bytes = Buffer.isBuffer(row.photo) ? row.photo : Buffer.from(row.photo);
     if (bytes.length > 0) photo = `data:image/jpeg;base64,${bytes.toString("base64")}`;
   }
-  return { photo, qr };
+  return {
+    photo,
+    qr,
+    ocr: String(row.ocr ?? "").trim(),
+    html: String(row.html ?? "").trim(),
+  };
 }

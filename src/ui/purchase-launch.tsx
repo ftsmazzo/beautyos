@@ -38,7 +38,7 @@ export function PurchaseLaunch(props: LaunchProps) {
     setToken((current) => current + 1);
     setDraft(next);
   }, []);
-  const onShot = useCallback(async (shot: { qr: string; photo: string }) => {
+  const onShot = useCallback(async (shot: { qr: string; photo: string; ocr: string; html: string }) => {
     setError("");
     setNote("");
     setPhoto(shot.photo);
@@ -49,7 +49,7 @@ export function PurchaseLaunch(props: LaunchProps) {
       return;
     }
     setBusy(true);
-    const result = await readCoupon(shot.qr, shot.photo);
+    const result = await readCoupon(shot.qr, shot.photo, shot.ocr, shot.html);
     setBusy(false);
     if (!result.ok) {
       setError(FORM_ERRORS[result.error] ?? FORM_ERRORS.consulta);

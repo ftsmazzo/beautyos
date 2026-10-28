@@ -46,7 +46,7 @@ export const FORM_ERRORS: Record<string, string> = {
   leitura: "Não consegui ler essa nota. O XML da NF-e entra direto.",
   cupom: "O celular não mandou um QR de NFC-e (.gov.br). Aponte para o QR impresso no cupom e espere a leitura automática.",
   consulta: "O QR chegou, mas a SEFAZ não liberou os itens. Envie o XML da nota ou preencha os produtos na mão.",
-  parcial: "QR lido. A SEFAZ bloqueou a consulta dos itens — confira CNPJ/número e complete os produtos (ou mande o XML).",
+  parcial: "QR lido, mas os itens do cupom não saíram nítidos na foto. Enquadre o cupom inteiro de novo ou mande o XML.",
   avaliacao: "Escreva a avaliação da visita.",
   linha: "A mesma nota não repete o produto.",
   bandeira: "No cartão, informe a bandeira.",

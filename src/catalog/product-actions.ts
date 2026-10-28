@@ -4,7 +4,15 @@ import { randomUUID } from "crypto";
 import { requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
 import { checked, digits, parseIntField, parsePercent, parseReais, staffPriceCents, textOrNull, todaySaoPaulo } from "@/catalog/format";
-import { couponUrl, draftFromRaw, fetchCoupon, rawFromCouponQr, readInvoiceFile } from "@/catalog/invoice";
+import {
+  couponUrl,
+  draftFromRaw,
+  fetchCoupon,
+  mergeCouponRaw,
+  rawFromCouponQr,
+  rawFromCouponText,
+  readInvoiceFile,
+} from "@/catalog/invoice";
 import { listProducts, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 
 const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
@@ -286,11 +294,13 @@ async function draftFor(
   return draft;
 }
 
-export async function readCoupon(payload: string, photoJpeg = "") {
+export async function readCoupon(payload: string, photoJpeg = "", ocrText = "", htmlText = "") {
   const user = await requireOperator();
-  if (!couponUrl(payload) && !rawFromCouponQr(payload)) {
+  const header = rawFromCouponQr(payload);
+  if (!couponUrl(payload) && !header) {
     return { ok: false as const, error: "cupom" as const };
   }
+
   let raw: Awaited<ReturnType<typeof fetchCoupon>> = null;
   try {
     raw = await fetchCoupon(payload);
@@ -300,22 +310,34 @@ export async function readCoupon(payload: string, photoJpeg = "") {
   if (raw && raw.lines.length > 0) {
     return { ok: true as const, draft: await draftFor(user.accountId, raw), partial: false as const };
   }
+
+  if (htmlText) {
+    const fromHtml = rawFromCouponText(htmlText);
+    const merged = mergeCouponRaw(header, fromHtml);
+    if (merged && merged.lines.length > 0) {
+      return { ok: true as const, draft: await draftFor(user.accountId, merged), partial: false as const };
+    }
+  }
+
+  if (ocrText) {
+    const fromOcr = rawFromCouponText(ocrText);
+    const merged = mergeCouponRaw(header, fromOcr);
+    if (merged && merged.lines.length > 0) {
+      return { ok: true as const, draft: await draftFor(user.accountId, merged), partial: false as const };
+    }
+  }
+
   if (photoJpeg.startsWith("data:image/")) {
     const bytes = Buffer.from(photoJpeg.replace(/^data:image\/\w+;base64,/, ""), "base64");
-    if (bytes.length > 80 && bytes.length < 900_000) {
+    if (bytes.length > 80 && bytes.length < 1_200_000) {
       const fromPhoto = await readInvoiceFile("cupom.jpg", "image/jpeg", bytes);
-      if (fromPhoto && fromPhoto.lines.length > 0) {
-        const header = rawFromCouponQr(payload);
-        if (header) {
-          fromPhoto.cnpj = fromPhoto.cnpj || header.cnpj;
-          fromPhoto.document = fromPhoto.document || header.document;
-          fromPhoto.day = fromPhoto.day || header.day;
-        }
-        return { ok: true as const, draft: await draftFor(user.accountId, fromPhoto), partial: false as const };
+      const merged = mergeCouponRaw(header, fromPhoto);
+      if (merged && merged.lines.length > 0) {
+        return { ok: true as const, draft: await draftFor(user.accountId, merged), partial: false as const };
       }
     }
   }
-  const header = rawFromCouponQr(payload);
+
   if (header) {
     return {
       ok: true as const,

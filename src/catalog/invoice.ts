@@ -315,6 +315,30 @@ export function rawFromCouponQr(raw: string) {
   return key ? invoiceFromCouponKey(key) : null;
 }
 
+export function rawFromCouponText(text: string) {
+  const trimmed = text.trim();
+  if (trimmed.length < 20) return null;
+  const page = parseCouponPage(trimmed);
+  if (page && page.lines.length > 0) return page;
+  return parseLoose(trimmed);
+}
+
+export function mergeCouponRaw(
+  header: RawInvoice | null,
+  body: RawInvoice | null,
+): RawInvoice | null {
+  if (!header && !body) return null;
+  if (!body) return header;
+  if (!header) return body;
+  return {
+    supplierName: body.supplierName || header.supplierName,
+    cnpj: body.cnpj || header.cnpj,
+    document: body.document || header.document,
+    day: body.day || header.day,
+    lines: body.lines.length > 0 ? body.lines : header.lines,
+  };
+}
+
 export async function readInvoiceFile(
   fileName: string,
   mime: string,

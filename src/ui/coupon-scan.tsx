@@ -9,7 +9,7 @@ export function CouponScan({
   onShot,
 }: {
   busy: boolean;
-  onShot: (shot: { qr: string; photo: string }) => void;
+  onShot: (shot: { qr: string; photo: string; ocr: string; html: string }) => void;
 }) {
   const [token, setToken] = useState("");
   const [svg, setSvg] = useState("");
@@ -52,7 +52,7 @@ export function CouponScan({
   return (
     <div className="coupon-pair">
       <div dangerouslySetInnerHTML={{ __html: svg }} />
-      <p className="desk-hint">Escaneie no celular. Depois aponte para o QR da NFC-e — o link .gov.br chega aqui (a foto é só apoio).</p>
+      <p className="desk-hint">Escaneie no celular e aponte para o QR da NFC-e. O aparelho lê o link e os itens do cupom.</p>
       <button className="btn quiet" type="button" onClick={() => { setToken(""); setSvg(""); }}>
         Fechar
       </button>
