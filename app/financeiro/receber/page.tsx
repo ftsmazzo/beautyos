@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/catalog/access";
+import { requireOperator } from "@/catalog/access";
 import { formatPhone, formatReais, todaySaoPaulo } from "@/catalog/format";
 import { listReceivables, type ReceivableRow } from "@/catalog/queries";
 import { shiftDay } from "@/desk/clock";
@@ -37,7 +37,7 @@ export default async function ReceivablesPage({
 }: {
   searchParams: Promise<{ filtro?: string }>;
 }) {
-  const user = await requireAdmin();
+  const user = await requireOperator();
   const query = await searchParams;
   const filter: FilterId = isFilter(query.filtro) ? query.filtro : "abertos";
   const today = todaySaoPaulo();

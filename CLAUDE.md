@@ -6,7 +6,7 @@ Fonte única das regras deste repositório. O app-barbearia é outro produto e p
 
 - Uma conta é um negócio. Sem seletor de unidade.
 - A base está descrita em `docs/01` a `docs/06`.
-- Cupom, clubes, promoções, pesquisa, painel de movimentações e relatórios de estoque esperam o segundo sprint, depois do programa no ar.
+- Cupom de desconto, clubes, promoções e pesquisa ficam fora até pedido. Painel de movimentos e relatórios de estoque/compras já entraram; ver `docs/ops-alinhamento.md`.
 - Folga remunerada não entra até ser pedida.
 
 ## Código

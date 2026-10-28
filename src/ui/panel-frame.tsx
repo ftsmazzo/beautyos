@@ -131,7 +131,11 @@ export function PanelFrame({
     ? [
         ...OPERATION,
         ...CATALOG,
-        ...(user.role === "administrador" && modules.financeiro ? FINANCE : []),
+        ...(user.role === "administrador" && modules.financeiro
+          ? FINANCE
+          : user.role === "balcao" && modules.financeiro
+            ? FINANCE.filter((link) => link.href === "/financeiro/receber")
+            : []),
         ...SYSTEM.filter((l) => l.href === "/logs"),
       ]
     : user.role === "profissional"

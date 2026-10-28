@@ -627,7 +627,7 @@ export async function actionQueue(accountId: string, today: string, admin = fals
       id: "receber",
       label: "Falta receber",
       count: gaps[0]?.qty ?? 0,
-      href: admin ? "/financeiro/receber" : `/relatorios/comandas?de=${from}&ate=${today}`,
+      href: "/financeiro/receber",
     },
     {
       id: "pagar",
