@@ -13,7 +13,7 @@ export default async function CouponPhonePage({ params }: { params: Promise<{ to
   const { token } = await params;
   const open = await couponLinkOpen(token);
   return (
-    <AuthFrame title="Cupom" lede={open ? "Aponte para o QR do cupom. O celular lê o código e manda o dado ao balcão — não precisa aproximar até embacar." : "Esse código expirou. Gere outro no balcão."}>
+    <AuthFrame title="Cupom" lede={open ? "Aponte para o QR da NFC-e. O celular manda o link .gov.br ao balcão — não precisa aproximar até embacar." : "Esse código expirou. Gere outro no balcão."}>
       {open ? <CouponPhone token={token} /> : null}
     </AuthFrame>
   );

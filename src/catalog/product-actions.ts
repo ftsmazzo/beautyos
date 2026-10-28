@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { requireOperator } from "@/catalog/access";
 import { FormError } from "@/catalog/errors";
 import { checked, digits, parseIntField, parsePercent, parseReais, staffPriceCents, textOrNull, todaySaoPaulo } from "@/catalog/format";
-import { draftFromRaw, fetchCoupon, readInvoiceFile } from "@/catalog/invoice";
+import { couponUrl, draftFromRaw, fetchCoupon, rawFromCouponQr, readInvoiceFile } from "@/catalog/invoice";
 import { listProducts, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 
 const PAYABLE_METHODS = ["dinheiro", "pix", "debito", "credito", "outros"];
@@ -286,16 +286,44 @@ async function draftFor(
   return draft;
 }
 
-export async function readCoupon(payload: string) {
+export async function readCoupon(payload: string, photoJpeg = "") {
   const user = await requireOperator();
+  if (!couponUrl(payload) && !rawFromCouponQr(payload)) {
+    return { ok: false as const, error: "cupom" as const };
+  }
   let raw: Awaited<ReturnType<typeof fetchCoupon>> = null;
   try {
     raw = await fetchCoupon(payload);
   } catch {
-    return { ok: false as const, error: "consulta" };
+    raw = null;
   }
-  if (!raw || raw.lines.length === 0) return { ok: false as const, error: "consulta" };
-  return { ok: true as const, draft: await draftFor(user.accountId, raw) };
+  if (raw && raw.lines.length > 0) {
+    return { ok: true as const, draft: await draftFor(user.accountId, raw), partial: false as const };
+  }
+  if (photoJpeg.startsWith("data:image/")) {
+    const bytes = Buffer.from(photoJpeg.replace(/^data:image\/\w+;base64,/, ""), "base64");
+    if (bytes.length > 80 && bytes.length < 900_000) {
+      const fromPhoto = await readInvoiceFile("cupom.jpg", "image/jpeg", bytes);
+      if (fromPhoto && fromPhoto.lines.length > 0) {
+        const header = rawFromCouponQr(payload);
+        if (header) {
+          fromPhoto.cnpj = fromPhoto.cnpj || header.cnpj;
+          fromPhoto.document = fromPhoto.document || header.document;
+          fromPhoto.day = fromPhoto.day || header.day;
+        }
+        return { ok: true as const, draft: await draftFor(user.accountId, fromPhoto), partial: false as const };
+      }
+    }
+  }
+  const header = rawFromCouponQr(payload);
+  if (header) {
+    return {
+      ok: true as const,
+      draft: await draftFor(user.accountId, header),
+      partial: true as const,
+    };
+  }
+  return { ok: false as const, error: "consulta" as const };
 }
 
 export async function savePurchase(formData: FormData) {

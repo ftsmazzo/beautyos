@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import type { InvoiceDraft } from "@/catalog/invoice";
+import { couponHost } from "@/catalog/coupon-qr";
 import { FORM_ERRORS } from "@/catalog/labels";
 import { readCoupon, readInvoice } from "@/catalog/product-actions";
 import { CouponScan } from "@/ui/coupon-scan";
@@ -28,39 +29,42 @@ export function PurchaseLaunch(props: LaunchProps) {
   const [draft, setDraft] = useState<InvoiceDraft | null>(props.seed ?? null);
   const [token, setToken] = useState(props.seed ? 1 : 0);
   const [error, setError] = useState("");
+  const [note, setNote] = useState(props.seedNote ?? "");
   const [busy, setBusy] = useState(false);
   const [photo, setPhoto] = useState("");
+  const [qrInfo, setQrInfo] = useState("");
   const pending = draft?.lines.filter((line) => !line.productId).length ?? 0;
   const openDraft = useCallback((next: InvoiceDraft) => {
     setToken((current) => current + 1);
     setDraft(next);
   }, []);
-  const onCoupon = useCallback(async (payload: string) => {
+  const onShot = useCallback(async (shot: { qr: string; photo: string }) => {
     setError("");
-    if (!payload) {
+    setNote("");
+    setPhoto(shot.photo);
+    const host = couponHost(shot.qr);
+    setQrInfo(host ? `QR recebido: ${host}` : shot.qr ? "QR recebido" : "");
+    if (!shot.qr) {
       setError(FORM_ERRORS.cupom);
       return;
     }
     setBusy(true);
-    const result = await readCoupon(payload);
+    const result = await readCoupon(shot.qr, shot.photo);
     setBusy(false);
     if (!result.ok) {
       setError(FORM_ERRORS[result.error] ?? FORM_ERRORS.consulta);
       return;
     }
+    if (result.partial) setNote(FORM_ERRORS.parcial);
     openDraft(result.draft);
   }, [openDraft]);
-  const onShot = useCallback((shot: { qr: string; photo: string }) => {
-    setPhoto(shot.photo);
-    void onCoupon(shot.qr);
-  }, [onCoupon]);
   const form = <PurchaseForm {...props} />;
   return (
     <>
       <div className="desk-bar">
         <Link className="btn quiet" href="/produtos">Produtos</Link>
         {props.products.length > 0 ? (
-          <CouponScan busy={busy} onShot={onShot} />
+          <CouponScan busy={busy} onShot={(shot) => void onShot(shot)} />
         ) : null}
         {props.products.length > 0 ? (
           <form
@@ -68,6 +72,7 @@ export function PurchaseLaunch(props: LaunchProps) {
             style={{ margin: 0 }}
             action={async (formData) => {
               setError("");
+              setNote("");
               const result = await readInvoice(formData);
               if (!result.ok) {
                 setError(FORM_ERRORS[result.error] ?? FORM_ERRORS.leitura);
@@ -93,13 +98,15 @@ export function PurchaseLaunch(props: LaunchProps) {
         ) : null}
         <span className="chip">{props.purchaseCount} notas</span>
       </div>
+      {qrInfo ? <p className="desk-hint">{qrInfo}</p> : null}
       {error ? <p className="desk-alert">{error}</p> : null}
       {photo ? <img className="coupon-shot" alt="Cupom enviado pelo celular" src={photo} /> : null}
       {draft ? (
-        <Modal key={token} label="Nota lida" title={props.seedNote ? "Lista de compra" : "Confira a nota"} tone="teal" startOpen>
+        <Modal key={token} label="Nota lida" title="Confira a nota" tone="teal" startOpen>
           <p className="desk-alert">
-            {props.seedNote ? `${props.seedNote} ` : ""}
-            {draft.lines.length === 0 ? "A leitura não trouxe itens. " : ""}
+            {note ? `${note} ` : ""}
+            {props.seedNote && !note ? `${props.seedNote} ` : ""}
+            {draft.lines.length === 0 && !note ? "A leitura não trouxe itens. " : ""}
             {pending > 0 ? `${pending} sem produto. ` : ""}
             Confira antes de lançar.
           </p>

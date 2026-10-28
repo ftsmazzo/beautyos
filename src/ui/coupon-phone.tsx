@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
+import { couponHost, couponUrl } from "@/catalog/coupon-qr";
 import { sendCouponPhoto } from "@/catalog/coupon-bridge";
 
 type Detector = { detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue: string }>> };
@@ -39,12 +40,19 @@ function jsFromRegion(
   return jsQR(image.data, image.width, image.height, { inversionAttempts: "attemptBoth" })?.data ?? "";
 }
 
+function acceptQr(value: string) {
+  const text = value.trim();
+  return couponUrl(text) ? text : "";
+}
+
 async function readQr(video: HTMLVideoElement, detector: Detector | null) {
   if (detector) {
     try {
       const codes = await detector.detect(video);
-      const value = codes.find((item) => item.rawValue)?.rawValue?.trim();
-      if (value) return value;
+      for (const item of codes) {
+        const ok = acceptQr(item.rawValue ?? "");
+        if (ok) return ok;
+      }
     } catch {
       /* cai no jsQR */
     }
@@ -52,14 +60,13 @@ async function readQr(video: HTMLVideoElement, detector: Detector | null) {
   const frame = grabFrame(video);
   if (!frame) return "";
   const { ctx, width, height } = frame;
-  const full = jsFromRegion(ctx, 0, 0, width, height, 1);
+  const full = acceptQr(jsFromRegion(ctx, 0, 0, width, height, 1));
   if (full) return full;
-  // QR pequeno no cupom: zoom no centro e nos quadrantes
   const cw = Math.round(width * 0.55);
   const ch = Math.round(height * 0.55);
   const cx = Math.round((width - cw) / 2);
   const cy = Math.round((height - ch) / 2);
-  const center = jsFromRegion(ctx, cx, cy, cw, ch, 2.2);
+  const center = acceptQr(jsFromRegion(ctx, cx, cy, cw, ch, 2.2));
   if (center) return center;
   const pads = [
     [0, 0],
@@ -68,16 +75,16 @@ async function readQr(video: HTMLVideoElement, detector: Detector | null) {
     [width - cw, height - ch],
   ] as const;
   for (const [x, y] of pads) {
-    const hit = jsFromRegion(ctx, x, y, cw, ch, 2);
+    const hit = acceptQr(jsFromRegion(ctx, x, y, cw, ch, 2));
     if (hit) return hit;
   }
   return "";
 }
 
-function thumb(video: HTMLVideoElement) {
-  const frame = grabFrame(video, 640);
+function shot(video: HTMLVideoElement) {
+  const frame = grabFrame(video, 1280);
   if (!frame) return "";
-  return frame.canvas.toDataURL("image/jpeg", 0.55);
+  return frame.canvas.toDataURL("image/jpeg", 0.72);
 }
 
 export function CouponPhone({ token }: { token: string }) {
@@ -86,7 +93,7 @@ export function CouponPhone({ token }: { token: string }) {
   const [blocked, setBlocked] = useState(false);
   const [done, setDone] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [hint, setHint] = useState("Aponte para o QR do cupom — não precisa aproximar até embacar.");
+  const [hint, setHint] = useState("Aponte para o QR da NFC-e no cupom. O celular envia o link .gov.br — não a foto.");
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -112,7 +119,8 @@ export function CouponPhone({ token }: { token: string }) {
           if (stopped || sent.current || !qr) return;
           sent.current = true;
           stopped = true;
-          setHint("QR lido. Enviando ao balcão…");
+          const host = couponHost(qr);
+          setHint(host ? `QR lido (${host}). Enviando o link ao balcão…` : "QR lido. Enviando o link ao balcão…");
           void deliver(qr);
         });
       }
@@ -153,21 +161,21 @@ export function CouponPhone({ token }: { token: string }) {
 
   async function deliver(qr: string) {
     const video = videoRef.current;
-    const jpeg = video && video.videoWidth > 0 ? thumb(video) : "";
+    const jpeg = video && video.videoWidth > 0 ? shot(video) : "";
     const stream = video?.srcObject;
     if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
     const result = await sendCouponPhoto(token, jpeg, qr);
     if (!result.ok) {
       sent.current = false;
       setFailed(true);
-      setHint("Não chegou ao balcão. Gere outro código lá.");
+      setHint("O link não chegou ao balcão. Gere outro código lá.");
       return;
     }
     setDone(true);
   }
 
   if (done) {
-    return <p className="ok banner">QR no balcão. Pode fechar esta página.</p>;
+    return <p className="ok banner">Link do QR no balcão. Pode fechar esta página.</p>;
   }
 
   return (
@@ -175,7 +183,7 @@ export function CouponPhone({ token }: { token: string }) {
       <video ref={videoRef} playsInline muted autoPlay />
       <p className="desk-hint">{hint}</p>
       {blocked ? <p className="error">A câmera do celular não abriu. Libere o acesso e recarregue.</p> : null}
-      {failed ? <p className="error">O QR não chegou. Gere outro código no balcão.</p> : null}
+      {failed ? <p className="error">O link do QR não chegou. Gere outro código no balcão.</p> : null}
     </div>
   );
 }

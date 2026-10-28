@@ -1,4 +1,7 @@
 import { centsToInput, digits } from "@/catalog/format";
+import { couponUrl, invoiceFromCouponKey, couponKey } from "@/catalog/coupon-qr";
+
+export { couponUrl, couponKey, invoiceFromCouponKey, couponHost } from "@/catalog/coupon-qr";
 
 export type InvoiceLine = { label: string; qty: number; cost: string; productId: string; barcode: string };
 export type InvoiceDraft = {
@@ -284,33 +287,32 @@ export function parseCouponPage(html: string): RawInvoice | null {
   return { supplierName, cnpj: digits(cnpj), document, day: asDay(emitted), lines };
 }
 
-export function couponUrl(raw: string) {
-  const text = raw.trim();
-  let url: URL;
-  try {
-    url = new URL(text);
-  } catch {
-    return "";
-  }
-  if (url.protocol !== "https:" || url.username || url.password) return "";
-  const host = url.hostname.toLowerCase();
-  if (!host.endsWith(".gov.br")) return "";
-  if (!/(nfce|nfe|sefaz|fazenda|svrs)/.test(host)) return "";
-  return url.toString();
-}
-
 export async function fetchCoupon(raw: string) {
   const target = couponUrl(raw);
   if (!target) return null;
   const response = await fetch(target, {
     redirect: "follow",
-    headers: { Accept: "text/html,application/xml,text/xml" },
+    headers: {
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    },
     signal: AbortSignal.timeout(12_000),
   });
   if (!couponUrl(response.url) || !response.ok) return null;
   const body = await response.text();
   if (body.length > 1_500_000) return null;
+  if (/request rejected|access denied|captcha|cf-browser-verification/i.test(body.slice(0, 2_000))) {
+    return null;
+  }
   return parseCouponPage(body.slice(0, 400_000));
+}
+
+/** Quando a SEFAZ bloqueia o HTML, ainda dá para montar o cabeçalho pela chave do QR. */
+export function rawFromCouponQr(raw: string) {
+  const key = couponKey(raw);
+  return key ? invoiceFromCouponKey(key) : null;
 }
 
 export async function readInvoiceFile(
