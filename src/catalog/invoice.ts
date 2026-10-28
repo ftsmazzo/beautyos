@@ -341,33 +341,57 @@ export async function readInvoiceFile(
   return null;
 }
 
+type RestockProduct = {
+  id: string;
+  name: string;
+  barcode: string | null;
+  active: boolean;
+  minQty: number;
+  balance: number;
+  costCents: number;
+  supplierId: string | null;
+};
+
+function lowStock(products: RestockProduct[]) {
+  return products.filter(
+    (product) => product.active && product.minQty > 0 && product.balance < product.minQty,
+  );
+}
+
+export function restockGroups(
+  products: RestockProduct[],
+  suppliers: { id: string; name: string }[],
+) {
+  const low = lowStock(products);
+  const buckets = new Map<string, { supplierId: string; name: string; count: number; ask: number }>();
+  for (const product of low) {
+    const supplierId = product.supplierId ?? "";
+    const name = suppliers.find((item) => item.id === supplierId)?.name ?? "Sem fornecedor";
+    const current = buckets.get(supplierId) ?? { supplierId, name, count: 0, ask: 0 };
+    current.count += 1;
+    current.ask += product.minQty - product.balance;
+    buckets.set(supplierId, current);
+  }
+  return [...buckets.values()].sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+}
+
 export function restockDraft(
-  products: {
-    id: string;
-    name: string;
-    barcode: string | null;
-    active: boolean;
-    minQty: number;
-    balance: number;
-    costCents: number;
-    supplierId: string | null;
-  }[],
+  products: RestockProduct[],
   suppliers: { id: string; name: string; cnpj: string | null }[],
   today: string,
   supplierId?: string,
 ): InvoiceDraft | null {
-  const low = products.filter(
-    (product) => product.active && product.minQty > 0 && product.balance < product.minQty,
-  );
+  const low = lowStock(products);
   if (low.length === 0) return null;
-  const counts = new Map<string, number>();
-  for (const product of low) {
-    if (!product.supplierId) continue;
-    counts.set(product.supplierId, (counts.get(product.supplierId) ?? 0) + 1);
-  }
-  let chosen = supplierId && counts.has(supplierId) ? supplierId : "";
-  if (!chosen) {
+  let chosen = supplierId;
+  if (chosen === undefined) {
+    const counts = new Map<string, number>();
+    for (const product of low) {
+      if (!product.supplierId) continue;
+      counts.set(product.supplierId, (counts.get(product.supplierId) ?? 0) + 1);
+    }
     let best = 0;
+    chosen = "";
     for (const [id, qty] of counts) {
       if (qty > best) {
         best = qty;
@@ -375,9 +399,12 @@ export function restockDraft(
       }
     }
   }
-  const supplier = suppliers.find((item) => item.id === chosen);
+  const supplier = chosen ? suppliers.find((item) => item.id === chosen) : undefined;
   const lines = low
-    .filter((product) => !chosen || !product.supplierId || product.supplierId === chosen)
+    .filter((product) => {
+      if (!chosen) return !product.supplierId;
+      return !product.supplierId || product.supplierId === chosen;
+    })
     .map((product) => ({
       label: product.name,
       qty: product.minQty - product.balance,

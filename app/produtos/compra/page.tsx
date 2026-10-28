@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireOperator } from "@/catalog/access";
 import { formatReais, todaySaoPaulo } from "@/catalog/format";
-import { restockDraft } from "@/catalog/invoice";
+import { restockDraft, restockGroups } from "@/catalog/invoice";
 import { listProducts, listPurchases, listSupplierLabels, listSuppliers } from "@/catalog/queries";
 import { listBanks, listCards, listChart } from "@/finance/queries";
 import { ErrorNote, SavedNote } from "@/ui/error-note";
@@ -30,19 +30,26 @@ export default async function PurchasePage({
     (product) => product.minQty > 0 && product.balance < product.minQty,
   ).length;
   const asking = query.pedir === "1";
+  const groups = asking
+    ? restockGroups(
+        products,
+        suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
+      )
+    : [];
+  const chosenSupplier = query.fornecedor;
   const seed = asking
     ? restockDraft(
         products,
         suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name, cnpj: supplier.cnpj })),
         today,
-        query.fornecedor,
+        chosenSupplier,
       )
     : null;
   const leftOut = asking && seed
     ? lowCount - seed.lines.length
     : 0;
   const seedNote = seed
-    ? `${seed.lines.length} no mínimo${seed.supplierName ? ` · ${seed.supplierName}` : ""}${leftOut > 0 ? ` · ${leftOut} de outro fornecedor fora` : ""}. Número da lista já veio preenchido.`
+    ? `${seed.lines.length} no mínimo${seed.supplierName ? ` · ${seed.supplierName}` : !seed.supplierId ? " · sem fornecedor" : ""}${leftOut > 0 ? ` · ${leftOut} de outro fornecedor fora` : ""}. Número da lista já veio preenchido.`
     : asking
       ? "Nenhum produto abaixo do mínimo."
       : "";
@@ -52,6 +59,22 @@ export default async function PurchasePage({
       <div className="desk">
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
+      {asking && groups.length > 1 ? (
+        <div className="desk-bar">
+          {groups.map((group) => {
+            const href = group.supplierId
+              ? `/produtos/compra?pedir=1&fornecedor=${group.supplierId}`
+              : "/produtos/compra?pedir=1&fornecedor=";
+            const active =
+              (chosenSupplier !== undefined ? chosenSupplier : seed?.supplierId ?? "") === group.supplierId;
+            return (
+              <Link key={group.supplierId || "sem"} className={active ? "btn" : "btn quiet"} href={href}>
+                {group.name} · {group.count}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
       {asking && !seed ? <p className="desk-alert">{seedNote}</p> : null}
       <PurchaseLaunch
         purchaseCount={purchases.length}

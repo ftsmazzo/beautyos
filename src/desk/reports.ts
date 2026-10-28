@@ -581,11 +581,11 @@ export async function financeReport(accountId: string, start: string, end: strin
 
 export type ActionRow = { id: string; label: string; count: number; href: string };
 
-export async function actionQueue(accountId: string, today: string) {
+export async function actionQueue(accountId: string, today: string, admin = false) {
   const week = weekBounds(today);
   const weekEnd = today < week.end ? today : week.end;
   const from = shiftDay(today, -91);
-  const [stock, silent, gaps, absent, late, birthdays] = await Promise.all([
+  const [stock, silent, gaps, absent, late, birthdays, bills] = await Promise.all([
     productsAtMinimum(accountId),
     clientSilence(accountId, today),
     db()<{ qty: number }[]>`
@@ -611,10 +611,30 @@ export async function actionQueue(accountId: string, today: string) {
     `,
     overdueReturns(accountId, today),
     birthdaysAhead(accountId, today, 7),
+    admin
+      ? db()<{ qty: number }[]>`
+          SELECT count(*)::int AS qty
+          FROM payables
+          WHERE account_id = ${accountId}
+            AND paid_on IS NULL
+            AND due_on < ${today}::date
+        `
+      : Promise.resolve([{ qty: 0 }]),
   ]);
   const rows: ActionRow[] = [
-    { id: "estoque", label: "Estoque no mínimo", count: stock.length, href: `/relatorios/estoque?de=${from}&ate=${today}&filtro=minimo` },
-    { id: "receber", label: "Falta receber", count: gaps[0]?.qty ?? 0, href: `/relatorios/comandas?de=${from}&ate=${today}` },
+    { id: "estoque", label: "Estoque no mínimo", count: stock.length, href: "/produtos/compra?pedir=1" },
+    {
+      id: "receber",
+      label: "Falta receber",
+      count: gaps[0]?.qty ?? 0,
+      href: admin ? "/financeiro/receber" : `/relatorios/comandas?de=${from}&ate=${today}`,
+    },
+    {
+      id: "pagar",
+      label: "Contas atrasadas",
+      count: bills[0]?.qty ?? 0,
+      href: "/financeiro?filtro=atrasado",
+    },
     { id: "faltas", label: "Faltas na semana", count: absent[0]?.qty ?? 0, href: `/relatorios/agenda?de=${week.start}&ate=${weekEnd}` },
     { id: "chamar", label: "Chamar", count: silent.filter((row) => row.days < LOST_AFTER).length, href: `/relatorios/clientes?de=${from}&ate=${today}` },
     { id: "sumidos", label: "Sumidos", count: silent.filter((row) => row.days >= LOST_AFTER).length, href: `/relatorios/clientes?de=${from}&ate=${today}&lista=sumidos` },

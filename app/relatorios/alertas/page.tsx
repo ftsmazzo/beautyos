@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AlertsPage() {
   const user = await requireOperator();
   const today = todaySaoPaulo();
-  const rows = await actionQueue(user.accountId, today);
+  const rows = await actionQueue(user.accountId, today, user.role === "administrador");
 
   return (
     <Panel user={user} current="/relatorios" title="Alertas">
