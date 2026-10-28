@@ -31,7 +31,8 @@ Escolher **uma**:
 
 | Opção | Prós | Contras |
 |-------|------|---------|
-| **A. Proxy no Brasil** (`tools/nfce-proxy`) apontando `NFCE_LOOKUP_URL` | Controle, sem OCR | Precisa VPS/IP BR; WAF pode bloquear e exigir rotação |
+| **A. PC casa + WireGuard** (`docs/ops/WIREGUARD-EXIT-CASA.md`) | IP fixo residencial, sem VPS BR extra | PC ligado; UDP 51820 no roteador |
+| **A2. Proxy em VPS BR** (`tools/nfce-proxy`) | Sem depender do PC | ~R$30/mês; cloud BR às vezes também é bloqueado |
 | **B. API comercial** (Tera, Infosimples, etc.) no mesmo contrato JSON | Persistência, 27 UFs | Custo por consulta |
 | **C. XML/PDF no balcão** | Já funciona hoje | Manual no fornecedor |
 | **D. Hospedar o app em IP BR** | Pode bastar o fetch atual | SP ainda pode banir cloud |

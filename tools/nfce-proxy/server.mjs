@@ -8,7 +8,8 @@
 import http from "node:http";
 
 const PORT = Number(process.env.PORT || 8787);
-const TOKEN = (process.env.TOKEN || "").trim();
+const HOST = (process.env.HOST || "127.0.0.1").trim();
+const TOKEN = (process.env.TOKEN || process.env.NFCE_LOOKUP_TOKEN || "").trim();
 
 function allow(url) {
   try {
@@ -41,9 +42,9 @@ async function pull(qr) {
 }
 
 const server = http.createServer(async (req, res) => {
-  if (req.method === "GET" && req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("ok");
+  if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, service: "nfce-proxy" }));
     return;
   }
   if (req.method !== "POST" || req.url !== "/lookup") {
@@ -84,6 +85,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`nfce-proxy :${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`nfce-proxy em http://${HOST}:${PORT}/lookup`);
 });
