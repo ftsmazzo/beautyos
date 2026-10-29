@@ -158,6 +158,13 @@ export function PanelFrame({
     else groups.push({ name: link.group, items: [link] });
   }
 
+  const initials = user.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
   return (
     <div className="app">
       <aside className={open ? "side open" : "side"}>
@@ -188,6 +195,7 @@ export function PanelFrame({
             </div>
           ))}
         </nav>
+        <div className="side-foot">Painel operacional</div>
       </aside>
       {open ? (
         <button type="button" className="scrim" aria-label="Fechar menu" onClick={() => setOpen(false)} />
@@ -199,8 +207,13 @@ export function PanelFrame({
           </button>
           <h1>{title}</h1>
           <div className="who">
-            <strong>{user.name}</strong>
-            <span>{ROLE_LABEL[user.role] ?? user.role}</span>
+            <div className="who-text">
+              <strong>{user.name}</strong>
+              <span>{ROLE_LABEL[user.role] ?? user.role}</span>
+            </div>
+            <span className="who-avatar" aria-hidden="true">
+              {initials || "U"}
+            </span>
           </div>
           <form action={logout}>
             <SubmitButton label="Sair" pendingLabel="Saindo…" className="quiet" />
