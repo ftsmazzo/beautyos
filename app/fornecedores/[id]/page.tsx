@@ -126,7 +126,7 @@ export default async function SupplierFormPage({
                     <tr key={alias.id}>
                       <td>{alias.label}</td>
                       <td>
-                        <form action={saveSupplierLabel} className="row">
+                        <form action={saveSupplierLabel} className="bos-row">
                           <input type="hidden" name="supplier" value={supplier.id} />
                           <input type="hidden" name="label" value={alias.label} />
                           <select name="product" defaultValue={alias.productId}>

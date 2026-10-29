@@ -140,7 +140,7 @@ export default async function FinancePage({
                     <td>{situationLabel(state)}{row.paid ? ` · ${row.paid}` : ""}</td>
                     <td>{method}{row.cardBrand ? ` · ${row.cardBrand}` : ""}</td>
                     <td>
-                      <div className="row">
+                      <div className="bos-row">
                         {row.bankName ?? row.cardName ?? (
                           <PayableSettle
                             id={row.id}

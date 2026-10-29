@@ -30,7 +30,7 @@ export function HoursGrid({
               const slot = values[`${day}-${period}`];
               return (
                 <td key={period}>
-                  <div className="row">
+                  <div className="bos-row">
                     <input type="time" name={`${prefix}_${day}_${period}_start`} defaultValue={slot?.start ?? ""} />
                     <input type="time" name={`${prefix}_${day}_${period}_end`} defaultValue={slot?.end ?? ""} />
                   </div>

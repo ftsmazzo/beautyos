@@ -111,7 +111,7 @@ export default async function ProfessionalFormPage({
           Observação
           <textarea name="notes" defaultValue={person?.notes ?? ""} />
         </label>
-        <div className="row">
+        <div className="bos-row">
           <label className="check">
             <input type="checkbox" name="active" value="1" defaultChecked={person?.active ?? true} />
             Ativo

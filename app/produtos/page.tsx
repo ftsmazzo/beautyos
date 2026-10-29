@@ -118,7 +118,7 @@ export default async function ProductsPage({
                       {counting ? (
                         <StockCount productId={product.id} balance={product.balance} />
                       ) : (
-                        <div className="row">
+                        <div className="bos-row">
                           <Modal label="+" title={`Entrada · ${product.name}`} tone="teal">
                             <StockIn productId={product.id} />
                           </Modal>

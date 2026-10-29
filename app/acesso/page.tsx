@@ -137,7 +137,7 @@ export default async function AccessPage({
                   )}
                 </td>
                 <td>
-                  <div className="row">
+                  <div className="bos-row">
                     <Modal label="Ajustar" title={`Ajustar · ${person.name}`} tone="navy">
                       <form action={setAccessRole}>
                         <input type="hidden" name="id" value={person.id} />

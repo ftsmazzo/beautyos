@@ -371,7 +371,7 @@ export default async function OrderPage({
                     {notes
                       .filter((note) => note.appointmentId === line.appointmentId)
                       .map((note) => (
-                        <div className="row" key={note.id}>
+                        <div className="bos-row" key={note.id}>
                           <span>
                             {note.body} · {note.who} · {note.at}
                           </span>

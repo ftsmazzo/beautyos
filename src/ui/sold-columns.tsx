@@ -78,7 +78,7 @@ export function SoldColumns({ rows }: { rows: SoldColumnRow[] }) {
                     {column.label}
                   </label>
                 ))}
-                <div className="row">
+                <div className="bos-row">
                   <button type="button" className="btn quiet" onClick={() => setHidden(COLUMNS.map((column) => column.id))}>
                     Só o nome
                   </button>

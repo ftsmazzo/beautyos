@@ -224,7 +224,7 @@ export default async function ReportsPage({
                   value: row.cents,
                   hint: `${row.orders} comanda${row.orders === 1 ? "" : "s"}`,
                 }))}
-                formatValue={formatReais}
+                valueKind="money"
               />
             </div>
           </div>
@@ -287,7 +287,7 @@ export default async function ReportsPage({
               <ReportDonut
                 title="Formas de pagamento"
                 empty="Nenhum recebimento."
-                formatValue={formatReais}
+                valueKind="money"
                 slices={report.methods.map((row) => ({
                   label: paymentMethodLabel(row.name),
                   value: row.cents,
@@ -298,7 +298,7 @@ export default async function ReportsPage({
               <ReportDonut
                 title="Agenda por estado"
                 empty="Nenhum horário neste período."
-                formatValue={(value) => String(value)}
+                valueKind="number"
                 slices={STATUS_ORDER.filter((status) => report.statuses.some((row) => row.status === status)).map((status) => ({
                   label: APPOINTMENT_STATUS[status].word,
                   value: report.statuses.find((row) => row.status === status)?.qty ?? 0,

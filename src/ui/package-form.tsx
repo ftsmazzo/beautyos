@@ -169,7 +169,7 @@ export function PackageForm({
       >
         Incluir serviço
       </button>
-      <div className="row">
+      <div className="bos-row">
         <label>
           Dividir este total entre as idas
           <input value={splitTotal} onChange={(event) => setSplitTotal(event.target.value)} placeholder="0,00" />
@@ -179,7 +179,7 @@ export function PackageForm({
         </button>
       </div>
       {rows.map((row, index) => (
-        <div className="row" key={index}>
+        <div className="bos-row" key={index}>
           <label>
             Produto
             <select

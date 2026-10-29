@@ -179,7 +179,7 @@ export default async function StartPage({
                   <input name="credit" required defaultValue={(machine.creditBps / 100).toFixed(2).replace(".", ",")} />
                 </label>
               </div>
-              <div className="row">
+              <div className="bos-row">
                 <SubmitButton label="Salvar máquina" pendingLabel="Salvando…" />
                 <span className="chip">
                   base {formatRate(machine.debitBps)} / {formatRate(machine.creditBps)}
@@ -230,7 +230,7 @@ export default async function StartPage({
           {acquirers
             .filter((machine) => machine.active)
             .map((machine) => (
-              <div key={`off-${machine.id}`} className="row">
+              <div key={`off-${machine.id}`} className="bos-row">
                 <form action={stopCardAcquirer}>
                   <input type="hidden" name="id" value={machine.id} />
                   <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="quiet" />

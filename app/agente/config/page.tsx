@@ -119,11 +119,11 @@ export default async function AgenteConfigPage({
             <span className="chip">{data.channel.webhookToken}</span>
           </div>
           <form action={saveAgentChannelBasics} className="stack">
-            <label className="row">
+            <label className="bos-row">
               <input type="checkbox" name="active" value="1" defaultChecked={data.channel.active} />
               Agente ativo (responde automaticamente)
             </label>
-            <label className="row">
+            <label className="bos-row">
               <input type="checkbox" name="rotateToken" value="1" />
               Gerar novo token
             </label>

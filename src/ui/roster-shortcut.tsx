@@ -26,7 +26,7 @@ export function RosterShortcut({ checkName }: { checkName: string }) {
   }
 
   return (
-    <div className="row">
+    <div className="bos-row">
       <button type="button" className="btn quiet" onClick={(event) => pull(event.currentTarget)}>
         Puxar o padrão
       </button>

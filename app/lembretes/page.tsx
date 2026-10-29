@@ -72,7 +72,7 @@ export default async function LembretesPage({
                   </td>
                   <td>
                     {row.status === "pendente" ? (
-                      <div className="row">
+                      <div className="bos-row">
                         <form action={markReminderDone}>
                           <input type="hidden" name="id" value={row.id} />
                           <input type="hidden" name="day" value={day} />

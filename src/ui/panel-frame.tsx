@@ -265,7 +265,10 @@ export function PanelFrame({
 
   return (
     <div className="page">
-      <aside className={`navbar navbar-vertical navbar-expand-lg navbar-dark${open ? " show" : ""}`}>
+      <aside
+        className={`navbar navbar-vertical navbar-expand-lg navbar-dark${open ? " show" : ""}`}
+        data-bs-theme="dark"
+      >
         <div className="container-fluid">
           <button
             type="button"
@@ -277,7 +280,11 @@ export function PanelFrame({
           </button>
           <h1 className="navbar-brand navbar-brand-autodark">
             <Link href="/inicio" onClick={() => setOpen(false)}>
-              <span className="avatar avatar-sm bg-primary text-white me-2">{initials || "B"}</span>
+              <span className="avatar avatar-sm bg-primary text-white me-2 rounded" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 4h12v4H6zM8 8v12M16 8v12M10 14h4" />
+                </svg>
+              </span>
               <span>
                 BeautyOS
                 <span className="d-block text-secondary small fw-normal">{user.accountName}</span>
@@ -287,25 +294,22 @@ export function PanelFrame({
           <div className={`collapse navbar-collapse${open ? " show" : ""}`} id="sidebar-menu">
             <ul className="navbar-nav pt-lg-3">
               {groups.map((group) => (
-                <li key={group.name} className="nav-item">
-                  <div className="nav-link nav-link-group disabled">{group.name}</div>
-                  <ul className="navbar-nav">
-                    {group.items.map((link) => (
-                      <li key={link.href} className="nav-item">
-                        <Link
-                          className={`nav-link${current === link.href ? " active" : ""}`}
-                          href={link.href}
-                          aria-current={current === link.href ? "page" : undefined}
-                          onClick={() => setOpen(false)}
-                        >
-                          <span className="nav-link-icon d-md-none d-lg-inline-block">
-                            <NavIcon href={link.href} />
-                          </span>
-                          <span className="nav-link-title">{link.label}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
+                <li key={group.name} className="nav-item pt-2">
+                  <span className="nav-link nav-link-group disabled">{group.name}</span>
+                  {group.items.map((link) => (
+                    <Link
+                      key={link.href}
+                      className={`nav-link${current === link.href ? " active" : ""}`}
+                      href={link.href}
+                      aria-current={current === link.href ? "page" : undefined}
+                      onClick={() => setOpen(false)}
+                    >
+                      <span className="nav-link-icon">
+                        <NavIcon href={link.href} />
+                      </span>
+                      <span className="nav-link-title">{link.label}</span>
+                    </Link>
+                  ))}
                 </li>
               ))}
             </ul>
@@ -326,7 +330,12 @@ export function PanelFrame({
               <div className="col-auto ms-auto d-print-none">
                 <div className="d-flex align-items-center gap-3">
                   <div className="d-none d-md-flex align-items-center">
-                    <span className="avatar avatar-sm bg-primary-lt me-2">{initials || "U"}</span>
+                    <span className="avatar avatar-sm avatar-icon me-2" aria-hidden="true" title={initials}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <circle cx="12" cy="8" r="3.2" />
+                        <path d="M5 19c1.4-3.2 3.8-4.8 7-4.8s5.6 1.6 7 4.8" />
+                      </svg>
+                    </span>
                     <div className="lh-sm">
                       <div className="fw-medium">{user.name}</div>
                       <div className="text-secondary small">{ROLE_LABEL[user.role] ?? user.role}</div>

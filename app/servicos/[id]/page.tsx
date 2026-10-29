@@ -61,7 +61,7 @@ export default async function ServiceFormPage({
           Observação
           <textarea name="notes" defaultValue={service?.notes ?? ""} />
         </label>
-        <div className="row">
+        <div className="bos-row">
           <label className="check">
             <input type="checkbox" name="active" value="1" defaultChecked={service?.active ?? true} />
             Ativo

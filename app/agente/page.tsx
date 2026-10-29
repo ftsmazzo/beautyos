@@ -163,7 +163,7 @@ export default async function ConversasAgentePage({
               </label>
               <SubmitButton label="Enviar" pendingLabel="Enviando…" />
             </form>
-            <div className="row">
+            <div className="bos-row">
               {data.selected.mode === "ai" ? (
                 <form action={takeHumanHandoff}>
                   <input type="hidden" name="conversationId" value={data.selected.id} />
@@ -187,7 +187,7 @@ export default async function ConversasAgentePage({
               </form>
             </details>
 
-            <form action={linkAgentConversation} className="row">
+            <form action={linkAgentConversation} className="bos-row">
               <input type="hidden" name="conversationId" value={data.selected.id} />
               <label>
                 Vincular cliente
@@ -211,7 +211,7 @@ export default async function ConversasAgentePage({
 
       <details className="agent-sim-start">
         <summary>Abrir conversa de teste (simulador)</summary>
-        <form action={startSimulatorConversation} className="row" style={{ marginTop: 12 }}>
+        <form action={startSimulatorConversation} className="bos-row" style={{ marginTop: 12 }}>
           <label>
             Celular
             <input name="phone" inputMode="tel" placeholder="11999999999" required />

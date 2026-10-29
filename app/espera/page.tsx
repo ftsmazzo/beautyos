@@ -135,7 +135,7 @@ export default async function EsperaPage({
                   <td>{row.status === "avisada" ? "Avisada" : "Aberta"}</td>
                   <td>{row.note ?? "—"}</td>
                   <td>
-                    <div className="row">
+                    <div className="bos-row">
                       {row.status === "aberta" ? (
                         <form action={deskMarkWaitlistAvisada}>
                           <input type="hidden" name="id" value={row.id} />

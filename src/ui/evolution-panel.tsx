@@ -74,7 +74,7 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
             </div>
           ) : null}
 
-          <div className="row">
+          <div className="bos-row">
             <button
               type="button"
               className="btn"
@@ -101,7 +101,7 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
             </button>
           </div>
 
-          <div className="row">
+          <div className="bos-row">
             <label>
               Vincular instância existente
               <input

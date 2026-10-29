@@ -85,7 +85,7 @@ export default async function ProductFormPage({
           Observação
           <textarea name="notes" defaultValue={product?.notes ?? ""} />
         </label>
-        <div className="row">
+        <div className="bos-row">
           <label className="check">
             <input type="checkbox" name="active" value="1" defaultChecked={product?.active ?? true} />
             Ativo

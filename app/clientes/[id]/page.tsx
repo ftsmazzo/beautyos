@@ -78,7 +78,7 @@ export default async function ClientFormPage({
             ))}
           </select>
         </label>
-        <div className="row">
+        <div className="bos-row">
           <label className="check">
             <input type="checkbox" name="from_outside" value="1" defaultChecked={person?.fromOutside ?? false} />
             De fora
