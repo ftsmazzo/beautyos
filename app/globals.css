@@ -630,19 +630,23 @@ form.price-field > button { margin-top: 0; }
 .hours th small { display: block; font-weight: 500; color: var(--muted); margin-top: 2px; }
 .hours input[type="time"] { width: auto; min-width: 0; flex: 1 1 6.5rem; }
 
-dialog.modal {
+/* bos-dialog: NÃO usar .modal — conflita com Tabler e trava a tela no showModal() */
+dialog.bos-dialog {
   width: min(560px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
   border: 0;
   padding: 0;
-  border-radius: calc(var(--radius) + 2px);
+  border-radius: 6px;
   background: #ffffff;
   color: var(--ink);
   box-shadow: 0 18px 50px rgba(12, 17, 23, 0.28);
+  overflow: auto;
 }
 
-dialog.modal::backdrop { background: rgba(12, 17, 23, 0.55); }
+dialog.bos-dialog::backdrop { background: rgba(12, 17, 23, 0.55); }
 
-dialog.modal[open] { animation: modal-in 180ms ease; }
+dialog.bos-dialog[open] { animation: modal-in 180ms ease; }
 
 @keyframes modal-in {
   from { opacity: 0; transform: translateY(8px); }
@@ -650,29 +654,35 @@ dialog.modal[open] { animation: modal-in 180ms ease; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  dialog.modal[open] { animation: none; }
+  dialog.bos-dialog[open] { animation: none; }
 }
 
-.modal-head {
+.bos-dialog-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
-.modal-head h2 { margin: 0; color: #ffffff; font-size: 1.05rem; letter-spacing: -0.02em; }
-.tone-navy { background: var(--side); }
-.tone-blue { background: var(--accent); }
-.tone-teal { background: var(--accent-strong); }
-.tone-amber { background: #b45309; }
-.tone-rose { background: #be123c; }
-.modal-body { padding: 20px 20px 28px; }
-.modal-body form {
+.bos-dialog-head h2 { margin: 0; color: #ffffff; font-size: 1.05rem; letter-spacing: -0.02em; }
+.bos-dialog-head .btn { box-shadow: none !important; }
+.tone-navy { background: #182230; }
+.tone-blue { background: #206bc4; }
+.tone-teal { background: #1a5fb4; }
+.tone-amber { background: #f59f00; }
+.tone-rose { background: #d63939; }
+.bos-dialog-body { padding: 20px 20px 28px; }
+.bos-dialog-body form {
   background: transparent;
   border: 0;
   box-shadow: none;
   padding: 0;
   margin: 0;
+  display: grid;
+  gap: 0.75rem;
 }
 
 .auth {
