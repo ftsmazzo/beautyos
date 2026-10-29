@@ -7,6 +7,7 @@ import { couponHost } from "@/catalog/coupon-qr";
 import { FORM_ERRORS } from "@/catalog/labels";
 import { readCoupon, readInvoice } from "@/catalog/product-actions";
 import { CouponScan } from "@/ui/coupon-scan";
+import { FileDrop } from "@/ui/file-drop";
 import { Modal } from "@/ui/modal";
 import { PurchaseForm } from "@/ui/purchase-form";
 import { SubmitButton } from "@/ui/submit-button";
@@ -70,8 +71,7 @@ export function PurchaseLaunch(props: LaunchProps) {
         ) : null}
         {props.products.length > 0 ? (
           <form
-            className="desk-bar"
-            style={{ margin: 0 }}
+            className="file-drop-form"
             action={async (formData) => {
               setError("");
               setNote("");
@@ -83,10 +83,13 @@ export function PurchaseLaunch(props: LaunchProps) {
               openDraft(result.draft);
             }}
           >
-            <label>
-              XML ou PDF
-              <input name="file" type="file" accept=".xml,.pdf,application/pdf,text/xml" required />
-            </label>
+            <FileDrop
+              name="file"
+              accept=".xml,.pdf,application/pdf,text/xml"
+              required
+              label="Arraste XML/PDF ou clique"
+              hint="Nota fiscal para leitura automática"
+            />
             <SubmitButton label="Ler nota" pendingLabel="Lendo…" />
           </form>
         ) : null}

@@ -1,8 +1,8 @@
-import { Inter } from "next/font/google";
+import { Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 
-/** Inter = face padrão dos dashboards Tabler / shadcn-admin — legível no balcão. */
-const inter = Inter({
+/** Source Sans 3 — legível no balcão, menos agressiva que Inter. */
+const sourceSans = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-ui",
@@ -21,7 +21,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.variable} ${inter.className}`}>{children}</body>
+      <body className={`${sourceSans.variable} ${sourceSans.className}`}>{children}</body>
     </html>
   );
 }

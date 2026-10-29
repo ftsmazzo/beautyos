@@ -6,6 +6,7 @@ import { dayParam, daysBetween, monthBounds, shiftDay, weekBounds } from "@/desk
 import { clientSilence, deltaPercent, LOST_AFTER, managementReport, previousSpan, type ReportSlice } from "@/desk/reports";
 import { APPOINTMENT_STATUS, paymentMethodLabel } from "@/desk/statuses";
 import { Panel } from "@/ui/panel";
+import { ReportBarChart, ReportDonut } from "@/ui/report-charts";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,13 @@ function RankTable({
 }) {
   const total = rows.reduce((sum, row) => sum + row.cents, 0);
   return (
-    <div className="queue" style={{ overflowX: "auto" }}>
+    <div className="queue table-card" style={{ overflowX: "auto" }}>
       <div className="queue-head">
         <h2>{title}</h2>
       </div>
       {rows.length === 0 ? <p className="queue-empty">Nada neste período.</p> : null}
       {rows.length > 0 ? (
-        <table>
+        <table className="data-table">
           <thead>
             <tr>
               <th>#</th>
@@ -52,13 +53,21 @@ function RankTable({
           <tbody>
             {rows.map((row, index) => {
               const href = hrefFor?.(row) ?? null;
+              const part = total > 0 ? row.cents / total : 0;
               return (
                 <tr key={`${row.name}-${index}`}>
-                  <td>{index + 1}</td>
+                  <td className="muted">{index + 1}</td>
                   <td>{href ? <Link href={href}>{row.name}</Link> : row.name}</td>
                   <td className="num">{row.qty}</td>
                   <td className="num">{formatReais(row.cents)}</td>
-                  <td className="num">{share(row.cents, total)}</td>
+                  <td className="num">
+                    <span className="share-cell">
+                      <span className="report-track" aria-hidden="true">
+                        <span className="report-bar" style={{ transform: `scaleX(${part})` }} />
+                      </span>
+                      {share(row.cents, total)}
+                    </span>
+                  </td>
                 </tr>
               );
             })}
@@ -140,7 +149,9 @@ export default async function ReportsPage({
                 <span className="label">Recebido</span>
                 <strong>{formatReais(revenue)}</strong>
                 <span className="report-delta">
-                  {delta == null ? "sem período anterior" : `${delta > 0 ? "+" : ""}${delta}% vs ${formatDay(previous.start)}–${formatDay(previous.end)}`}
+                  {delta == null
+                    ? "sem período anterior"
+                    : `${delta > 0 ? "+" : ""}${delta}% vs ${formatDay(previous.start)}-${formatDay(previous.end)}`}
                 </span>
               </div>
               <div className="statement-total">
@@ -157,18 +168,30 @@ export default async function ReportsPage({
                 <span className="label">Formas</span>
                 <strong>{report.methods.length}</strong>
                 <span className="report-delta">
-                  {report.methods[0] ? `${paymentMethodLabel(report.methods[0].name)} ${share(report.methods[0].cents, methodTotal)}` : "sem recebimento"}
+                  {report.methods[0]
+                    ? `${paymentMethodLabel(report.methods[0].name)} ${share(report.methods[0].cents, methodTotal)}`
+                    : "sem recebimento"}
                 </span>
               </div>
             </div>
-            <div className="queue statement-day" style={{ overflowX: "auto" }}>
+            <ReportBarChart
+              title="Recebido por dia"
+              meta={`${report.days.length} dia${report.days.length === 1 ? "" : "s"}`}
+              points={report.days.map((row) => ({
+                label: row.day.slice(8),
+                value: row.cents,
+                hint: `${row.orders} comanda${row.orders === 1 ? "" : "s"}`,
+              }))}
+              formatValue={formatReais}
+            />
+            <div className="queue statement-day table-card" style={{ overflowX: "auto" }}>
               <div className="queue-head">
                 <h2>Dia a dia</h2>
                 <span className="meta">{report.days.length} dia{report.days.length === 1 ? "" : "s"}</span>
               </div>
               {report.days.length === 0 ? <p className="queue-empty">Nenhum recebimento neste período.</p> : null}
               {report.days.length > 0 ? (
-                <table>
+                <table className="data-table">
                   <thead>
                     <tr>
                       <th>Dia</th>
@@ -183,14 +206,18 @@ export default async function ReportsPage({
                       <tr key={row.day}>
                         <td>{formatDay(row.day)}</td>
                         <td>
-                          <span className="report-track" aria-hidden="true">
-                            <span className="report-bar" style={{ transform: `scaleX(${peak > 0 ? row.cents / peak : 0})` }} />
+                          <span className="share-cell">
+                            <span className="report-track" aria-hidden="true">
+                              <span className="report-bar" style={{ transform: `scaleX(${peak > 0 ? row.cents / peak : 0})` }} />
+                            </span>
+                            {formatReais(row.cents)}
                           </span>
-                          {formatReais(row.cents)}
                         </td>
                         <td className="num">{row.orders}</td>
                         <td className="num">{formatReais(row.orders > 0 ? Math.round(row.cents / row.orders) : 0)}</td>
-                        <td><Link href={`/caixa?dia=${row.day}`}>Caixa</Link></td>
+                        <td>
+                          <Link href={`/caixa?dia=${row.day}`}>Caixa</Link>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -198,66 +225,31 @@ export default async function ReportsPage({
               ) : null}
             </div>
             <div className="report-split">
-              <div className="queue statement-day" style={{ overflowX: "auto" }}>
-                <div className="queue-head"><h2>Formas</h2></div>
-                {report.methods.length === 0 ? <p className="queue-empty">Nenhum recebimento.</p> : null}
-                {report.methods.length > 0 ? (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Forma</th>
-                      <th className="num">Qtd</th>
-                      <th className="num">Valor</th>
-                      <th className="num">Parte</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.methods.map((row) => (
-                      <tr key={row.name}>
-                        <td>{paymentMethodLabel(row.name)}</td>
-                        <td className="num">{row.qty}</td>
-                        <td className="num">{formatReais(row.cents)}</td>
-                        <td className="num">{share(row.cents, methodTotal)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                ) : null}
-              </div>
-              <div className="queue statement-day" style={{ overflowX: "auto" }}>
-                <div className="queue-head"><h2>Agenda</h2></div>
-                {agenda === 0 ? <p className="queue-empty">Nenhum horário neste período.</p> : null}
-                {agenda > 0 ? (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Estado</th>
-                        <th className="num">Qtd</th>
-                        <th className="num">Parte</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {STATUS_ORDER.filter((status) => report.statuses.some((row) => row.status === status)).map((status) => {
-                        const qty = report.statuses.find((row) => row.status === status)?.qty ?? 0;
-                        return (
-                          <tr key={status}>
-                            <td>{APPOINTMENT_STATUS[status].word}</td>
-                            <td className="num">{qty}</td>
-                            <td className="num">{share(qty, agenda)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                ) : null}
-              </div>
+              <ReportDonut
+                title="Formas de pagamento"
+                empty="Nenhum recebimento."
+                formatValue={formatReais}
+                slices={report.methods.map((row) => ({
+                  label: paymentMethodLabel(row.name),
+                  value: row.cents,
+                }))}
+              />
+              <ReportDonut
+                title="Agenda por estado"
+                empty="Nenhum horário neste período."
+                formatValue={(value) => String(value)}
+                slices={STATUS_ORDER.filter((status) => report.statuses.some((row) => row.status === status)).map((status) => ({
+                  label: APPOINTMENT_STATUS[status].word,
+                  value: report.statuses.find((row) => row.status === status)?.qty ?? 0,
+                }))}
+              />
             </div>
             <div className="report-grid">
               <RankTable title="Serviços" rows={report.services} />
               <RankTable
                 title="Profissionais"
                 rows={report.staff}
-                hrefFor={(row) => row.id ? `/comissao?de=${start}&ate=${end}&profissional=${row.id}` : null}
+                hrefFor={(row) => (row.id ? `/comissao?de=${start}&ate=${end}&profissional=${row.id}` : null)}
               />
               <RankTable title="Produtos" rows={report.products} />
             </div>
@@ -270,23 +262,53 @@ export default async function ReportsPage({
         ) : null}
         {!tooLong ? (
           <div className="desk-bar">
-            <Link className="btn quiet" href="/relatorios/alertas">Alertas</Link>
-            <Link className="btn quiet" href={`/relatorios/financeiro?de=${start}&ate=${end}`}>Financeiro</Link>
-            <Link className="btn quiet" href={`/relatorios/agenda?de=${start}&ate=${end}`}>Agenda</Link>
-            <Link className="btn quiet" href={`/relatorios/comandas?de=${start}&ate=${end}`}>Comandas</Link>
-            <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
-            <Link className="btn quiet" href={`/relatorios/compras?de=${start}&ate=${end}`}>Compras</Link>
-            <Link className="btn quiet" href={`/produtos/movimentos?de=${start}&ate=${end}`}>Movimentos</Link>
-            <Link className="btn quiet" href={`/relatorios/clientes?de=${start}&ate=${end}`}>Clientes</Link>
-            <Link className="btn quiet" href={`/relatorios/extras?de=${start}&ate=${end}`}>Extras</Link>
-            <Link className="btn quiet" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
-            <Link className="btn quiet" href={`/comissao?de=${start}&ate=${end}`}>Comissão</Link>
+            <Link className="btn quiet" href="/relatorios/alertas">
+              Alertas
+            </Link>
+            <Link className="btn quiet" href={`/relatorios/financeiro?de=${start}&ate=${end}`}>
+              Financeiro
+            </Link>
+            <Link className="btn quiet" href={`/relatorios/agenda?de=${start}&ate=${end}`}>
+              Agenda
+            </Link>
+            <Link className="btn quiet" href={`/relatorios/comandas?de=${start}&ate=${end}`}>
+              Comandas
+            </Link>
+            <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>
+              Estoque
+            </Link>
+            <Link className="btn quiet" href={`/relatorios/compras?de=${start}&ate=${end}`}>
+              Compras
+            </Link>
+            <Link className="btn quiet" href={`/produtos/movimentos?de=${start}&ate=${end}`}>
+              Movimentos
+            </Link>
+            <Link className="btn quiet" href={`/relatorios/clientes?de=${start}&ate=${end}`}>
+              Clientes
+            </Link>
+            <Link className="btn quiet" href={`/relatorios/extras?de=${start}&ate=${end}`}>
+              Extras
+            </Link>
+            <Link className="btn quiet" href={`/caixa?de=${start}&ate=${end}`}>
+              Caixa
+            </Link>
+            <Link className="btn quiet" href={`/comissao?de=${start}&ate=${end}`}>
+              Comissão
+            </Link>
             {user.role === "administrador" ? (
-              <Link className="btn quiet" href={`/financeiro/fluxo?mes=${end.slice(0, 7)}`}>Fluxo</Link>
+              <Link className="btn quiet" href={`/financeiro/fluxo?mes=${end.slice(0, 7)}`}>
+                Fluxo
+              </Link>
             ) : null}
-            <Link className="btn quiet" href={`/pacotes/relatorio?de=${start}&ate=${end}`}>Pacotes</Link>
-            <Link className="btn quiet" href={`/servicos/periodo?de=${start}&ate=${end}`}>Serviços</Link>
-            <Link className="btn quiet" href="/volta">Volta</Link>
+            <Link className="btn quiet" href={`/pacotes/relatorio?de=${start}&ate=${end}`}>
+              Pacotes
+            </Link>
+            <Link className="btn quiet" href={`/servicos/periodo?de=${start}&ate=${end}`}>
+              Serviços
+            </Link>
+            <Link className="btn quiet" href="/volta">
+              Volta
+            </Link>
           </div>
         ) : null}
       </div>
