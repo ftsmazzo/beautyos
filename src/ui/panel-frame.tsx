@@ -7,49 +7,44 @@ import { moduleAllows, type HouseModuleId } from "@/catalog/modules";
 import type { SessionUser } from "@/auth/session";
 import { SubmitButton } from "@/ui/submit-button";
 
-type VisualTheme = "salon" | "barber";
-const THEME_KEY = "beautyos-theme";
+type VisualTemplate = "salon" | "barber";
+const TEMPLATE_KEY = "beautyos-theme";
 
 type NavLink = { href: string; label: string; group: string };
 
-const OPERATION: NavLink[] = [
-  { href: "/inicio", label: "Início", group: "Operação" },
-  { href: "/agenda", label: "Agenda", group: "Operação" },
-  { href: "/comandas", label: "Comandas", group: "Operação" },
+/** Rotas quentes do balcão — sempre visíveis no rail. */
+const HOT: NavLink[] = [
+  { href: "/inicio", label: "Início", group: "hot" },
+  { href: "/agenda", label: "Agenda", group: "hot" },
+  { href: "/comandas", label: "Comandas", group: "hot" },
+  { href: "/caixa", label: "Caixa", group: "hot" },
+  { href: "/produtos", label: "Produtos", group: "hot" },
+  { href: "/financeiro/receber", label: "A receber", group: "hot" },
+];
+
+const MORE: NavLink[] = [
   { href: "/espera", label: "Espera", group: "Operação" },
   { href: "/lembretes", label: "Lembretes", group: "Operação" },
-  { href: "/caixa", label: "Caixa", group: "Operação" },
   { href: "/comissao", label: "Comissão", group: "Operação" },
   { href: "/relatorios", label: "Relatórios", group: "Operação" },
   { href: "/agente", label: "Conversas", group: "Operação" },
-];
-
-const CATALOG: NavLink[] = [
   { href: "/servicos", label: "Serviços", group: "Cadastros" },
   { href: "/profissionais", label: "Profissionais", group: "Cadastros" },
   { href: "/clientes", label: "Clientes", group: "Cadastros" },
   { href: "/aniversariantes", label: "Aniversariantes", group: "Cadastros" },
   { href: "/volta", label: "Volta", group: "Cadastros" },
-  { href: "/produtos", label: "Produtos", group: "Cadastros" },
   { href: "/fornecedores", label: "Fornecedores", group: "Cadastros" },
   { href: "/pacotes", label: "Pacotes", group: "Cadastros" },
   { href: "/pacotes/vendidos", label: "Vendidos", group: "Cadastros" },
   { href: "/pacotes/relatorio", label: "Relatório", group: "Cadastros" },
-];
-
-const SYSTEM: NavLink[] = [
-  { href: "/logs", label: "Logs", group: "Sistema" },
-  { href: "/acesso", label: "Acesso", group: "Sistema" },
-  { href: "/meu", label: "Minha conta", group: "Conta" },
-];
-
-const FINANCE: NavLink[] = [
   { href: "/financeiro", label: "A pagar", group: "Financeiro" },
-  { href: "/financeiro/receber", label: "A receber", group: "Financeiro" },
   { href: "/financeiro/bancos", label: "Bancos", group: "Financeiro" },
   { href: "/financeiro/cartoes", label: "Cartões", group: "Financeiro" },
   { href: "/financeiro/plano", label: "Plano", group: "Financeiro" },
   { href: "/financeiro/fluxo", label: "Fluxo", group: "Financeiro" },
+  { href: "/logs", label: "Logs", group: "Sistema" },
+  { href: "/acesso", label: "Acesso", group: "Sistema" },
+  { href: "/meu", label: "Minha conta", group: "Conta" },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -72,6 +67,11 @@ function clockNow() {
   }
 }
 
+function applyTemplate(next: VisualTemplate) {
+  document.documentElement.setAttribute("data-template", next);
+  document.documentElement.setAttribute("data-theme", next);
+}
+
 export function PanelFrame({
   user,
   current,
@@ -86,63 +86,67 @@ export function PanelFrame({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<VisualTheme>("salon");
+  const [template, setTemplate] = useState<VisualTemplate>("salon");
   const [clock, setClock] = useState("");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(THEME_KEY);
-    const next: VisualTheme = saved === "barber" ? "barber" : "salon";
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
+    const saved = window.localStorage.getItem(TEMPLATE_KEY);
+    const next: VisualTemplate = saved === "barber" ? "barber" : "salon";
+    setTemplate(next);
+    applyTemplate(next);
     setClock(clockNow());
     const id = window.setInterval(() => setClock(clockNow()), 30_000);
     return () => window.clearInterval(id);
   }, []);
 
-  function toggleTheme() {
-    const next: VisualTheme = theme === "salon" ? "barber" : "salon";
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-    window.localStorage.setItem(THEME_KEY, next);
+  function toggleTemplate() {
+    const next: VisualTemplate = template === "salon" ? "barber" : "salon";
+    setTemplate(next);
+    applyTemplate(next);
+    window.localStorage.setItem(TEMPLATE_KEY, next);
   }
 
   const operator = user.role === "administrador" || user.role === "balcao";
-  const links: NavLink[] = (operator
-    ? [
-        ...OPERATION,
-        ...CATALOG,
-        ...(user.role === "administrador" && modules.financeiro
-          ? FINANCE
-          : user.role === "balcao" && modules.financeiro
-            ? FINANCE.filter((link) => link.href === "/financeiro/receber")
-            : []),
-        ...SYSTEM.filter((l) => l.href === "/logs"),
-      ]
-    : user.role === "profissional"
-      ? OPERATION.filter((l) =>
-          ["/inicio", "/agenda", "/comandas", "/espera", "/lembretes", "/comissao"].includes(l.href),
-        )
-      : [
-          { href: "/inicio", label: "Início", group: "Conta" },
-          ...SYSTEM.filter((l) => l.href === "/meu"),
-        ]
-  ).filter((link) => moduleAllows(modules, link.href));
-  if (user.role === "administrador") {
-    links.push(...SYSTEM.filter((l) => l.href === "/acesso"));
+  const allow = (href: string) => moduleAllows(modules, href);
+
+  let hot = HOT.filter((l) => allow(l.href));
+  let more = MORE.filter((l) => allow(l.href));
+
+  if (user.role === "balcao") {
+    more = more.filter((l) => !l.href.startsWith("/financeiro") || l.href === "/financeiro/receber");
+    more = more.filter((l) => l.href !== "/acesso");
+  } else if (user.role === "profissional") {
+    const ok = new Set(["/inicio", "/agenda", "/comandas", "/espera", "/lembretes", "/comissao"]);
+    hot = hot.filter((l) => ok.has(l.href));
+    more = more.filter((l) => ok.has(l.href));
+  } else if (user.role === "cliente") {
+    hot = [{ href: "/inicio", label: "Início", group: "hot" }];
+    more = MORE.filter((l) => l.href === "/meu");
   }
 
-  const primary = links.filter((l) => l.group === "Operação");
-  const secondary = links.filter((l) => l.group !== "Operação");
+  if (!operator) {
+    hot = hot.filter((l) => l.href !== "/financeiro/receber" && l.href !== "/produtos" && l.href !== "/caixa");
+  }
+
+  if (user.role !== "administrador") {
+    more = more.filter((l) => l.href !== "/acesso");
+  }
 
   const groups: { name: string; items: NavLink[] }[] = [];
-  for (const link of secondary) {
+  for (const link of more) {
     const last = groups[groups.length - 1];
     if (last && last.name === link.group) last.items.push(link);
     else groups.push({ name: link.group, items: [link] });
   }
 
+  const mirrorLinks = [
+    { href: "/caixa", label: "Caixa do dia" },
+    { href: "/financeiro/receber", label: "A receber" },
+    { href: "/produtos/compra", label: "Alertas · compra" },
+  ].filter((l) => allow(l.href) && (operator || l.href === "/comissao"));
+
   return (
-    <div className={`station ${open ? "is-open" : ""}`} data-shell={theme}>
+    <div className={`station ${open ? "is-open" : ""}`} data-shell={template}>
       <aside className="station-rail" aria-label="Navegação">
         <div className="station-brand">
           <p className="station-wordmark">BeautyOS</p>
@@ -152,15 +156,16 @@ export function PanelFrame({
         <button
           type="button"
           className="station-theme"
-          onClick={toggleTheme}
-          aria-pressed={theme === "barber"}
+          onClick={toggleTemplate}
+          aria-pressed={template === "barber"}
+          aria-label="Alternar template visual"
         >
           <span className="station-theme-a">A salão</span>
           <span className="station-theme-b">B barbeiro</span>
         </button>
 
-        <nav className="station-ops">
-          {primary.map((link) => (
+        <nav className="station-ops" aria-label="Operação">
+          {hot.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -176,7 +181,11 @@ export function PanelFrame({
         {groups.length > 0 ? (
           <div className="station-more">
             {groups.map((group) => (
-              <details key={group.name} className="station-fold" open={group.items.some((i) => i.href === current)}>
+              <details
+                key={group.name}
+                className="station-fold"
+                open={group.items.some((i) => i.href === current)}
+              >
                 <summary>{group.name}</summary>
                 <div className="station-fold-list">
                   {group.items.map((link) => (
@@ -195,6 +204,16 @@ export function PanelFrame({
             ))}
           </div>
         ) : null}
+
+        <div className="station-rail-foot">
+          <div className="station-who">
+            <strong>{user.name}</strong>
+            <span>{ROLE_LABEL[user.role] ?? user.role}</span>
+          </div>
+          <form action={logout} className="station-logout">
+            <SubmitButton label="Sair" pendingLabel="…" className="quiet" />
+          </form>
+        </div>
       </aside>
 
       {open ? (
@@ -210,16 +229,23 @@ export function PanelFrame({
             <h1>{title}</h1>
             {clock ? <time className="station-clock">{clock}</time> : null}
           </div>
-          <div className="station-who">
-            <strong>{user.name}</strong>
-            <span>{ROLE_LABEL[user.role] ?? user.role}</span>
-          </div>
-          <form action={logout} className="station-logout">
-            <SubmitButton label="Sair" pendingLabel="…" className="quiet" />
-          </form>
         </header>
         <main className="station-work content">{children}</main>
       </div>
+
+      <aside className="station-mirror" aria-label="Espelho do dia">
+        <p className="station-mirror-label">Espelho</p>
+        <div className="station-mirror-stack">
+          {mirrorLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="station-mirror-card">
+              {link.label}
+            </Link>
+          ))}
+          {mirrorLinks.length === 0 ? (
+            <p className="station-mirror-empty">Sem atalhos neste papel.</p>
+          ) : null}
+        </div>
+      </aside>
     </div>
   );
 }

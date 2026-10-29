@@ -26,11 +26,11 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" data-theme="salon" suppressHydrationWarning>
+    <html lang="pt-BR" data-template="salon" data-theme="salon" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("beautyos-theme");if(t==="barber"||t==="salon")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem("beautyos-theme");if(t==="barber"||t==="salon"){document.documentElement.setAttribute("data-template",t);document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`,
           }}
         />
       </head>
