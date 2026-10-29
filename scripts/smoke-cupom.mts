@@ -1,6 +1,9 @@
 /**
  * Smoke S1/S2 — NFC-e consult + chave sem hash (sem login).
- * Uso: npx tsx scripts/smoke-cupom.mts
+ * Uso: npm run smoke:cupom
+ *
+ * S1-live (fetch Node direto na SEFAZ) pode SKIP por WAF — isso é esperado.
+ * S1-proxy valida o caminho de produção (Funnel/Playwright) quando NFCE_LOOKUP_* estiver setado.
  */
 import { couponUrl, fetchCoupon, parseCouponPage } from "../src/catalog/invoice.ts";
 
@@ -34,13 +37,44 @@ ok("S1-block", couponUrl("https://example.com/nfce") === "", "bloqueia host estr
 
 try {
   const live = await fetchCoupon(QR);
-  ok(
-    "S1-live",
-    Boolean(live && live.lines.length >= 1 && live.document && live.cnpj),
-    live ? `doc=${live.document} n=${live.lines.length} first=${live.lines[0]?.label}` : "null",
-  );
+  if (live && live.lines.length >= 1 && live.document && live.cnpj) {
+    ok("S1-live", true, `doc=${live.document} n=${live.lines.length} first=${live.lines[0]?.label}`);
+  } else {
+    // Node fetch direto costuma ser WAF no datacenter/casa — caminho oficial é o proxy.
+    console.log("SKIP S1-live fetch direto sem itens (WAF esperado; use S1-proxy)");
+  }
 } catch (error) {
-  console.log(`SKIP S1-live rede SEFAZ: ${error instanceof Error ? error.message : error}`);
+  console.log(`SKIP S1-live rede/WAF SEFAZ: ${error instanceof Error ? error.message : error}`);
+}
+
+const proxy = process.env.NFCE_LOOKUP_URL?.trim() || "https://desktop-flgv1fq.taile1a3fa.ts.net/lookup";
+const token = process.env.NFCE_LOOKUP_TOKEN?.trim() || "beleza-nfce-2026";
+try {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(proxy, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ qr: QR }),
+    signal: AbortSignal.timeout(90_000),
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    ok("S1-proxy", false, `http ${response.status} ${body.slice(0, 120)}`);
+  } else {
+    const data = JSON.parse(body) as { lines?: { label?: string; qty?: number; costCents?: number }[]; document?: string; cnpj?: string };
+    const n = data.lines?.length ?? 0;
+    ok(
+      "S1-proxy",
+      n >= 1 && Boolean(data.document || data.cnpj),
+      `doc=${data.document ?? "?"} n=${n} first=${data.lines?.[0]?.label ?? "?"}`,
+    );
+  }
+} catch (error) {
+  ok("S1-proxy", false, error instanceof Error ? error.message : String(error));
 }
 
 try {

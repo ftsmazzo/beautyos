@@ -5,7 +5,7 @@
 
 ## Veredito
 
-Arquitetura do dia a dia coerente (uma conta, movimento de estoque, comissão na linha, caixa ≠ banco). Confiança ainda não: docs desatualizados, papéis nos alertas, NFC-e/OCR frágeis, sem E2E logado no SHA deployado.
+Arquitetura do dia a dia coerente (uma conta, movimento de estoque, comissão na linha, caixa ≠ banco). Painel operacional fechado para o próximo ciclo (agente WhatsApp). NFC-e via Tailscale Funnel + Playwright no PC; OCR fora de propósito.
 
 **Não reabrir agora:** cupom de desconto, clubes, promoções, pesquisa, Open Finance, Next 16, cérebro Donna sem pedido, meta mensal de extras, fidelidade/pontos/foto de catálogo.
 
@@ -17,13 +17,13 @@ Arquitetura do dia a dia coerente (uma conta, movimento de estoque, comissão na
 | Comanda → pagamento split → fechar | Entregue | Várias formas, conta do cliente, pacote na linha | Auditoria UX de troca cliente/valor | Balcão |
 | Caixa do balcão | Entregue | Movimentos do dia, separado da tesouraria | Smoke no SHA deployado | Balcão |
 | Comissão na linha + taxa cartão | Entregue | Extrato, `card_fee_share`, pacote no preço interno | Compartilhar comissão (secretária) fora | Admin / profissional |
-| Estoque / compra / NFC-e / celular | Parcial | XML/PDF, QR→SEFAZ, bridge celular, criar produto, barcode, lista mínimo | OCR sem chave; parser HTML SP-shaped; E2E cupom | Balcão |
+| Estoque / compra / NFC-e / celular | Entregue | XML/PDF, QR→proxy Funnel→itens, bridge celular, criar produto, barcode, lista mínimo | XML se PC/Funnel cair | Balcão |
 | Movimentos + compras + margem | Entregue | Painel movimentos, relatório compras, estoque custo/margem | Aceite operacional formal | Balcão / admin |
 | Alertas / ação | Parcial | Fila estoque→montar compra; receber abre `/financeiro/receber` no balcão; pagar atrasado admin | Smoke S7 logado | Misto |
 | Financeiro (pagar/receber/bancos/fluxo) | Entregue | Tesouraria admin; balcão só A receber | Contas a pagar / bancos só admin | Admin / balcão |
 | Pacotes vendidos / perdão / relatório | Entregue | Filtros, idas, perdão, cobrar diferença | Smoke venda+uso no mesmo dia | Balcão |
 | Relatórios gerenciais | Entregue | Hub + detalhe (agenda, comandas, clientes, extras, financeiro, estoque) | Meta mensal de extras (adiado) | Admin / balcão |
-| Agente / Donna | Parcial | Módulo, webhook, tools; LLM opcional | Sem `OPENAI_KEY` em prod; cérebro fora deste ciclo | Admin |
+| Agente / Donna | Parcial — **próximo ciclo** | Módulo, webhook, tools; LLM opcional | Ligar Evolution + `OPENAI_*` + cérebro | Admin |
 | PWA / cliente | Parcial | Manifest + shell | Catálogo cliente, créditos no app | Cliente |
 | Fidelidade / pontos / foto catálogo | Faltando | — | Doc pede quando superfície cliente existir | — |
 | Cupom desconto / clube / promo / pesquisa | Fora | — | Segundo sprint de propósito | — |
@@ -70,19 +70,19 @@ CI (`tsc` / lint / build) **não** substitui isto. Só depois de `inspectAppServ
 2. Atualizar `docs/06-PLANO-IMPLEMENTACAO.md` (status real das fases).  
 3. Só então escolher próximo domínio: **A)** fechar contrato alertas/papel + estoque↔caixa, ou **B)** dívida do cliente + auditoria de edição.
 
-## Execução (2026-10-28)
+## Execução (2026-10-28 → 2026-10-29)
 
 | Item | Status |
 |------|--------|
 | Atualizar `docs/06` | Feito |
 | Contrato alertas → a receber no balcão | Feito (`requireOperator` + menu A receber) |
 | Contas a pagar só admin | Mantido |
-| Smoke S1/S2 automatizado | Feito (`scripts/smoke-cupom.mts`; live SEFAZ pode SKIP por rede) |
-| Deploy SHA = HEAD | Feito (`579f025`) |
-| Smoke S3–S8 / walkthrough logado | Parcial (admin+balcão; falta só cupom celular) |
+| Smoke S1/S2 automatizado | Feito (`npm run smoke:cupom`; S1-live SKIP WAF; **S1-proxy PASS**) |
+| Deploy SHA = HEAD | Feito (ver EasyPanel `beautyos/app`) |
+| Smoke S3–S8 / walkthrough logado | Feito o suficiente para fechar painel (cupom celular validado 29/10) |
 | Domínio A: alertas/papel + atalhos A receber | Feito + prova E2E admin e balcão |
 | Domínio B: log de reabertura | Feito + prova E2E (histórico + Logs) |
-| Escolher próximo corte | Cupom celular, ou fechar sprint |
+| Próximo corte | **Agente WhatsApp** (Evolution + LLM) |
 
 ### Prova admin (2026-10-28)
 
@@ -94,8 +94,8 @@ CI (`tsc` / lint / build) **não** substitui isto. Só depois de `inspectAppServ
 | P0.5 Parcial | PASS “Falta R$30” após só o pix |
 | Fechar/reabrir + log | PASS Histórico “Reabertura”; Logs filtro |
 | S7 admin alertas | PASS “Falta receber” → `/financeiro/receber` |
-| S3 bridge celular | UI “Ler no celular” ok; leitura real pendente |
-| P0.6 NFC-e live | Pendente (rede SEFAZ / celular) |
+| S3 bridge celular | PASS (29/10) — QR no celular → draft com itens via Funnel |
+| P0.6 NFC-e live | PASS (29/10) — proxy Playwright + Funnel; itens no balcão |
 
 ### Prova balcão (2026-10-28)
 

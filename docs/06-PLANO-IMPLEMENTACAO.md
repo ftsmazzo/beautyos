@@ -4,8 +4,8 @@
 > Depende de: [PRD](01-PRD.md), [TRD](02-TRD.md), [Fluxo](03-FLUXO-APP.md), [UI](04-UIUX.md), [Esquema](05-ESQUEMA-BACKEND.md)
 > Alinhamento operacional: [ops-alinhamento.md](ops-alinhamento.md)
 
-**Data**: 2026-10-28  
-**Status**: fases 0–6 no ar em produção. Fase 7 parcial (movimentos, estoque, compras). Aceite P0 / smoke E2E logado ainda em execução.
+**Data**: 2026-10-29  
+**Status**: fases 0–5 e estoque/compras (fase 7 parcial) fechados em produção. Fase 6 (agente WhatsApp) é o próximo ciclo. NFC-e via Funnel+Playwright validado.
 
 ## 1. O que a base precisa ter para rodar
 
@@ -19,9 +19,9 @@ Uma conta, um negócio. Agenda, comanda e caixa do dia. Fichas de cliente, profi
 | 1 | Conta, acesso e papéis | Feito | balcão, admin, profissional, cliente |
 | 2 | Fichas: serviço, profissional, cliente, produto, pacote | Feito | |
 | 3 | Agenda, comanda, pagamento, caixa, comissão | Feito | Taxa de cartão e parte da casa na comissão |
-| 4 | Pacote vendido, idas, perdão, compra de estoque | Feito | NFC-e/celular, lista do mínimo |
+| 4 | Pacote vendido, idas, perdão, compra de estoque | Feito | NFC-e celular+Funnel; lista do mínimo |
 | 5 | Financeiro (pagar, receber, bancos, cartões, fluxo) | Feito | Tesouraria admin; a receber também no balcão |
-| 6 | WhatsApp/agente, lembretes, aniversário, espera, PWA | Parcial | Agente sem chave LLM em prod; PWA shell |
+| 6 | WhatsApp/agente, lembretes, aniversário, espera, PWA | **Próximo** | Lembretes/espera/PWA shell ok; ligar Evolution+LLM |
 | 7 | Cupom desconto, clubes, promo, pesquisa; painel movimentos; relatórios estoque | Parcial | Movimentos + estoque/compras/margem feitos. Cupom/clube/promo/pesquisa fora de propósito |
 
 ## 3. Marcos
@@ -30,7 +30,8 @@ Uma conta, um negócio. Agenda, comanda e caixa do dia. Fichas de cliente, profi
 - O app-barbearia permanece congelado. Correção urgente nele não redesenha este.
 - Folga remunerada não entra até ser pedida.
 - Open Finance e Next 16 não entram neste ciclo.
-- Aceite: walkthrough P0 + smokes S1–S10 em [ops-alinhamento.md](ops-alinhamento.md) no SHA deployado.
+- Aceite do painel: walkthrough P0 + smokes em [ops-alinhamento.md](ops-alinhamento.md). Cupom NFC-e: `npm run smoke:cupom` + prova celular.
+- Próximo marco: agente WhatsApp operacional na conta (Evolution + segredo + LLM).
 
 ## 4. Critério de pronto da base
 
