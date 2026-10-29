@@ -798,7 +798,7 @@ dialog.modal[open] { animation: modal-in 180ms ease; }
 .auth-panel > p { color: var(--muted); margin: 0 0 16px; }
 .auth-panel form {
   max-width: 420px;
-  border-top: 3px solid var(--accent);
+  box-shadow: inset 0 1px 0 var(--metal);
 }
 
 button.scrim {
@@ -873,9 +873,9 @@ button.scrim {
   display: flex;
   align-items: center;
   padding: 0 10px;
-  background: #ffffff;
+  background: var(--card-solid);
   border: 1px solid var(--line);
-  border-top: 4px solid var(--accent);
+  box-shadow: inset 0 2px 0 var(--metal);
   border-radius: 6px 6px 0 0;
 }
 .board-col header strong { color: var(--ink); }
