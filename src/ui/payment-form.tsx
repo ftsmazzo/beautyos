@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatRate } from "@/catalog/format";
+import { centsToInput, formatReais, formatRate } from "@/catalog/format";
 import { addPayment } from "@/desk/actions";
 import { PAYMENT_METHODS } from "@/desk/statuses";
 import { SubmitButton } from "@/ui/submit-button";
@@ -13,10 +13,16 @@ export function PaymentForm({
   orderId,
   banks,
   acquirers,
+  totalCents,
+  paidCents,
+  dueCents,
 }: {
   orderId: string;
   banks: { id: string; name: string }[];
   acquirers: Machine[];
+  totalCents: number;
+  paidCents: number;
+  dueCents: number;
 }) {
   const [method, setMethod] = useState("pix");
   const [acquirerId, setAcquirerId] = useState(acquirers[0]?.id ?? "");
@@ -27,10 +33,27 @@ export function PaymentForm({
   const brand = brands.find((item) => item.id === brandId) ?? brands[0];
   const rateOf = (row: { debitBps: number; creditBps: number }) =>
     formatRate(method === "debito" ? row.debitBps : row.creditBps);
+  const due = Math.max(0, dueCents);
 
   return (
     <form action={addPayment}>
       <input type="hidden" name="order" value={orderId} />
+      <div className="payment-due">
+        <div>
+          <span>Total da comanda</span>
+          <strong>{formatReais(totalCents)}</strong>
+        </div>
+        {paidCents > 0 ? (
+          <div>
+            <span>Já pago</span>
+            <strong>{formatReais(paidCents)}</strong>
+          </div>
+        ) : null}
+        <div>
+          <span>A receber</span>
+          <strong>{formatReais(due)}</strong>
+        </div>
+      </div>
       <div className="split">
         <label>
           Forma
@@ -44,7 +67,14 @@ export function PaymentForm({
         </label>
         <label>
           Valor
-          <input name="amount" inputMode="decimal" placeholder="0,00" required />
+          <input
+            key={due}
+            name="amount"
+            inputMode="decimal"
+            defaultValue={centsToInput(due)}
+            placeholder="0,00"
+            required
+          />
         </label>
         {card && acquirers.length > 0 ? (
           <label>

@@ -143,10 +143,10 @@ export default async function OrderPage({
         {order.phone ? <span className="badge bg-secondary-lt">{formatPhone(order.phone)}</span> : null}
         <span className="badge bg-secondary-lt">{formatDay(order.day)}</span>
         <span className={`chip ${open ? "ok" : ""}`}>{open ? "Aberta" : "Fechada"}</span>
-        <span className="badge bg-secondary-lt">{formatReais(total)}</span>
-        {paid > 0 && paid < total ? <span className="badge bg-secondary-lt">Pago {formatReais(paid)}</span> : null}
+        <span className="badge bg-secondary-lt">Total {formatReais(total)}</span>
+        {paid > 0 ? <span className="badge bg-secondary-lt">Pago {formatReais(paid)}</span> : null}
         <span className={`chip ${paid >= total ? "ok" : "hot"}`}>
-          {paid >= total ? "Coberta" : `Falta ${formatReais(gap)}`}
+          {paid >= total ? "Coberta" : `A receber ${formatReais(gap)}`}
         </span>
         {order.fromOutside ? <span className="badge bg-orange-lt text-orange">De fora</span> : null}
         {order.incomplete ? <span className="badge bg-red-lt text-red">Cadastro pendente</span> : null}
@@ -649,12 +649,28 @@ export default async function OrderPage({
         <div className="order-section">
           <div className="order-actions-bar">
             <h2 style={{ margin: 0, border: 0, padding: 0, flex: "1 1 auto" }}>Pagamentos</h2>
+            <div className="order-due-summary">
+              <span>
+                Total <strong>{formatReais(total)}</strong>
+              </span>
+              {paid > 0 ? (
+                <span>
+                  Pago <strong>{formatReais(paid)}</strong>
+                </span>
+              ) : null}
+              <span className={gap > 0 ? "due" : "ok"}>
+                {gap > 0 ? "A receber" : "Coberta"} <strong>{formatReais(gap)}</strong>
+              </span>
+            </div>
             {operator && open ? (
-              <Modal label="Receber" title="Receber" tone="teal">
+              <Modal label="Receber" title="Receber pagamento" tone="teal">
                 <PaymentForm
                   orderId={order.id}
                   banks={banks.map((bank) => ({ id: bank.id, name: bank.name }))}
                   acquirers={acquirers}
+                  totalCents={total}
+                  paidCents={paid}
+                  dueCents={gap}
                 />
               </Modal>
             ) : null}
@@ -768,8 +784,8 @@ export default async function OrderPage({
             </>
           ) : (
             <>
-              <strong>{formatReais(total)}</strong>
-              <span>{paid >= total ? "Coberta" : `Falta ${formatReais(total - paid)}`}</span>
+              <strong>Total {formatReais(total)}</strong>
+              <span>{paid >= total ? "Coberta" : `A receber ${formatReais(total - paid)}`}</span>
             </>
           )}
         </div>

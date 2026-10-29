@@ -567,6 +567,59 @@ button.scrim {
   gap: 8px;
   align-items: center;
 }
+.order-due-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: baseline;
+  margin-right: auto;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.order-due-summary strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.order-due-summary .due {
+  color: #9a3412;
+}
+.order-due-summary .due strong {
+  color: #9a3412;
+}
+.order-due-summary .ok {
+  color: #166534;
+}
+.order-due-summary .ok strong {
+  color: #166534;
+}
+.payment-due {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm, 8px);
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+}
+.payment-due > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.payment-due span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f766e;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.payment-due strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
 .order-pack {
   margin: 8px 0 0;
   font-size: 0.9rem;
