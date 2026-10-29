@@ -415,12 +415,12 @@ export function AgendaDesk({
           )}
         </div>
       ) : null}
-      <dialog ref={dialog} className="modal">
-        <header className="modal-head tone-blue">
+      <dialog ref={dialog} className="bos-dialog">
+        <header className="bos-dialog-head tone-blue">
           <h2>{pick?.block ? "Bloquear" : pick?.encaixe ? "Encaixe" : "Novo horário"}</h2>
           <button type="button" className="btn btn-outline" onClick={() => dialog.current?.close()}>Fechar</button>
         </header>
-        <div className="modal-body">
+        <div className="bos-dialog-body">
           {pick?.block ? (
             <form action={blockSlot}>
               <input type="hidden" name="day" value={day} />
