@@ -1,5 +1,8 @@
 # Checklist guiada (um teste por vez)
 
+> **Produção Beleza usa Tailscale Funnel**, não este checklist.  
+> Ver `docs/catalog/NFCE-CONSULTA.md`. WireGuard só se houver UDP 51820 no roteador.
+
 Repo no PC: `C:\Users\anjo_\OneDrive\Projetos-FabriaIA\beautyos`
 
 **Ordem:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8  

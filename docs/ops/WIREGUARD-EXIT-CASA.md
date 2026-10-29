@@ -1,5 +1,8 @@
 # WireGuard: Hetzner → PC casa (IP fixo BR)
 
+> **Caminho atual em produção:** Tailscale Funnel + `tools/nfce-proxy` (sem porta no roteador).  
+> Este doc fica como alternativa se o Funnel não servir. Ver `docs/catalog/NFCE-CONSULTA.md`.
+
 Objetivo: a VPS na Hetzner continua servindo o site. Só a **consulta SEFAZ/NFC-e** sai pelo IP fixo do PC.
 
 ```
