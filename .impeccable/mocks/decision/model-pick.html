@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>BeautyOS — Lookbook + quadro</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{width:1440px;height:900px;overflow:hidden;font:14px/1.4 "Source Sans 3",system-ui,sans-serif;background:#f6f1e8;color:#1c1410;display:flex;flex-direction:column}
+  top{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid #1c1410}
+  .brand{font-family:Fraunces,serif;font-size:22px;font-weight:600}
+  .brand em{font-style:italic;font-weight:500;color:#7a1f2b}
+  nav{display:flex;gap:18px;font-size:13px;font-weight:600}
+  nav span.on{border-bottom:2px solid #7a1f2b;padding-bottom:2px}
+  .wrap{flex:1;display:grid;grid-template-columns:280px 1fr;min-height:0}
+  .board{background:#1c1410;color:#f6f1e8;padding:20px;font-family:"IBM Plex Mono",monospace}
+  .board h2{font-family:Fraunces,serif;font-size:16px;margin-bottom:14px;font-weight:500}
+  .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #3a302a;font-size:12px}
+  .work{padding:20px 28px}
+  .work h1{font-family:Fraunces,serif;font-size:28px;font-weight:500;margin-bottom:6px}
+  .work p{color:#6a5a50;margin-bottom:16px;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#6a5a50;padding:8px;border-bottom:1px solid #1c1410}
+  td{padding:10px 8px;border-bottom:1px solid #e0d6c8}
+  tr.sel td{background:#fff;box-shadow:inset 3px 0 0 #c4a574}
+  .gold{color:#7a1f2b;font-family:"IBM Plex Mono",monospace}
+</style>
+</head>
+<body>
+<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid #1c1410">
+  <div class="brand">BeautyOS <em>salão</em></div>
+  <nav><span class="on">Agenda</span><span>Comandas</span><span>Caixa</span><span>Estoque</span></nav>
+  <div style="font-size:11px;font-family:IBM Plex Mono,monospace">Tpl A · editorial</div>
+</div>
+<div class="wrap">
+  <aside class="board">
+    <h2>Quadro do dia</h2>
+    <div class="row"><span>CORTE</span><span>R$ 80</span></div>
+    <div class="row"><span>BARBA</span><span>R$ 45</span></div>
+    <div class="row"><span>COMBO</span><span>R$ 110</span></div>
+    <div class="row"><span>COLORAÇÃO</span><span>R$ 220</span></div>
+    <p style="margin-top:20px;font-size:11px;opacity:.7">Template B troca a serifa por condensada e o bordo por ferro.</p>
+  </aside>
+  <section class="work">
+    <h1>29 de outubro</h1>
+    <p>Grade do balcão · 3 profissionais · seleção com filete ouro</p>
+    <table>
+      <thead><tr><th>Hora</th><th>Cliente</th><th>Serviço</th><th>Prof.</th><th>Valor</th></tr></thead>
+      <tbody>
+        <tr class="sel"><td>09:00</td><td>Ana Paula</td><td>Corte + escova</td><td>Carla</td><td class="gold">180,00</td></tr>
+        <tr><td>09:00</td><td>Bruno</td><td>Barba</td><td>Leo</td><td class="gold">45,00</td></tr>
+        <tr><td>09:30</td><td>Mariana</td><td>Coloração</td><td>Carla</td><td class="gold">220,00</td></tr>
+        <tr><td>10:00</td><td>—</td><td>Livre</td><td>—</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+<!-- sketch-rev:2 -->
+</html>

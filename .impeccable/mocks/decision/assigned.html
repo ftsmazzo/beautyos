@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>BeautyOS — Espelho de estação</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{width:1440px;height:900px;overflow:hidden;font:14px/1.35 "IBM Plex Sans",system-ui,sans-serif;background:#e8e4df;color:#1a1c1e;display:flex}
+  aside{width:220px;background:#2a2e33;color:#e8e4df;padding:22px 16px;display:flex;flex-direction:column;gap:8px}
+  .mark{font-size:18px;font-weight:600;letter-spacing:-0.02em;margin-bottom:18px}
+  .mark small{display:block;font-size:11px;color:#9aa0a6;font-weight:400;margin-top:4px}
+  nav a{display:block;padding:8px 10px;border-radius:6px;color:#c5cacf;text-decoration:none;font-size:13px}
+  nav a.on{background:#3a4048;color:#fff;box-shadow:inset 0 0 0 1px #c4a574}
+  main{flex:1;padding:20px 24px;display:grid;grid-template-columns:1fr 300px;gap:16px;align-content:start}
+  header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:end;border-bottom:1px solid #c9c3bb;padding-bottom:12px;margin-bottom:4px}
+  h1{font-size:22px;font-weight:600;letter-spacing:-0.03em}
+  h1 span{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;color:#6b6560;margin-left:10px}
+  .chips{display:flex;gap:8px}
+  .chip{font-size:11px;padding:4px 10px;border:1px solid #c9c3bb;border-radius:999px;background:#f4f1ec}
+  .chip.warn{border-color:#b45309;color:#9a3412;background:#fff7ed}
+  .day{display:grid;grid-template-columns:64px 1fr 1fr 1fr;gap:8px}
+  .t{font-family:"IBM Plex Mono",monospace;font-size:12px;color:#6b6560;padding-top:14px}
+  .slot{background:#f7f4ef;border:1px solid #d4cfc7;border-radius:8px;padding:10px 12px;min-height:72px}
+  .slot b{display:block;font-size:13px}
+  .slot em{font-style:normal;font-size:11px;color:#6b6560}
+  .slot.sel{box-shadow:0 0 0 1px #e8dcc8,0 0 0 3px rgba(196,165,116,.55);background:#fff;border-color:#c4a574}
+  .rail{background:#f7f4ef;border:1px solid #d4cfc7;border-radius:8px;padding:14px}
+  .rail h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#6b6560;margin-bottom:10px}
+  .alert{padding:10px;border-left:3px solid #b45309;background:#fff;margin-bottom:8px;font-size:12px}
+  .money{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:500}
+  .tpl{position:absolute;top:16px;right:24px;font-size:11px;color:#6b6560}
+</style>
+</head>
+<body>
+<aside>
+  <div class="mark">BeautyOS<small>Template A · salão</small></div>
+  <nav>
+    <a class="on" href="#">Agenda</a>
+    <a href="#">Comandas</a>
+    <a href="#">Caixa</a>
+    <a href="#">Produtos</a>
+    <a href="#">A receber</a>
+  </nav>
+</aside>
+<main>
+  <header>
+    <h1>Quinta, 29/10 <span>09:40</span></h1>
+    <div class="chips"><span class="chip">3 abertas</span><span class="chip warn">1 alerta estoque</span></div>
+  </header>
+  <div class="day">
+    <div class="t">09:00</div>
+    <div class="slot sel"><b>Ana Paula</b><em>Corte + escova · Carla · R$ 180</em></div>
+    <div class="slot"><b>Bruno</b><em>Barba · Leo · R$ 45</em></div>
+    <div class="slot"><b>—</b><em>Livre</em></div>
+    <div class="t">09:30</div>
+    <div class="slot"><b>Mariana</b><em>Coloração · 1h30</em></div>
+    <div class="slot"><b>João</b><em>Corte masculino</em></div>
+    <div class="slot"><b>—</b><em>Livre</em></div>
+    <div class="t">10:00</div>
+    <div class="slot"><b>Cliente novo</b><em>Consulta · 15 min</em></div>
+    <div class="slot"><b>—</b><em>Livre</em></div>
+    <div class="slot"><b>—</b><em>Livre</em></div>
+  </div>
+  <div class="rail">
+    <h2>Caixa do dia</h2>
+    <div class="money">R$ 1.240</div>
+    <p style="font-size:12px;color:#6b6560;margin:8px 0 14px">Pix 62% · Cartão 38%</p>
+    <h2>Alertas</h2>
+    <div class="alert">Pomada matte abaixo do mínimo · montar compra</div>
+    <div class="alert" style="border-color:#c4a574">Falta receber · Ana Paula R$ 30</div>
+  </div>
+</main>
+</body>
+<!-- sketch-rev:2 -->
+</html>

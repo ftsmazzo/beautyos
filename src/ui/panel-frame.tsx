@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { logout } from "@/auth/actions";
 import { moduleAllows, type HouseModuleId } from "@/catalog/modules";
 import type { SessionUser } from "@/auth/session";
 import { SubmitButton } from "@/ui/submit-button";
+
+type VisualTheme = "salon" | "barber";
+const THEME_KEY = "beautyos-theme";
 
 type NavLink = { href: string; label: string; group: string };
 
@@ -126,6 +129,19 @@ export function PanelFrame({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState<VisualTheme>("salon");
+  useEffect(() => {
+    const saved = window.localStorage.getItem(THEME_KEY);
+    const next: VisualTheme = saved === "barber" ? "barber" : "salon";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+  }, []);
+  function toggleTheme() {
+    const next: VisualTheme = theme === "salon" ? "barber" : "salon";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    window.localStorage.setItem(THEME_KEY, next);
+  }
   const operator = user.role === "administrador" || user.role === "balcao";
   const links: NavLink[] = (operator
     ? [
@@ -170,6 +186,9 @@ export function PanelFrame({
             <small>{user.accountName}</small>
           </div>
         </div>
+        <button type="button" className="theme-switch" onClick={toggleTheme} aria-pressed={theme === "barber"}>
+          {theme === "salon" ? "Template A · salão" : "Template B · barbeiro"}
+        </button>
         <nav>
           {groups.map((group) => (
             <div key={group.name}>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>BeautyOS — Quadro vivo</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{width:1440px;height:900px;overflow:hidden;font:13px/1.35 "IBM Plex Sans",system-ui,sans-serif;background:#f0f0f0;color:#111;display:flex;flex-direction:column}
+  header{background:#111;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+  .brand{font-weight:600;letter-spacing:.04em}
+  .pass{margin:16px 20px;background:#fff;border:1px solid #ccc;display:grid;grid-template-columns:1.2fr .8fr 120px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  .pass div{padding:12px;border-right:1px solid #ddd}
+  .pass div:last-child{border:0;background:#111;color:#fff;display:grid;place-items:center;font-size:11px;text-align:center}
+  .board{margin:0 20px;background:#fff;border:1px solid #ccc;flex:1}
+  table{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  th{text-align:left;padding:10px;background:#eee;border-bottom:2px solid #111;font-size:11px}
+  td{padding:10px;border-bottom:1px solid #e5e5e5}
+  tr.chg td{background:#fff3cd;box-shadow:inset 4px 0 0 #e6a800}
+  tr.sel td{background:#e8f4ff;box-shadow:inset 4px 0 0 #1a5fb4}
+  .nav{padding:8px 20px;display:flex;gap:12px;font-size:12px;border-bottom:1px solid #ccc}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">BEAUTYOS · BALCÃO</div>
+  <div style="font-family:IBM Plex Mono,monospace;font-size:12px">29/10/2026 09:40</div>
+</header>
+<div class="nav"><strong>Agenda</strong><span>Comandas</span><span>Caixa</span><span>Estoque</span></div>
+<div class="pass">
+  <div><small>CASA</small><br/>BeautyOS demo<br/>3 cadeiras · aberto</div>
+  <div><small>PRÓXIMO</small><br/>Ana Paula · 09:00<br/>Corte + escova</div>
+  <div>SCAN<br/>CMD-0942</div>
+</div>
+<div class="board">
+  <table>
+    <thead><tr><th>HORA</th><th>CLIENTE</th><th>SERVIÇO</th><th>PROF</th><th>STATUS</th><th>VALOR</th></tr></thead>
+    <tbody>
+      <tr class="sel"><td>09:00</td><td>ANA PAULA</td><td>CORTE+ESCOVA</td><td>CARLA</td><td>EM ESPERA</td><td>180,00</td></tr>
+      <tr class="chg"><td>09:00</td><td>BRUNO</td><td>BARBA</td><td>LEO → JOÃO</td><td>TROCA PROF</td><td>45,00</td></tr>
+      <tr><td>09:30</td><td>MARIANA</td><td>COLORAÇÃO</td><td>CARLA</td><td>OK</td><td>220,00</td></tr>
+      <tr><td>10:00</td><td>—</td><td>LIVRE</td><td>—</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+</div>
+</body>
+<!-- sketch-rev:2 -->
+</html>

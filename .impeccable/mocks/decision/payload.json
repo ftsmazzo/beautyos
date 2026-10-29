@@ -1,0 +1,127 @@
+{
+  "title": "Escolha o mundo visual do BeautyOS",
+  "question": "O dado assignou Espelho de estação (com dois templates A salão / B barbeiro). Mantenha, pegue um alternate, ou re-rolle.",
+  "options": [
+    {
+      "id": "assigned",
+      "kind": "assigned",
+      "label": "Espelho de estação",
+      "kicker": "THE ROLL",
+      "lineage": "estação de atendimento · luz no cromo · salão e barbeiro",
+      "thesis": "O OS do balcão sob a luz da estação: shell familiar, densidade de trabalho, e um filete de luz no item ativo — com Template A (salão) e Template B (barbeiro) trocando só matéria tipográfica e pigmento.",
+      "palette": ["#e8e4df", "#2a2e33", "#1a1c1e", "#c4a574", "#b45309"],
+      "materials": ["cromo suave", "cimento claro", "filete metálico", "mono tabular"],
+      "viewport": "Rail escuro + grade de agenda + rail de caixa/alertas; slot selecionado com halo de espelho; chips de alerta âmbar.",
+      "risk": "Pode parecer 'premium genérico' se a densidade cair e sobrar só o filete dourado.",
+      "raised": [
+        {
+          "from": "challenger-jp-density",
+          "raise": "Módulos da agenda empacotados sem whitespace de SaaS; labels pequenos e bordas hairline."
+        },
+        {
+          "from": "challenger-gate",
+          "raise": "Mudança (troca de profissional, alerta) permanece acesa até o operador notar — não some no refresh."
+        },
+        {
+          "from": "challenger-ikeda",
+          "raise": "Valores e horas em mono tabular denso, como coluna de dados — não como tipografia decorativa."
+        }
+      ],
+      "html": ".impeccable/mocks/decision/assigned.html",
+      "comp": ".impeccable/mocks/decision/assigned.webp"
+    },
+    {
+      "id": "model-pick",
+      "kind": "pick",
+      "label": "Lookbook + quadro",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "editorial de salão + quadro de preços de barbeiro",
+      "thesis": "Uma casca tipográfica de revista de salão com um quadro negro de preços à esquerda — o par A/B mais explícito do setor.",
+      "palette": ["#f6f1e8", "#1c1410", "#7a1f2b", "#c4a574"],
+      "materials": ["papel ivory", "tinta", "serifa de display", "quadro pintado"],
+      "viewport": "Top bar + quadro de preços + tabela de agenda; seleção por filete vertical.",
+      "risk": "É o pouso mais comum de 'SaaS de beleza editorial' — familiaridade alta se a execução não for rigorosa.",
+      "html": ".impeccable/mocks/decision/model-pick.html",
+      "comp": ".impeccable/mocks/decision/model-pick.webp"
+    },
+    {
+      "id": "challenger-jp-density",
+      "kind": "challenger",
+      "catalogId": "japanese-high-density-web",
+      "label": "Densidade japonesa",
+      "verdict": "competitive",
+      "lineage": "sites de alta densidade JP",
+      "thesis": "O balcão como mosaico de módulos: mais informação por pixel, vermelho só em sinal.",
+      "palette": ["#ffffff", "#111111", "#d40000", "#bbbbbb"],
+      "materials": ["hairline", "módulo retangular", "gothic compacta"],
+      "viewport": "Header de tabs + mosaic 4 colunas de horários + caixas de KPI.",
+      "case": "Ganha em clareza operacional do balcão; perde um pouco na identificação BR salão/barbeiro.",
+      "risk": "Pode ler 'e-commerce JP' se o vermelho virar decoração.",
+      "html": ".impeccable/mocks/decision/challenger-jp-density.html",
+      "comp": ".impeccable/mocks/decision/challenger-jp-density.webp",
+      "hero": "https://impeccable.style/worlds/cards/japanese-high-density-web-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/japanese-high-density-web.webp"
+    },
+    {
+      "id": "challenger-gate",
+      "kind": "challenger",
+      "catalogId": "vernacular-ephemera-boarding-pass-and-gate-board",
+      "label": "Passagem + quadro vivo",
+      "verdict": "competitive",
+      "lineage": "boarding pass + gate board",
+      "thesis": "O dia do balcão como quadro de partidas: linhas reordenam, mudança fica acesa.",
+      "palette": ["#f0f0f0", "#111111", "#e6a800", "#1a5fb4"],
+      "materials": ["painel neutro", "mono scannable", "alerta reservado"],
+      "viewport": "Header preto + pass segmentado + tabela viva com linhas em mudança.",
+      "case": "Clareza forte para estados da agenda; identificação aeroporto é mais fraca no salão.",
+      "risk": "Costume de aeroporto se levar a metáfora longe demais.",
+      "html": ".impeccable/mocks/decision/challenger-gate.html",
+      "comp": ".impeccable/mocks/decision/challenger-gate.webp",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board.webp"
+    },
+    {
+      "id": "challenger-ikeda",
+      "kind": "challenger",
+      "catalogId": "ikeda-datamatics",
+      "label": "Campo de dados",
+      "verdict": "declined",
+      "lineage": "datamatics P&B",
+      "palette": ["#000000", "#ffffff"],
+      "materials": ["barcode", "mono denso"],
+      "case": "Perde identificação e conflita com templates A/B coloridos.",
+      "kept": "Disciplina tabular mono para valores e horas (raise no assigned)."
+    },
+    {
+      "id": "challenger-transit",
+      "kind": "challenger",
+      "catalogId": "wayfinding-cartography-signage-midnight-transit-diagram",
+      "label": "Diagrama de trânsito",
+      "verdict": "declined",
+      "lineage": "mapa noturno de metrô",
+      "palette": ["#0a1628", "#e10600", "#0057b8"],
+      "materials": ["esmalte", "linhas 45°"],
+      "case": "Lindo, mas vira fantasia de mapa no Operate.",
+      "kept": "Corredor selecionado queima mais forte — eco no halo do slot ativo."
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "code",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "kind": "canon",
+    "label": "Padrão da categoria",
+    "thesis": "SaaS limpo azul, cards e pills — o que Fresha/AppBarber-adjacente treina o olho a esperar, executado bem.",
+    "palette": ["#ffffff", "#0f172a", "#2563eb"],
+    "materials": ["grid limpo", "sombra suave", "pill CTA"],
+    "viewport": "Sidebar clara + KPIs em cards + botão azul.",
+    "risk": "Some no mar de painéis iguais.",
+    "html": ".impeccable/mocks/decision/canon.html",
+    "comp": ".impeccable/mocks/decision/canon.webp"
+  }
+}
