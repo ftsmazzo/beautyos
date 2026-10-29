@@ -10,44 +10,73 @@ Fontes: [ENCAT — URL por UF](https://nfce.encat.org/desenvolvedor/qrcode/), Ma
 4. Webservices oficiais (ex. SP `NFCeDownloadXML`) devolvem XML, mas exigem **e-CNPJ do emitente** — serve para a nota da própria empresa, não para compra de terceiro no balcão.
 5. QR v3 (NT 2025.001, prod. 01/09/2025): online `?p=CHAVE|3|AMBIENTE`; v2 continua aceita.
 
-## Por que o BeautyOS no EasyPanel falha
+## Por que o BeautyOS no EasyPanel falha sozinho
 
-- O app roda em datacenter (Hetzner). A SEFAZ-SP responde `Request Rejected` (WAF/IP). Bloqueio de IP em cloud BR também já foi relatado (nfephp, mai/2024).
-- No celular, `fetch(urlDoQr)` até pode sair do IP residencial, mas o browser **não entrega o HTML ao JS** (sem `Access-Control-Allow-Origin`) e o portal SP manda `X-Frame-Options: SAMEORIGIN` (sem iframe).
+- O app roda em datacenter (Hetzner). A SEFAZ-SP responde `Request Rejected` (WAF/IP).
+- No celular, `fetch(urlDoQr)` até pode sair do IP residencial, mas o browser **não entrega o HTML ao JS** (CORS) e o portal SP manda `X-Frame-Options: SAMEORIGIN` (sem iframe).
+- Node `fetch` no mesmo IP residencial também costuma levar WAF; **Chromium (Playwright)** passa.
 
-Conclusão: OCR de foto **não** é o caminho certo. O caminho certo é **consulta do portal/API a partir de IP que a SEFAZ aceite**, ou **XML** que o fornecedor já tem.
+Conclusão: OCR de foto **não** é o caminho. O caminho certo é **portal via browser real em IP que a SEFAZ aceite**, ou **XML**.
+
+## Caminho em produção (Beleza)
+
+1. Celular lê só o link `.gov.br` e manda ao balcão.
+2. BeautyOS (Hetzner) POST em `NFCE_LOOKUP_URL` com Bearer `NFCE_LOOKUP_TOKEN`.
+3. Proxy no PC (`tools/nfce-proxy`): Playwright abre o portal → devolve JSON `{ supplierName, cnpj, document, day, lines[{ label, qty, costCents, barcode }] }`.
+4. Exposição pública fixa: **Tailscale Funnel** (sem porta no roteador, sem cloudflared).
+5. Proxy sobe no login via atalho Startup `BeautyOS-NFCe-Proxy.lnk`.
+
+Env no EasyPanel (já aplicado):
+
+```
+NFCE_LOOKUP_URL=https://desktop-flgv1fq.taile1a3fa.ts.net/lookup
+NFCE_LOOKUP_TOKEN=<mesmo TOKEN do start-proxy.cmd>
+```
+
+Instalar / reinstalar no PC:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\nfce-proxy\install-windows.ps1
+```
+
+Exige: Tailscale logado, Funnel autorizado na conta, PC ligado no horário de compras.
 
 ## O que o código faz
 
-1. Celular lê só o **link .gov.br** e manda ao balcão.
-2. Servidor chama `lookupCoupon`:
-   - se existir `NFCE_LOOKUP_URL` → POST `{ "qr": "<url>" }` (header opcional `Authorization: Bearer` via `NFCE_LOOKUP_TOKEN`);
-   - senão tenta `fetch` direto no portal (só funciona se o IP do app não estiver bloqueado).
-3. Sem itens: preenche CNPJ/número pela chave (44 dígitos) e pede XML ou provedor.
+1. `lookupCoupon` → proxy (timeout 90s) → se JSON com `lines`, usa direto; senão tenta HTML; senão fetch direto.
+2. Sem itens mas com chave: preenche CNPJ/número e avisa (mensagem específica se o proxy falhou).
+3. XML/PDF no balcão continua como fallback.
 
-## Como tornar a consulta efetiva
+## Alternativas (se o Funnel não servir)
 
-Escolher **uma**:
+| Opção | Quando |
+|-------|--------|
+| **WireGuard casa→VPS** (`docs/ops/WIREGUARD-EXIT-CASA.md`) | Tem UDP 51820 no roteador e quer tráfego só no túnel |
+| **API comercial** (Tera, Infosimples, …) | Várias UFs / sem PC ligado |
+| **XML no balcão** | Sempre funciona; manual |
+| **VPS BR** | Cloud BR às vezes também é bloqueado pela SEFAZ |
 
-| Opção | Prós | Contras |
-|-------|------|---------|
-| **A. PC casa + WireGuard** (`docs/ops/WIREGUARD-EXIT-CASA.md`) | IP fixo residencial, sem VPS BR extra | PC ligado; UDP 51820 no roteador |
-| **A2. Proxy em VPS BR** (`tools/nfce-proxy`) | Sem depender do PC | ~R$30/mês; cloud BR às vezes também é bloqueado |
-| **B. API comercial** (Tera, Infosimples, etc.) no mesmo contrato JSON | Persistência, 27 UFs | Custo por consulta |
-| **C. XML/PDF no balcão** | Já funciona hoje | Manual no fornecedor |
-| **D. Hospedar o app em IP BR** | Pode bastar o fetch atual | SP ainda pode banir cloud |
-
-Contrato do proxy/API:
+## Contrato do proxy
 
 ```http
 POST /lookup
+Authorization: Bearer <token>
 Content-Type: application/json
 
-{ "qr": "https://www.nfce.fazenda.sp.gov.br/qrcode?p=..." }
+{ "qr": "https://www.nfce.fazenda.sp.gov.br/...ConsultaQRCode...?p=..." }
 ```
 
-Resposta aceita:
+Resposta `200` `application/json`:
 
-- `application/json` com `lines[{ label, qty, costCents, barcode? }]` (+ opcional supplierName, cnpj, document, day), ou
-- `application/json` com `html` (HTML do portal), ou
-- `text/html` cru do portal.
+```json
+{
+  "supplierName": "…",
+  "cnpj": "…",
+  "document": "…",
+  "day": "YYYY-MM-DD",
+  "lines": [{ "label": "…", "qty": 1, "costCents": 1990, "barcode": "…" }],
+  "html": "<opcional>"
+}
+```
+
+Também aceita JSON só com `html`, ou `text/html` cru.
