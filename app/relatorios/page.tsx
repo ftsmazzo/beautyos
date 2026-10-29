@@ -140,7 +140,7 @@ export default async function ReportsPage({
                 </div>
                 <div className="col-auto">
                   <span className="badge bg-azure-lt text-azure">
-                    {tooLong ? `máx. ${SPAN} dias` : `${formatDay(start)} – ${formatDay(end)}`}
+                    {tooLong ? `máx. ${SPAN} dias` : `${formatDay(start)} â ${formatDay(end)}`}
                   </span>
                 </div>
                 {lowStock.length > 0 ? (
@@ -163,7 +163,7 @@ export default async function ReportsPage({
         </div>
       </div>
 
-      {tooLong ? <div className="alert alert-warning">Período máximo: {SPAN} dias.</div> : null}
+      {tooLong ? <div className="alert alert-warning">Período mÃ¡ximo: {SPAN} dias.</div> : null}
 
       {report && !empty ? (
         <>
@@ -176,7 +176,7 @@ export default async function ReportsPage({
                   <div className="text-secondary">
                     {delta == null
                       ? "sem período anterior"
-                      : `${delta > 0 ? "+" : ""}${delta}% vs ${formatDay(previous.start)}–${formatDay(previous.end)}`}
+                      : `${delta > 0 ? "+" : ""}${delta}% vs ${formatDay(previous.start)}â${formatDay(previous.end)}`}
                   </div>
                 </div>
               </div>
@@ -195,7 +195,7 @@ export default async function ReportsPage({
                 <div className="card-body">
                   <div className="subheader">Agenda</div>
                   <div className="h1 mb-1">{agenda}</div>
-                  <div className="text-secondary">falta {absentRate}% · cancela {cancelRate}%</div>
+                  <div className="text-secondary">falta {absentRate}% Â· cancela {cancelRate}%</div>
                 </div>
               </div>
             </div>
@@ -328,32 +328,6 @@ export default async function ReportsPage({
       {report && empty ? (
         <div className="card">
           <div className="card-body text-secondary">Nada neste período.</div>
-        </div>
-      ) : null}
-
-      {!tooLong ? (
-        <div className="card mt-3">
-          <div className="card-body">
-            <div className="btn-list">
-              <Link className="btn btn-outline" href="/relatorios/alertas">Alertas</Link>
-              <Link className="btn btn-outline" href={`/relatorios/financeiro?de=${start}&ate=${end}`}>Financeiro</Link>
-              <Link className="btn btn-outline" href={`/relatorios/agenda?de=${start}&ate=${end}`}>Agenda</Link>
-              <Link className="btn btn-outline" href={`/relatorios/comandas?de=${start}&ate=${end}`}>Comandas</Link>
-              <Link className="btn btn-outline" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
-              <Link className="btn btn-outline" href={`/relatorios/compras?de=${start}&ate=${end}`}>Compras</Link>
-              <Link className="btn btn-outline" href={`/produtos/movimentos?de=${start}&ate=${end}`}>Movimentos</Link>
-              <Link className="btn btn-outline" href={`/relatorios/clientes?de=${start}&ate=${end}`}>Clientes</Link>
-              <Link className="btn btn-outline" href={`/relatorios/extras?de=${start}&ate=${end}`}>Extras</Link>
-              <Link className="btn btn-outline" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
-              <Link className="btn btn-outline" href={`/comissao?de=${start}&ate=${end}`}>Comissão</Link>
-              {user.role === "administrador" ? (
-                <Link className="btn btn-outline" href={`/financeiro/fluxo?mes=${end.slice(0, 7)}`}>Fluxo</Link>
-              ) : null}
-              <Link className="btn btn-outline" href={`/pacotes/relatorio?de=${start}&ate=${end}`}>Pacotes</Link>
-              <Link className="btn btn-outline" href={`/servicos/periodo?de=${start}&ate=${end}`}>Serviços</Link>
-              <Link className="btn btn-outline" href="/volta">Volta</Link>
-            </div>
-          </div>
         </div>
       ) : null}
     </Panel>
