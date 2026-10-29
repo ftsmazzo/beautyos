@@ -1,7 +1,8 @@
 import { Source_Sans_3 } from "next/font/google";
+import "@tabler/core/dist/css/tabler.min.css";
 import "./globals.css";
 
-/** Source Sans 3 — legível no balcão, menos agressiva que Inter. */
+/** Source Sans 3 no balcão; tokens de componente vêm do @tabler/core. */
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],

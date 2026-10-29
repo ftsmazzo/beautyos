@@ -1,13 +1,12 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import ApexCharts from "apexcharts";
+
 type BarPoint = { label: string; value: number; hint?: string };
 type Slice = { label: string; value: number; color?: string };
 
 const PALETTE = ["#206bc4", "#4299e1", "#2fb344", "#f59f00", "#d63939", "#ae3ec9", "#667382", "#0ca678"];
-
-function maxOf(rows: { value: number }[]) {
-  return rows.reduce((max, row) => Math.max(max, row.value), 0) || 1;
-}
 
 export function ReportBarChart({
   title,
@@ -20,77 +19,70 @@ export function ReportBarChart({
   points: BarPoint[];
   formatValue: (value: number) => string;
 }) {
-  if (points.length === 0) {
-    return (
-      <div className="queue chart-card">
-        <div className="queue-head">
-          <h2>{title}</h2>
-          {meta ? <span className="meta">{meta}</span> : null}
-        </div>
-        <p className="queue-empty">Nada neste período.</p>
-      </div>
-    );
-  }
+  const host = useRef<HTMLDivElement | null>(null);
+  const signature = points.map((point) => `${point.label}:${point.value}`).join("|");
 
-  const peak = maxOf(points);
-  const width = Math.max(points.length * 28, 280);
-  const height = 160;
-  const pad = { top: 12, right: 8, bottom: 36, left: 8 };
-  const innerH = height - pad.top - pad.bottom;
-  const gap = 6;
-  const barW = Math.max(10, (width - pad.left - pad.right) / points.length - gap);
+  useEffect(() => {
+    if (!host.current || points.length === 0) return;
+    const chart = new ApexCharts(host.current, {
+      chart: {
+        type: "bar",
+        height: 280,
+        fontFamily: "inherit",
+        toolbar: { show: false },
+        animations: { enabled: true, speed: 400 },
+      },
+      series: [{ name: title, data: points.map((point) => point.value) }],
+      plotOptions: {
+        bar: {
+          borderRadius: 4,
+          columnWidth: "55%",
+        },
+      },
+      colors: ["#206bc4"],
+      dataLabels: { enabled: false },
+      stroke: { show: true, width: 2, colors: ["transparent"] },
+      xaxis: {
+        categories: points.map((point) => point.label),
+        labels: { style: { colors: "#667382", fontSize: "11px" } },
+        axisBorder: { show: false },
+        axisTicks: { show: false },
+      },
+      yaxis: {
+        labels: {
+          style: { colors: "#667382", fontSize: "11px" },
+          formatter: (value: number) => formatValue(Math.round(value)),
+        },
+      },
+      grid: {
+        borderColor: "#e6e7e9",
+        strokeDashArray: 3,
+        padding: { top: 0, right: 8, bottom: 0, left: 8 },
+      },
+      tooltip: {
+        y: {
+          formatter: (value: number, opts?: { dataPointIndex?: number }) => {
+            const hint = points[opts?.dataPointIndex ?? 0]?.hint;
+            return hint ? `${formatValue(value)} · ${hint}` : formatValue(value);
+          },
+        },
+      },
+    });
+    void chart.render();
+    return () => {
+      chart.destroy();
+    };
+    // signature cobre mudanças dos pontos sem recriar a cada render
+  }, [title, signature, formatValue, points]);
 
   return (
-    <div className="queue chart-card">
-      <div className="queue-head">
-        <h2>{title}</h2>
-        {meta ? <span className="meta">{meta}</span> : null}
+    <div className="card">
+      <div className="card-header">
+        <h3 className="card-title">{title}</h3>
+        {meta ? <div className="card-actions text-secondary">{meta}</div> : null}
       </div>
-      <div className="chart-scroll">
-        <svg
-          className="chart-svg"
-          viewBox={`0 0 ${width} ${height}`}
-          width={width}
-          height={height}
-          role="img"
-          aria-label={title}
-        >
-          {[0.25, 0.5, 0.75, 1].map((step) => {
-            const y = pad.top + innerH * (1 - step);
-            return (
-              <line
-                key={step}
-                x1={pad.left}
-                x2={width - pad.right}
-                y1={y}
-                y2={y}
-                className="chart-grid"
-              />
-            );
-          })}
-          {points.map((point, index) => {
-            const h = (point.value / peak) * innerH;
-            const x = pad.left + index * (barW + gap) + gap / 2;
-            const y = pad.top + innerH - h;
-            return (
-              <g key={`${point.label}-${index}`}>
-                <title>{`${point.label}: ${formatValue(point.value)}${point.hint ? ` · ${point.hint}` : ""}`}</title>
-                <rect
-                  className="chart-bar"
-                  x={x}
-                  y={y}
-                  width={barW}
-                  height={Math.max(h, 1)}
-                  rx={2}
-                  style={{ animationDelay: `${Math.min(index, 24) * 18}ms` }}
-                />
-                <text className="chart-tick" x={x + barW / 2} y={height - 12} textAnchor="middle">
-                  {point.label}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+      <div className="card-body">
+        {points.length === 0 ? <p className="text-secondary mb-0">Nada neste período.</p> : <div ref={host} />}
       </div>
     </div>
   );
@@ -107,74 +99,61 @@ export function ReportDonut({
   formatValue: (value: number) => string;
   empty: string;
 }) {
-  const total = slices.reduce((sum, row) => sum + row.value, 0);
-  if (total <= 0 || slices.length === 0) {
-    return (
-      <div className="queue chart-card">
-        <div className="queue-head">
-          <h2>{title}</h2>
-        </div>
-        <p className="queue-empty">{empty}</p>
-      </div>
-    );
-  }
+  const host = useRef<HTMLDivElement | null>(null);
+  const usable = slices.filter((slice) => slice.value > 0);
+  const signature = usable.map((slice) => `${slice.label}:${slice.value}`).join("|");
 
-  const size = 148;
-  const stroke = 18;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  let offset = 0;
+  useEffect(() => {
+    if (!host.current || usable.length === 0) return;
+    const total = usable.reduce((sum, slice) => sum + slice.value, 0);
+    const chart = new ApexCharts(host.current, {
+      chart: {
+        type: "donut",
+        height: 280,
+        fontFamily: "inherit",
+        animations: { enabled: true, speed: 400 },
+      },
+      series: usable.map((slice) => slice.value),
+      labels: usable.map((slice) => slice.label),
+      colors: usable.map((slice, index) => slice.color ?? PALETTE[index % PALETTE.length]),
+      legend: {
+        position: "bottom",
+        fontSize: "12px",
+      },
+      stroke: { width: 0 },
+      dataLabels: { enabled: false },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: "65%",
+            labels: {
+              show: true,
+              total: {
+                show: true,
+                label: "Total",
+                formatter: () => formatValue(total),
+              },
+            },
+          },
+        },
+      },
+      tooltip: {
+        y: { formatter: (value: number) => formatValue(value) },
+      },
+    });
+    void chart.render();
+    return () => {
+      chart.destroy();
+    };
+  }, [signature, formatValue, usable]);
 
   return (
-    <div className="queue chart-card">
-      <div className="queue-head">
-        <h2>{title}</h2>
+    <div className="card">
+      <div className="card-header">
+        <h3 className="card-title">{title}</h3>
       </div>
-      <div className="donut-wrap">
-        <svg className="donut-svg" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={title}>
-          <circle cx={size / 2} cy={size / 2} r={r} className="donut-track" strokeWidth={stroke} fill="none" />
-          {slices.map((slice, index) => {
-            const len = (slice.value / total) * c;
-            const dash = `${len} ${c - len}`;
-            const el = (
-              <circle
-                key={`${slice.label}-${index}`}
-                cx={size / 2}
-                cy={size / 2}
-                r={r}
-                fill="none"
-                stroke={slice.color ?? PALETTE[index % PALETTE.length]}
-                strokeWidth={stroke}
-                strokeDasharray={dash}
-                strokeDashoffset={-offset}
-                strokeLinecap="butt"
-                className="donut-slice"
-                style={{ animationDelay: `${index * 40}ms` }}
-                transform={`rotate(-90 ${size / 2} ${size / 2})`}
-              >
-                <title>{`${slice.label}: ${formatValue(slice.value)}`}</title>
-              </circle>
-            );
-            offset += len;
-            return el;
-          })}
-          <text x="50%" y="48%" textAnchor="middle" className="donut-center-value">
-            {slices.length}
-          </text>
-          <text x="50%" y="62%" textAnchor="middle" className="donut-center-label">
-            itens
-          </text>
-        </svg>
-        <ul className="donut-legend">
-          {slices.map((slice, index) => (
-            <li key={`${slice.label}-${index}`}>
-              <span className="swatch" style={{ background: slice.color ?? PALETTE[index % PALETTE.length] }} />
-              <span className="donut-legend-name">{slice.label}</span>
-              <strong>{formatValue(slice.value)}</strong>
-              <em>{Math.round((slice.value / total) * 1000) / 10}%</em>
-            </li>
-          ))}
-        </ul>
+      <div className="card-body">
+        {usable.length === 0 ? <p className="text-secondary mb-0">{empty}</p> : <div ref={host} />}
       </div>
     </div>
   );

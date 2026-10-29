@@ -2,6 +2,16 @@
 
 import { useFormStatus } from "react-dom";
 
+function toneClass(className?: string) {
+  if (!className || className === "ghost" || className === "quiet") return "btn btn-outline";
+  if (className === "teal" || className === "blue") return "btn btn-primary";
+  if (className === "amber") return "btn btn-warning";
+  if (className === "rose") return "btn btn-danger";
+  if (className === "navy") return "btn btn-dark";
+  if (className.includes("btn-")) return className.startsWith("btn ") ? className : `btn ${className}`;
+  return `btn btn-primary ${className}`.trim();
+}
+
 export function SubmitButton({
   label,
   pendingLabel = "Salvando…",
@@ -12,10 +22,8 @@ export function SubmitButton({
   className?: string;
 }) {
   const { pending } = useFormStatus();
-  const tone = className === "ghost" ? "quiet" : className;
-  const classes = ["btn", tone].filter(Boolean).join(" ");
   return (
-    <button type="submit" className={classes} disabled={pending}>
+    <button type="submit" className={toneClass(className)} disabled={pending}>
       {pending ? pendingLabel : label}
     </button>
   );
