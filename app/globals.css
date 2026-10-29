@@ -1,24 +1,26 @@
+/* Shell no padrÃ£o Tabler/admin: sidebar + page-wrapper + cards brancos.
+   ReferÃªncia: https://tabler.io Â· https://shadcn-admin.netlify.app */
 :root {
   color-scheme: light;
-  --ink: #12161c;
-  --muted: #5b6570;
-  --line: #d8dee6;
-  --field: #c5ced6;
-  --canvas: #e9edf1;
+  --ink: #1e293b;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --field: #cbd5e1;
+  --canvas: #f1f5f9;
   --card: #ffffff;
-  --side: #0c1117;
-  --side-ink: #d7dee7;
-  --side-mute: #8b96a3;
-  --accent: #1f6b6b;
-  --accent-strong: #155555;
-  --accent-soft: #e4f2f1;
-  --metal: #c2a36b;
-  --blue: #1f6b6b;
+  --side: #1e293b;
+  --side-ink: #e2e8f0;
+  --side-mute: #94a3b8;
+  --accent: #206bc4;
+  --accent-strong: #1a5aa3;
+  --accent-soft: #e8f1fb;
+  --metal: #206bc4;
+  --blue: #206bc4;
   --blue-ink: #ffffff;
-  --radius: 10px;
-  --radius-sm: 7px;
-  --shadow: 0 1px 2px rgba(12, 17, 23, 0.05), 0 8px 24px rgba(12, 17, 23, 0.04);
-  font-family: var(--font-ui), "Segoe UI", sans-serif;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  font-family: var(--font-ui), system-ui, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -26,10 +28,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 480px at 12% -10%, rgba(31, 107, 107, 0.08), transparent 55%),
-    radial-gradient(900px 420px at 100% 0%, rgba(194, 163, 107, 0.07), transparent 50%),
-    var(--canvas);
+  background: var(--canvas);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -39,13 +38,13 @@ button, input, select, textarea { font: inherit; }
 .app { display: flex; min-height: 100vh; }
 
 .side {
-  width: 248px;
+  width: 260px;
   flex-shrink: 0;
-  background:
-    linear-gradient(180deg, #121820 0%, var(--side) 40%, #0a0e13 100%);
+  background: var(--side);
   color: var(--side-ink);
   display: flex;
   flex-direction: column;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .brand {
@@ -66,16 +65,15 @@ button, input, select, textarea { font: inherit; }
 .brand small { color: var(--side-mute); margin-top: 3px; font-size: 0.8rem; }
 
 .brand-mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
-  background: linear-gradient(145deg, #2a8585 0%, var(--accent) 55%, #164848 100%);
+  background: var(--accent);
   color: #ffffff;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(194, 163, 107, 0.35);
 }
 
 .side nav {
@@ -108,9 +106,9 @@ button, input, select, textarea { font: inherit; }
 }
 .side nav a svg { opacity: 0.75; flex-shrink: 0; }
 .side nav a[aria-current="page"] {
-  background: rgba(31, 107, 107, 0.28);
+  background: rgba(32, 107, 196, 0.22);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(31, 107, 107, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(32, 107, 196, 0.4);
 }
 .side nav a[aria-current="page"] svg { opacity: 1; }
 .side nav a:hover { background: rgba(255, 255, 255, 0.06); color: #ffffff; }
@@ -121,10 +119,9 @@ button, input, select, textarea { font: inherit; }
   display: flex;
   align-items: center;
   gap: 16px;
-  min-height: 64px;
-  padding: 0 22px;
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(10px);
+  min-height: 56px;
+  padding: 0 24px;
+  background: #ffffff;
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
@@ -185,8 +182,8 @@ a.tile:hover { transform: translateY(-1px); filter: brightness(1.04); }
 }
 a.tile strong { font-size: 2rem; line-height: 1; letter-spacing: -0.03em; }
 a.tile span { font-weight: 600; }
-a.tile-blue { background: linear-gradient(145deg, #2a8585, var(--accent)); }
-a.tile-teal { background: linear-gradient(145deg, #1a5c5c, #134848); }
+a.tile-blue { background: var(--accent); }
+a.tile-teal { background: var(--accent-strong); }
 a.tile-amber { background: linear-gradient(145deg, #c2812a, #b45309); }
 a.tile-rose { background: linear-gradient(145deg, #c73d5c, #be123c); }
 a.tile-violet { background: linear-gradient(145deg, #3d4f63, #1b2430); }
@@ -346,7 +343,7 @@ th {
 tbody tr:hover td { background: #f7fafb; }
 .card { overflow-x: auto; }
 
-/* —— Mesa operacional (agenda / início) —— */
+/* â€”â€” Mesa operacional (agenda / inÃ­cio) â€”â€” */
 .desk { display: grid; gap: 10px; }
 .desk-bar {
   display: flex;
@@ -470,7 +467,7 @@ tbody tr:hover td { background: #f7fafb; }
   gap: 8px;
 }
 
-/* —— Comanda / superfícies densas —— */
+/* â€”â€” Comanda / superfÃ­cies densas â€”â€” */
 .order-desk { display: grid; gap: 14px; }
 .order-hero {
   display: grid;
@@ -915,7 +912,7 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
   min-height: 104px;
   padding: 16px 18px;
   border-radius: var(--radius);
-  background: linear-gradient(145deg, #2a8585, var(--accent));
+  background: var(--accent);
   color: #ffffff;
   box-shadow: var(--shadow);
 }
@@ -1130,7 +1127,7 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
   height: 100%;
   width: 100%;
   transform-origin: left center;
-  background: #1f6b6b;
+  background: var(--accent);
 }
 .hour-row {
   display: flex;

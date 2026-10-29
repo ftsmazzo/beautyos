@@ -1,7 +1,8 @@
-import { Outfit } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const outfit = Outfit({
+/** Inter = face padrão dos dashboards Tabler / shadcn-admin — legível no balcão. */
+const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-ui",
@@ -20,7 +21,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body className={`${outfit.variable} ${outfit.className}`}>{children}</body>
+      <body className={`${inter.variable} ${inter.className}`}>{children}</body>
     </html>
   );
 }
