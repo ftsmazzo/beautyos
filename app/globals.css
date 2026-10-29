@@ -1381,5 +1381,5 @@ a.slot.fit, .slot.fit { left: 14px; z-index: 3; box-shadow: -3px 0 0 #6d28d9; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  dialog.modal[open], .side { animation: none; transition: none; }
+  dialog.bos-dialog[open], .side { animation: none; transition: none; }
 }
