@@ -46,9 +46,9 @@ export default async function ProductMovementsPage({
               {STOCK_REASONS[item]}
             </Link>
           ))}
-          <Link className="btn quiet" href="/produtos">Produtos</Link>
-          <Link className="btn quiet" href="/produtos/compra">Compra</Link>
-          <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
+          <Link className="btn btn-outline" href="/produtos">Produtos</Link>
+          <Link className="btn btn-outline" href="/produtos/compra">Compra</Link>
+          <Link className="btn btn-outline" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {!tooLong ? (

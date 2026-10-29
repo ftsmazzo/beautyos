@@ -27,7 +27,7 @@ export function Modal({
       <dialog ref={dialog} className="modal">
         <header className={`modal-head tone-${tone}`}>
           <h2>{title}</h2>
-          <button type="button" className="btn quiet" onClick={() => dialog.current?.close()}>
+          <button type="button" className="btn btn-outline" onClick={() => dialog.current?.close()}>
             Fechar
           </button>
         </header>

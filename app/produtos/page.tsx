@@ -41,24 +41,24 @@ export default async function ProductsPage({
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       <div className="desk-bar">
-        <Link className="btn" href="/produtos/novo">
+        <Link className="btn btn-primary" href="/produtos/novo">
           Novo produto
         </Link>
-        <Link className="btn quiet" href="/fornecedores">
+        <Link className="btn btn-outline" href="/fornecedores">
           Fornecedores
         </Link>
-        <Link className="btn quiet" href="/produtos/compra">
+        <Link className="btn btn-outline" href="/produtos/compra">
           Compra
         </Link>
         {onlyMin ? (
-          <Link className="btn" href="/produtos/compra?pedir=1">
+          <Link className="btn btn-primary" href="/produtos/compra?pedir=1">
             Montar compra
           </Link>
         ) : null}
-        <Link className="btn quiet" href="/produtos/movimentos">
+        <Link className="btn btn-outline" href="/produtos/movimentos">
           Movimentos
         </Link>
-        <Link className="btn quiet" href="/relatorios/compras">
+        <Link className="btn btn-outline" href="/relatorios/compras">
           Compras
         </Link>
         <Link className={counting ? "btn" : "btn quiet"} href={listHref({ modo: !counting })}>
@@ -73,7 +73,7 @@ export default async function ProductsPage({
           <input name="q" defaultValue={query.q ?? ""} placeholder="Nome, categoria ou código" />
           <button type="submit">Buscar</button>
         </form>
-        <span className="chip">{products.length}</span>
+        <span className="badge bg-secondary-lt">{products.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {products.length === 0 ? (

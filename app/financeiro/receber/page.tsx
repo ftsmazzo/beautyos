@@ -57,7 +57,7 @@ export default async function ReceivablesPage({
             {item.label}
           </Link>
         ))}
-        <span className="chip">
+        <span className="badge bg-secondary-lt">
           {rows.length} · {formatReais(total)}
         </span>
       </div>
@@ -88,7 +88,7 @@ export default async function ReceivablesPage({
                   <td>{formatReais(row.totalCents - row.paidCents)}</td>
                   <td>{situationLabel(situation(row, today, week))}</td>
                   <td>
-                    <Link className="btn quiet" href={`/comandas/${row.id}`}>
+                    <Link className="btn btn-outline" href={`/comandas/${row.id}`}>
                       Abrir
                     </Link>
                   </td>

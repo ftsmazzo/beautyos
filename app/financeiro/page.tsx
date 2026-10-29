@@ -97,9 +97,9 @@ export default async function FinancePage({
           ))}
         </Modal>
         {FILE.some((item) => item.id === filter) ? (
-          <span className="chip">{FILE.find((item) => item.id === filter)?.label}</span>
+          <span className="badge bg-secondary-lt">{FILE.find((item) => item.id === filter)?.label}</span>
         ) : null}
-        <span className="chip">
+        <span className="badge bg-secondary-lt">
           {rows.length} · {formatReais(total)}
         </span>
         <Modal label="Novo título" title="Conta a pagar" tone="navy">
@@ -155,13 +155,13 @@ export default async function FinancePage({
                         {row.recurrenceActive && row.recurrenceId ? (
                           <form action={stopRecurrence}>
                             <input type="hidden" name="id" value={row.recurrenceId} />
-                            <SubmitButton label="Encerrar" pendingLabel="Encerrando…" className="quiet" />
+                            <SubmitButton label="Encerrar" pendingLabel="Encerrando…" className="btn btn-outline" />
                           </form>
                         ) : null}
                         {row.manual ? (
                           <form action={deleteTitle}>
                             <input type="hidden" name="id" value={row.id} />
-                            <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                            <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
                           </form>
                         ) : null}
                       </div>

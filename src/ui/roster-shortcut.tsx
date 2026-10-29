@@ -27,10 +27,10 @@ export function RosterShortcut({ checkName }: { checkName: string }) {
 
   return (
     <div className="bos-row">
-      <button type="button" className="btn quiet" onClick={(event) => pull(event.currentTarget)}>
+      <button type="button" className="btn btn-outline" onClick={(event) => pull(event.currentTarget)}>
         Puxar o padrão
       </button>
-      <button type="button" className="btn quiet" onClick={(event) => drop(event.currentTarget)}>
+      <button type="button" className="btn btn-outline" onClick={(event) => drop(event.currentTarget)}>
         Tirar todos
       </button>
     </div>

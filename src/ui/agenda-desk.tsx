@@ -363,20 +363,20 @@ export function AgendaDesk({
               {menu.orderId ? (
                 <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
               ) : (
-                <span className="chip">Sem comanda</span>
+                <span className="badge bg-secondary-lt">Sem comanda</span>
               )}
               {operator && menu.orderId && menu.orderStatus === "aberta" ? (
                 <form action={closeOrder}>
                   <input type="hidden" name="order" value={menu.orderId} />
                   <input type="hidden" name="voltar" value="agenda" />
-                  <SubmitButton label="Fechar comanda" pendingLabel="Fechando…" className="quiet" />
+                  <SubmitButton label="Fechar comanda" pendingLabel="Fechando…" className="btn btn-outline" />
                 </form>
               ) : null}
               {operator && menu.orderId && menu.orderStatus === "fechada" ? (
                 <form action={reopenOrder}>
                   <input type="hidden" name="order" value={menu.orderId} />
                   <input type="hidden" name="voltar" value="agenda" />
-                  <SubmitButton label="Reabrir comanda" pendingLabel="Reabrindo…" className="quiet" />
+                  <SubmitButton label="Reabrir comanda" pendingLabel="Reabrindo…" className="btn btn-outline" />
                 </form>
               ) : null}
             </>
@@ -385,20 +385,20 @@ export function AgendaDesk({
               {menu.orderId ? (
                 <button type="button" onClick={() => router.push(`/comandas/${menu.orderId}`)}>Abrir comanda</button>
               ) : (
-                <span className="chip">Sem comanda</span>
+                <span className="badge bg-secondary-lt">Sem comanda</span>
               )}
               {operator && menu.orderId && menu.orderStatus === "aberta" ? (
                 <form action={closeOrder}>
                   <input type="hidden" name="order" value={menu.orderId} />
                   <input type="hidden" name="voltar" value="agenda" />
-                  <SubmitButton label="Fechar comanda" pendingLabel="Fechando…" className="quiet" />
+                  <SubmitButton label="Fechar comanda" pendingLabel="Fechando…" className="btn btn-outline" />
                 </form>
               ) : null}
               {operator && menu.orderId && menu.orderStatus === "fechada" ? (
                 <form action={reopenOrder}>
                   <input type="hidden" name="order" value={menu.orderId} />
                   <input type="hidden" name="voltar" value="agenda" />
-                  <SubmitButton label="Reabrir comanda" pendingLabel="Reabrindo…" className="quiet" />
+                  <SubmitButton label="Reabrir comanda" pendingLabel="Reabrindo…" className="btn btn-outline" />
                 </form>
               ) : null}
               {(["confirmado", "chegou", "em_atendimento", "realizado", "ausente", "cancelado"] as const)
@@ -418,7 +418,7 @@ export function AgendaDesk({
       <dialog ref={dialog} className="modal">
         <header className="modal-head tone-blue">
           <h2>{pick?.block ? "Bloquear" : pick?.encaixe ? "Encaixe" : "Novo horário"}</h2>
-          <button type="button" className="btn quiet" onClick={() => dialog.current?.close()}>Fechar</button>
+          <button type="button" className="btn btn-outline" onClick={() => dialog.current?.close()}>Fechar</button>
         </header>
         <div className="modal-body">
           {pick?.block ? (

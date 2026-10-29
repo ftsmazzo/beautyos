@@ -45,20 +45,20 @@ export default async function EsperaPage({
       <ErrorNote code={query.erro} />
       <Saved code={query.ok} />
       <div className="desk-bar">
-        <Link className="btn quiet" href={`/espera?dia=${shiftDay(day, -1)}`}>
+        <Link className="btn btn-outline" href={`/espera?dia=${shiftDay(day, -1)}`}>
           ←
         </Link>
         <span className="day-label">{formatDay(day)}</span>
-        <Link className="btn quiet" href={`/espera?dia=${shiftDay(day, 1)}`}>
+        <Link className="btn btn-outline" href={`/espera?dia=${shiftDay(day, 1)}`}>
           →
         </Link>
-        <Link className="btn quiet" href={`/espera?dia=${today}`}>
+        <Link className="btn btn-outline" href={`/espera?dia=${today}`}>
           Hoje
         </Link>
-        <Link className="btn quiet" href={`/agenda?dia=${day}`}>
+        <Link className="btn btn-outline" href={`/agenda?dia=${day}`}>
           Agenda
         </Link>
-        <span className="chip">{rows.length} na fila</span>
+        <span className="badge bg-secondary-lt">{rows.length} na fila</span>
         <Modal label="Entrar na espera" title="Espera" tone="blue">
           <form action={deskEnterWaitlist}>
             <input type="hidden" name="day" value={day} />
@@ -140,13 +140,13 @@ export default async function EsperaPage({
                         <form action={deskMarkWaitlistAvisada}>
                           <input type="hidden" name="id" value={row.id} />
                           <input type="hidden" name="day" value={day} />
-                          <SubmitButton label="Marcar avisada" pendingLabel="…" className="quiet" />
+                          <SubmitButton label="Marcar avisada" pendingLabel="…" className="btn btn-outline" />
                         </form>
                       ) : null}
                       <form action={deskCancelWaitlist}>
                         <input type="hidden" name="id" value={row.id} />
                         <input type="hidden" name="day" value={day} />
-                        <SubmitButton label="Sair" pendingLabel="…" className="quiet" />
+                        <SubmitButton label="Sair" pendingLabel="…" className="btn btn-outline" />
                       </form>
                     </div>
                   </td>

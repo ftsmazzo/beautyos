@@ -342,7 +342,7 @@ export function PanelFrame({
                     </div>
                   </div>
                   <form action={logout}>
-                    <SubmitButton label="Sair" pendingLabel="Saindo…" className="quiet" />
+                    <SubmitButton label="Sair" pendingLabel="Saindo…" className="btn btn-outline" />
                   </form>
                 </div>
               </div>

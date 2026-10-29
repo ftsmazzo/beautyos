@@ -33,20 +33,20 @@ export default async function LembretesPage({
       <ErrorNote code={query.erro} />
       <Saved code={query.ok} />
       <div className="desk-bar">
-        <Link className="btn quiet" href={`/lembretes?dia=${shiftDay(day, -1)}`}>
+        <Link className="btn btn-outline" href={`/lembretes?dia=${shiftDay(day, -1)}`}>
           ←
         </Link>
         <span className="day-label">{formatDay(day)}</span>
-        <Link className="btn quiet" href={`/lembretes?dia=${shiftDay(day, 1)}`}>
+        <Link className="btn btn-outline" href={`/lembretes?dia=${shiftDay(day, 1)}`}>
           →
         </Link>
-        <Link className="btn quiet" href={`/lembretes?dia=${today}`}>
+        <Link className="btn btn-outline" href={`/lembretes?dia=${today}`}>
           Hoje
         </Link>
-        <Link className="btn quiet" href="/aniversariantes">
+        <Link className="btn btn-outline" href="/aniversariantes">
           Aniversariantes
         </Link>
-        <span className="chip">{rows.length}</span>
+        <span className="badge bg-secondary-lt">{rows.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {rows.length === 0 ? <p className="queue-empty">Nenhum lembrete neste dia.</p> : null}
@@ -81,7 +81,7 @@ export default async function LembretesPage({
                         <form action={cancelReminder}>
                           <input type="hidden" name="id" value={row.id} />
                           <input type="hidden" name="day" value={day} />
-                          <SubmitButton label="Cancelar" pendingLabel="…" className="quiet" />
+                          <SubmitButton label="Cancelar" pendingLabel="…" className="btn btn-outline" />
                         </form>
                       </div>
                     ) : null}

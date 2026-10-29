@@ -49,9 +49,9 @@ export default async function MeuPortalPage() {
       <div className="desk">
       <div className="desk-bar">
         <span className="day-label">{client?.name ?? user.name}</span>
-        {client?.phone ? <span className="chip">{formatPhone(client.phone)}</span> : null}
-        <span className="chip">{user.accountName}</span>
-        <Link className="btn quiet" href="/inicio">Início</Link>
+        {client?.phone ? <span className="badge bg-secondary-lt">{formatPhone(client.phone)}</span> : null}
+        <span className="badge bg-secondary-lt">{user.accountName}</span>
+        <Link className="btn btn-outline" href="/inicio">Início</Link>
       </div>
       {appointments.length === 0 && packages.length === 0 && history.length === 0 ? (
         <p className="queue-empty">Nada marcado ainda.</p>

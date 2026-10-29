@@ -57,15 +57,15 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
         <span className={`agent-pill ${connected ? "ok" : state.status === "pairing" ? "warn" : "mute"}`}>
           {connected ? "Conectado" : state.status === "pairing" ? "QR" : "Off"}
         </span>
-        {state.instanceName ? <span className="chip">{state.instanceName}</span> : null}
-        {state.phoneE164 ? <span className="chip">{formatPhone(state.phoneE164)}</span> : null}
+        {state.instanceName ? <span className="badge bg-secondary-lt">{state.instanceName}</span> : null}
+        {state.phoneE164 ? <span className="badge bg-secondary-lt">{formatPhone(state.phoneE164)}</span> : null}
       </div>
 
       {!state.configured ? (
         <p className="queue-empty">Sem Evolution neste servidor. O simulador continua na inbox.</p>
       ) : (
         <>
-          {state.webhookHint ? <span className="chip">{state.webhookHint}</span> : null}
+          {state.webhookHint ? <span className="badge bg-secondary-lt">{state.webhookHint}</span> : null}
 
           {state.qrcodeBase64 ? (
             <div className="agent-qr">
@@ -77,7 +77,7 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
           <div className="bos-row">
             <button
               type="button"
-              className="btn"
+              className="btn btn-primary"
               disabled={pending || !state.configured}
               onClick={() => run(startEvolutionPairingAction, "Pareamento iniciado.")}
             >
@@ -85,7 +85,7 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
             </button>
             <button
               type="button"
-              className="btn quiet"
+              className="btn btn-outline"
               disabled={pending || !state.configured}
               onClick={() => run(requestEvolutionQrAction, "QR atualizado.")}
             >
@@ -93,7 +93,7 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
             </button>
             <button
               type="button"
-              className="btn quiet"
+              className="btn btn-outline"
               disabled={pending || !state.configured}
               onClick={() => run(refreshEvolutionAction, "Status atualizado.")}
             >
@@ -118,7 +118,7 @@ export function EvolutionPanel({ initial }: { initial: EvolutionConnectionView }
             </label>
             <button
               type="button"
-              className="btn quiet"
+              className="btn btn-outline"
               disabled={pending || !linkName.trim()}
               onClick={() =>
                 run(() => linkEvolutionAction(linkName.trim()), "Instância vinculada à casa.")

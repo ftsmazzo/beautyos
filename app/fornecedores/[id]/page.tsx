@@ -64,20 +64,20 @@ export default async function SupplierFormPage({
       {supplier ? (
         <div className="desk">
           <div className="desk-bar">
-            {supplier.phone ? <span className="chip">{formatPhone(supplier.phone)}</span> : null}
-            {supplier.cnpj ? <span className="chip">{supplier.cnpj}</span> : null}
-            {supplier.city ? <span className="chip">{supplier.city}</span> : null}
-            <span className="chip">{products.length} produtos</span>
-            <span className="chip">{aliases.length} nomes na nota</span>
+            {supplier.phone ? <span className="badge bg-secondary-lt">{formatPhone(supplier.phone)}</span> : null}
+            {supplier.cnpj ? <span className="badge bg-secondary-lt">{supplier.cnpj}</span> : null}
+            {supplier.city ? <span className="badge bg-secondary-lt">{supplier.city}</span> : null}
+            <span className="badge bg-secondary-lt">{products.length} produtos</span>
+            <span className="badge bg-secondary-lt">{aliases.length} nomes na nota</span>
             <Modal label="Editar" title={`Editar · ${supplier.name}`} tone="navy">
               {editor}
             </Modal>
-            <Link className="btn quiet" href="/produtos/compra">
+            <Link className="btn btn-outline" href="/produtos/compra">
               Compra
             </Link>
             <form action={deleteSupplier}>
               <input type="hidden" name="id" value={supplier.id} />
-              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
             </form>
           </div>
           <div className="queue" style={{ overflowX: "auto" }}>
@@ -136,14 +136,14 @@ export default async function SupplierFormPage({
                               </option>
                             ))}
                           </select>
-                          <SubmitButton label="Trocar" pendingLabel="…" className="quiet" />
+                          <SubmitButton label="Trocar" pendingLabel="…" className="btn btn-outline" />
                         </form>
                       </td>
                       <td>
                         <form action={deleteSupplierLabel}>
                           <input type="hidden" name="supplier" value={supplier.id} />
                           <input type="hidden" name="id" value={alias.id} />
-                          <SubmitButton label="Tirar" pendingLabel="…" className="quiet" />
+                          <SubmitButton label="Tirar" pendingLabel="…" className="btn btn-outline" />
                         </form>
                       </td>
                     </tr>

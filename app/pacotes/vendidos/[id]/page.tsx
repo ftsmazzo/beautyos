@@ -56,24 +56,24 @@ export default async function SoldPackagePage({
       <ErrorNote code={query.erro} />
       <div className="desk">
       <div className="desk-bar">
-        <Link className="btn quiet" href="/pacotes/vendidos">
+        <Link className="btn btn-outline" href="/pacotes/vendidos">
           Vendidos
         </Link>
         <span className="day-label">{item.clientName}</span>
-        {item.phone ? <span className="chip">{formatPhone(item.phone)}</span> : null}
-        <span className="chip">{item.name} · {item.used}/{item.total}</span>
-        <span className="chip">
+        {item.phone ? <span className="badge bg-secondary-lt">{formatPhone(item.phone)}</span> : null}
+        <span className="badge bg-secondary-lt">{item.name} · {item.used}/{item.total}</span>
+        <span className="badge bg-secondary-lt">
           Pago {formatReais(item.paidCents)}
           {methods ? ` · ${methods}` : ""}
           {item.paidCents < item.priceCents ? ` · falta ${formatReais(item.priceCents - item.paidCents)}` : ""}
         </span>
-        <span className="chip">
+        <span className="badge bg-secondary-lt">
           {deadline}
           {item.pardons > 0 ? " · perdão" : ""}
           {item.nextVisit ? ` · ${item.nextVisit}` : ""}
         </span>
         {item.orderId ? (
-          <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
+          <Link className="btn btn-outline" href={`/comandas/${item.orderId}`}>
             Comanda
           </Link>
         ) : null}
@@ -89,15 +89,15 @@ export default async function SoldPackagePage({
             </form>
           </Modal>
         ) : null}
-        {item.status === "cancelado" ? <span className="chip">{item.cancelReason || "Cancelado"}</span> : null}
-        {item.status === "encerrado" ? <span className="chip">Encerrado</span> : null}
+        {item.status === "cancelado" ? <span className="badge bg-secondary-lt">{item.cancelReason || "Cancelado"}</span> : null}
+        {item.status === "encerrado" ? <span className="badge bg-secondary-lt">Encerrado</span> : null}
         {warned ? (
           <form action={pardonPackage}>
             <input type="hidden" name="package" value={item.id} />
             <SubmitButton
               label={item.pardons > 0 ? `Perdoar · ${item.pardons + 1}ª` : "Perdoar"}
               pendingLabel="Perdoando…"
-              className="quiet"
+              className="btn btn-outline"
             />
           </form>
         ) : null}
@@ -137,11 +137,11 @@ export default async function SoldPackagePage({
                           <SubmitButton
                             label={`Cobrar diferença ${formatReais(due ?? 0)}`}
                             pendingLabel="Cobrando…"
-                            className="quiet"
+                            className="btn btn-outline"
                           />
                         </form>
                       ) : null}
-                      {open && people.length === 0 ? <span className="chip">Sem profissional</span> : null}
+                      {open && people.length === 0 ? <span className="badge bg-secondary-lt">Sem profissional</span> : null}
                       {open && people.length > 0 && visit.status === "falta_agendar" ? (
                         <Modal label="Marcar" title={`Marcar · ${visit.serviceName}`} tone="blue">
                           {!item.expired && !item.late ? (

@@ -197,11 +197,11 @@ export default async function FluxoPage({
     <Panel user={user} current="/financeiro/fluxo" title="Fluxo e resultado">
       <div className="desk">
       <div className="desk-bar">
-        <Link className="btn quiet" href={`/financeiro/fluxo?mes=${previous}`}>
+        <Link className="btn btn-outline" href={`/financeiro/fluxo?mes=${previous}`}>
           ←
         </Link>
         <span className="day-label">{monthLabel(month)}</span>
-        <Link className="btn quiet" href={`/financeiro/fluxo?mes=${following}`}>
+        <Link className="btn btn-outline" href={`/financeiro/fluxo?mes=${following}`}>
           →
         </Link>
       </div>

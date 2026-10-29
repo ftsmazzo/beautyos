@@ -221,23 +221,23 @@ export default async function CommissionPage({
             </select>
           </label>
         ) : null}
-        <button className="btn" type="submit">
+        <button className="btn btn-primary" type="submit">
           Ver
         </button>
-        <Link className="btn quiet" href={periodHref(today, today, selected)}>
+        <Link className="btn btn-outline" href={periodHref(today, today, selected)}>
           Hoje
         </Link>
-        <Link className="btn quiet" href={periodHref(week.start, week.end, selected)}>
+        <Link className="btn btn-outline" href={periodHref(week.start, week.end, selected)}>
           Semana
         </Link>
-        <Link className="btn quiet" href={periodHref(month.start, month.end, selected)}>
+        <Link className="btn btn-outline" href={periodHref(month.start, month.end, selected)}>
           Mês
         </Link>
         {!blocked && !focused ? (
           <>
-            <span className="chip">Entrou {formatReais(entered)}</span>
-            <span className="chip warn">Saiu {formatReais(left)}</span>
-            <span className="chip ok">Líquido {formatReais(entered - left)}</span>
+            <span className="badge bg-secondary-lt">Entrou {formatReais(entered)}</span>
+            <span className="badge bg-orange-lt text-orange">Saiu {formatReais(left)}</span>
+            <span className="badge bg-green-lt text-green">Líquido {formatReais(entered - left)}</span>
           </>
         ) : null}
       </form>

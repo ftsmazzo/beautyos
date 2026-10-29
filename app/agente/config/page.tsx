@@ -38,10 +38,10 @@ export default async function AgenteConfigPage({
 
       <div className="desk">
       <div className="desk-bar">
-        <Link className="btn quiet" href="/agente">
+        <Link className="btn btn-outline" href="/agente">
           ← Conversas
         </Link>
-        <span className="chip">{data.waitlist.length} na espera</span>
+        <span className="badge bg-secondary-lt">{data.waitlist.length} na espera</span>
       </div>
       <div id="espera" className="queue" style={{ overflowX: "auto" }}>
         {data.waitlist.length === 0 ? <p className="queue-empty">Nenhuma espera aberta.</p> : null}
@@ -115,8 +115,8 @@ export default async function AgenteConfigPage({
         <div className="queue stack">
           <div className="desk-bar">
             <span className="day-label">Canal</span>
-            <span className="chip">{data.channel.active ? "Ativo" : "Pausado"}</span>
-            <span className="chip">{data.channel.webhookToken}</span>
+            <span className="badge bg-secondary-lt">{data.channel.active ? "Ativo" : "Pausado"}</span>
+            <span className="badge bg-secondary-lt">{data.channel.webhookToken}</span>
           </div>
           <form action={saveAgentChannelBasics} className="stack">
             <label className="bos-row">

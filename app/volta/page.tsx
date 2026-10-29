@@ -48,9 +48,9 @@ export default async function ReturnPage({
           ))}
         </Modal>
         {FILE.some((item) => item.id === filter) ? (
-          <span className="chip">{FILE.find((item) => item.id === filter)?.label}</span>
+          <span className="badge bg-secondary-lt">{FILE.find((item) => item.id === filter)?.label}</span>
         ) : null}
-        <span className="chip">{visible.length}</span>
+        <span className="badge bg-secondary-lt">{visible.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {visible.length === 0 ? <p className="queue-empty">Ninguém neste filtro.</p> : null}

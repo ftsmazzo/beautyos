@@ -14,14 +14,14 @@ export function PriceNotice({
   return (
     <div className="desk-alert desk-bar">
       {notices.map((notice) => (
-        <span className="chip" key={notice.id}>
+        <span className="badge bg-secondary-lt" key={notice.id}>
           {notice.serviceId ? <Link href={`/servicos/${notice.serviceId}`}>{notice.serviceName}</Link> : notice.serviceName}
           {` ${formatReais(notice.beforeCents)} → ${formatReais(notice.afterCents)}`}
         </span>
       ))}
       <form action={seePriceNotices}>
         <input type="hidden" name="back" value={back} />
-        <SubmitButton label="Entendi" pendingLabel="Salvando…" className="quiet" />
+        <SubmitButton label="Entendi" pendingLabel="Salvando…" className="btn btn-outline" />
       </form>
     </div>
   );

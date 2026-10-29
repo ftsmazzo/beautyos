@@ -43,7 +43,7 @@ export function CouponScan({
 
   if (!token) {
     return (
-      <button className="btn teal" type="button" disabled={busy} onClick={() => void open()}>
+      <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void open()}>
         Ler no celular
       </button>
     );
@@ -53,7 +53,7 @@ export function CouponScan({
     <div className="coupon-pair">
       <div dangerouslySetInnerHTML={{ __html: svg }} />
       <p className="desk-hint">Escaneie no celular e aponte para o QR da NFC-e. O link .gov.br vem para cá; os itens saem da consulta SEFAZ ou do XML.</p>
-      <button className="btn quiet" type="button" onClick={() => { setToken(""); setSvg(""); }}>
+      <button className="btn btn-outline" type="button" onClick={() => { setToken(""); setSvg(""); }}>
         Fechar
       </button>
     </div>

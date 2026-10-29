@@ -94,11 +94,11 @@ export default async function PackageFormPage({
       {pack ? (
         <div className="desk">
           <div className="desk-bar">
-            <span className="chip">{formatReais(packageCents)}</span>
-            {avulsoCents > 0 ? <span className="chip">Avulso {formatReais(avulsoCents)}</span> : null}
-            <span className="chip">{pack.validityDays} dias</span>
-            <span className="chip">{pack.forSale ? "À venda" : "Fora de venda"}</span>
-            {pack.saleCommissionPercent != null ? <span className="chip">{pack.saleCommissionPercent}% venda</span> : null}
+            <span className="badge bg-secondary-lt">{formatReais(packageCents)}</span>
+            {avulsoCents > 0 ? <span className="badge bg-secondary-lt">Avulso {formatReais(avulsoCents)}</span> : null}
+            <span className="badge bg-secondary-lt">{pack.validityDays} dias</span>
+            <span className="badge bg-secondary-lt">{pack.forSale ? "À venda" : "Fora de venda"}</span>
+            {pack.saleCommissionPercent != null ? <span className="badge bg-secondary-lt">{pack.saleCommissionPercent}% venda</span> : null}
             <Modal label="Editar" title={`Editar · ${pack.name}`} tone="navy">
               {editor}
             </Modal>

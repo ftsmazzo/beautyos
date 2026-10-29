@@ -32,10 +32,10 @@ export default async function PurchasesReportPage({
     <Panel user={user} current="/relatorios" title="Compras">
       <div className="desk">
         <ReportPeriod path="/relatorios/compras" start={start} end={end} tooLong={tooLong} span={SPAN}>
-          <Link className="btn quiet" href="/produtos/compra">Lançar</Link>
-          <Link className="btn quiet" href={`/produtos/movimentos?de=${start}&ate=${end}&motivo=compra`}>Movimentos</Link>
-          <Link className="btn quiet" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
-          <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
+          <Link className="btn btn-outline" href="/produtos/compra">Lançar</Link>
+          <Link className="btn btn-outline" href={`/produtos/movimentos?de=${start}&ate=${end}&motivo=compra`}>Movimentos</Link>
+          <Link className="btn btn-outline" href={`/relatorios/estoque?de=${start}&ate=${end}`}>Estoque</Link>
+          <Link className="btn btn-outline" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {report && report.rows.length === 0 ? (
@@ -90,7 +90,7 @@ export default async function PurchasesReportPage({
                   <div className="report-track" key={row.name}>
                     <div className="desk-bar" style={{ justifyContent: "space-between" }}>
                       <strong>{row.name}</strong>
-                      <span className="chip">{row.qty} · {formatReais(row.cents)}</span>
+                      <span className="badge bg-secondary-lt">{row.qty} · {formatReais(row.cents)}</span>
                     </div>
                     <div
                       className="report-bar"

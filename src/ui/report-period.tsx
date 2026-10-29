@@ -36,10 +36,10 @@ export function ReportPeriod({
       {Object.entries(extra ?? {}).map(([key, value]) =>
         value ? <input key={key} type="hidden" name={key} value={value} /> : null,
       )}
-      <Link className="btn quiet" href={href(path, today, today, extra)}>Hoje</Link>
-      <Link className="btn quiet" href={href(path, shiftDay(today, -6), today, extra)}>7 dias</Link>
-      <Link className="btn quiet" href={href(path, week.start, today < week.end ? today : week.end, extra)}>Semana</Link>
-      <Link className="btn quiet" href={href(path, month.start, today, extra)}>Mês</Link>
+      <Link className="btn btn-outline" href={href(path, today, today, extra)}>Hoje</Link>
+      <Link className="btn btn-outline" href={href(path, shiftDay(today, -6), today, extra)}>7 dias</Link>
+      <Link className="btn btn-outline" href={href(path, week.start, today < week.end ? today : week.end, extra)}>Semana</Link>
+      <Link className="btn btn-outline" href={href(path, month.start, today, extra)}>Mês</Link>
       <label>
         De
         <input name="de" type="date" defaultValue={start} required />
@@ -48,8 +48,8 @@ export function ReportPeriod({
         Até
         <input name="ate" type="date" defaultValue={end} required />
       </label>
-      <button className="btn" type="submit">Ver</button>
-      <span className="chip">{tooLong && span ? `máx. ${span} dias` : `${formatDay(start)} – ${formatDay(end)}`}</span>
+      <button className="btn btn-primary" type="submit">Ver</button>
+      <span className="badge bg-secondary-lt">{tooLong && span ? `máx. ${span} dias` : `${formatDay(start)} – ${formatDay(end)}`}</span>
       {children}
     </form>
   );

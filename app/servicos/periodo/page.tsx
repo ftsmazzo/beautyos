@@ -33,23 +33,23 @@ export default async function ServicePeriodPage({
     <Panel user={user} current="/servicos" title="Venda, uso e avulso">
       <div className="desk">
       <div className="desk-bar">
-        <Link className="btn quiet" href="/servicos">
+        <Link className="btn btn-outline" href="/servicos">
           Serviços
         </Link>
         <form className="filters" action="/servicos/periodo">
           <input name="de" type="date" defaultValue={start} required aria-label="De" />
           <input name="ate" type="date" defaultValue={end} required aria-label="Até" />
-          <button className="btn" type="submit">
+          <button className="btn btn-primary" type="submit">
             Ver
           </button>
         </form>
-        <Link className="btn quiet" href={href(week.start, today < week.end ? today : week.end)}>
+        <Link className="btn btn-outline" href={href(week.start, today < week.end ? today : week.end)}>
           Semana
         </Link>
-        <Link className="btn quiet" href={href(month.start, today)}>
+        <Link className="btn btn-outline" href={href(month.start, today)}>
           Mês
         </Link>
-        <span className="chip">{tooLong ? `máx. ${SPAN}d` : `${formatDay(start)} – ${formatDay(end)}`}</span>
+        <span className="badge bg-secondary-lt">{tooLong ? `máx. ${SPAN}d` : `${formatDay(start)} – ${formatDay(end)}`}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {tooLong ? <p className="queue-empty">O período fica em até {SPAN} dias.</p> : null}

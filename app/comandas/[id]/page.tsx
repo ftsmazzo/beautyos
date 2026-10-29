@@ -133,27 +133,27 @@ export default async function OrderPage({
     <Panel user={user} current="/comandas" title={order.kind === "consumo" ? "Consumo" : "Comanda"}>
       <div className="order-desk">
       <div className="desk-bar">
-        <Link className="btn quiet" href={`/comandas?dia=${order.day}`}>
+        <Link className="btn btn-outline" href={`/comandas?dia=${order.day}`}>
           ← Comandas
         </Link>
-        <Link className="btn quiet" href={`/agenda?dia=${order.day}`}>
+        <Link className="btn btn-outline" href={`/agenda?dia=${order.day}`}>
           Agenda
         </Link>
         <span className="day-label">{heroName}</span>
-        {order.phone ? <span className="chip">{formatPhone(order.phone)}</span> : null}
-        <span className="chip">{formatDay(order.day)}</span>
+        {order.phone ? <span className="badge bg-secondary-lt">{formatPhone(order.phone)}</span> : null}
+        <span className="badge bg-secondary-lt">{formatDay(order.day)}</span>
         <span className={`chip ${open ? "ok" : ""}`}>{open ? "Aberta" : "Fechada"}</span>
-        <span className="chip">{formatReais(total)}</span>
-        {paid > 0 && paid < total ? <span className="chip">Pago {formatReais(paid)}</span> : null}
+        <span className="badge bg-secondary-lt">{formatReais(total)}</span>
+        {paid > 0 && paid < total ? <span className="badge bg-secondary-lt">Pago {formatReais(paid)}</span> : null}
         <span className={`chip ${paid >= total ? "ok" : "hot"}`}>
           {paid >= total ? "Coberta" : `Falta ${formatReais(gap)}`}
         </span>
-        {order.fromOutside ? <span className="chip warn">De fora</span> : null}
-        {order.incomplete ? <span className="chip hot">Cadastro pendente</span> : null}
-        {birthday ? <span className="chip warn">Aniversário</span> : null}
-        {order.kind === "consumo" ? <span className="chip">Consumo</span> : null}
+        {order.fromOutside ? <span className="badge bg-orange-lt text-orange">De fora</span> : null}
+        {order.incomplete ? <span className="badge bg-red-lt text-red">Cadastro pendente</span> : null}
+        {birthday ? <span className="badge bg-orange-lt text-orange">Aniversário</span> : null}
+        {order.kind === "consumo" ? <span className="badge bg-secondary-lt">Consumo</span> : null}
         {otherDues.map((row) => (
-          <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
+          <Link key={row.id} className="badge bg-red-lt text-red" href={`/comandas/${row.id}`}>
             {formatDay(row.day)} {formatReais(row.gapCents)}
           </Link>
         ))}
@@ -343,7 +343,7 @@ export default async function OrderPage({
           <form action={deleteEmptyOrder}>
             <input type="hidden" name="order" value={order.id} />
             <input type="hidden" name="back" value={`/comandas/${order.id}`} />
-            <SubmitButton label="Excluir comanda" pendingLabel="Excluindo…" className="quiet" />
+            <SubmitButton label="Excluir comanda" pendingLabel="Excluindo…" className="btn btn-outline" />
           </form>
         ) : null}
         {order.lines.length > 0 ? (
@@ -379,7 +379,7 @@ export default async function OrderPage({
                             <form action={deleteVisitNote}>
                               <input type="hidden" name="order" value={order.id} />
                               <input type="hidden" name="note" value={note.id} />
-                              <SubmitButton label="Apagar" pendingLabel="Apagando…" className="quiet" />
+                              <SubmitButton label="Apagar" pendingLabel="Apagando…" className="btn btn-outline" />
                             </form>
                           ) : null}
                         </div>
@@ -463,14 +463,14 @@ export default async function OrderPage({
                       <form action={removeLine}>
                         <input type="hidden" name="order" value={order.id} />
                         <input type="hidden" name="line" value={line.id} />
-                        <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                        <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
                       </form>
                     ) : null}
                     {operator && open && line.kind === "servico" && line.serviceId && !line.packageCreditId && covered.has(line.serviceId) ? (
                       <form action={applyPackageUse}>
                         <input type="hidden" name="order" value={order.id} />
                         <input type="hidden" name="line" value={line.id} />
-                        <SubmitButton label="Abater" pendingLabel="Abatendo…" className="quiet" />
+                        <SubmitButton label="Abater" pendingLabel="Abatendo…" className="btn btn-outline" />
                       </form>
                     ) : null}
                     {operator && open && order.kind === "cliente" && line.kind !== "pacote" && !line.packageCreditId ? (
@@ -480,7 +480,7 @@ export default async function OrderPage({
                         <SubmitButton
                           label={line.courtesy ? "Cobrar" : "Cortesia"}
                           pendingLabel="Salvando…"
-                          className="quiet"
+                          className="btn btn-outline"
                         />
                       </form>
                     ) : null}
@@ -589,7 +589,7 @@ export default async function OrderPage({
                           <form action={pardonPackage}>
                             <input type="hidden" name="order" value={order.id} />
                             <input type="hidden" name="package" value={item.id} />
-                            <SubmitButton label="Perdoar" pendingLabel="Perdoando…" className="quiet" />
+                            <SubmitButton label="Perdoar" pendingLabel="Perdoando…" className="btn btn-outline" />
                           </form>
                         ) : null}
                       </td>
@@ -631,7 +631,7 @@ export default async function OrderPage({
                             <SubmitButton
                               label={due != null ? `Cobrar ${formatReais(due)}` : "Cobrar diferença"}
                               pendingLabel="Cobrando…"
-                              className="quiet"
+                              className="btn btn-outline"
                             />
                           </form>
                         ) : null}
@@ -662,7 +662,7 @@ export default async function OrderPage({
               <Modal label={`Crédito ${formatReais(credit)}`} title="Usar crédito" tone="navy">
                 <form action={applyClientCredit}>
                   <input type="hidden" name="order" value={order.id} />
-                  <span className="chip">
+                  <span className="badge bg-secondary-lt">
                     {formatReais(credit)}
                     {ledger && ledger.sources.length > 0
                       ? ` · ${ledger.sources.map((row) => `${formatDay(row.day)} ${formatReais(row.cents)}`).join(", ")}`
@@ -711,7 +711,7 @@ export default async function OrderPage({
                         <form action={removePayment}>
                           <input type="hidden" name="order" value={order.id} />
                           <input type="hidden" name="payment" value={payment.id} />
-                          <SubmitButton label="Remover" pendingLabel="Removendo…" className="quiet" />
+                          <SubmitButton label="Remover" pendingLabel="Removendo…" className="btn btn-outline" />
                         </form>
                       ) : null}
                     </td>
@@ -722,7 +722,7 @@ export default async function OrderPage({
           ) : null}
         </div>
       ) : (
-        <span className="chip">Consumo interno</span>
+        <span className="badge bg-secondary-lt">Consumo interno</span>
       )}
 
       {trail.length > 0 ? (

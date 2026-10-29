@@ -39,8 +39,8 @@ export default async function ExtrasReportPage({
     <Panel user={user} current="/relatorios" title="Extras">
       <div className="desk">
         <ReportPeriod path="/relatorios/extras" start={start} end={end} tooLong={tooLong} span={SPAN}>
-          <Link className="btn quiet" href="/servicos">Serviços</Link>
-          <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
+          <Link className="btn btn-outline" href="/servicos">Serviços</Link>
+          <Link className="btn btn-outline" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {report && report.marked === 0 ? (

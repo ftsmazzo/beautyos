@@ -88,35 +88,35 @@ export default async function StartPage({
       <div className="desk-bar">
         <span className="day-label">{formatDay(today)}</span>
         {pulse ? (
-          <span className="chip">
+          <span className="badge bg-secondary-lt">
             {pulse.todaySlots.length} {pulse.todaySlots.length === 1 ? "horário" : "horários"}
           </span>
         ) : null}
-        {pulse && pulse.tomorrowQty > 0 ? <span className="chip">Amanhã {pulse.tomorrowQty}</span> : null}
-        {dueOpen.length > 0 ? <span className="chip hot">{dueOpen.length} com falta</span> : null}
+        {pulse && pulse.tomorrowQty > 0 ? <span className="badge bg-secondary-lt">Amanhã {pulse.tomorrowQty}</span> : null}
+        {dueOpen.length > 0 ? <span className="badge bg-red-lt text-red">{dueOpen.length} com falta</span> : null}
         {receivables.length > 0 ? (
-          <Link className="chip warn" href="/financeiro/receber">
+          <Link className="badge bg-orange-lt text-orange" href="/financeiro/receber">
             A receber {formatReais(dueTotal)}
           </Link>
         ) : null}
         {birthdayToday > 0 ? (
-          <Link className="chip warn" href="/aniversariantes">
+          <Link className="badge bg-orange-lt text-orange" href="/aniversariantes">
             {birthdayToday} aniversário{birthdayToday === 1 ? "" : "s"} hoje
           </Link>
         ) : birthdaySoon > 0 ? (
-          <Link className="chip" href="/aniversariantes">
+          <Link className="badge bg-secondary-lt" href="/aniversariantes">
             {birthdaySoon} aniversário{birthdaySoon === 1 ? "" : "s"} · 14 dias
           </Link>
         ) : null}
         {user.role === "profissional" ? (
           <>
             {own ? (
-              <Link className="btn quiet" href="/comissao">
+              <Link className="btn btn-outline" href="/comissao">
                 Extrato {formatReais(mineNet)}
               </Link>
             ) : null}
             {own && pulse?.consumption ? (
-              <Link className="btn quiet" href={`/comandas/${pulse.consumption.id}`}>
+              <Link className="btn btn-outline" href={`/comandas/${pulse.consumption.id}`}>
                 Consumo {pulse.consumption.status === "aberta" ? "aberto" : "fechado"}
               </Link>
             ) : null}
@@ -127,11 +127,11 @@ export default async function StartPage({
                 <SubmitButton label="Abrir consumo" pendingLabel="Abrindo…" className="teal" />
               </form>
             ) : null}
-            {!own ? <span className="chip">Sem ficha</span> : null}
+            {!own ? <span className="badge bg-secondary-lt">Sem ficha</span> : null}
           </>
         ) : null}
         {user.role === "cliente" ? (
-          <Link className="btn" href="/meu">
+          <Link className="btn btn-primary" href="/meu">
             Minha conta
           </Link>
         ) : null}
@@ -181,7 +181,7 @@ export default async function StartPage({
               </div>
               <div className="bos-row">
                 <SubmitButton label="Salvar máquina" pendingLabel="Salvando…" />
-                <span className="chip">
+                <span className="badge bg-secondary-lt">
                   base {formatRate(machine.debitBps)} / {formatRate(machine.creditBps)}
                 </span>
               </div>
@@ -204,7 +204,7 @@ export default async function StartPage({
                     <input name="credit" required defaultValue={(brand.creditBps / 100).toFixed(2).replace(".", ",")} />
                   </label>
                 </div>
-                <SubmitButton label="Salvar bandeira" pendingLabel="Salvando…" className="quiet" />
+                <SubmitButton label="Salvar bandeira" pendingLabel="Salvando…" className="btn btn-outline" />
               </form>
             ))}
             <form action={saveCardBrand}>
@@ -223,7 +223,7 @@ export default async function StartPage({
                   <input name="credit" required placeholder="2,49" />
                 </label>
               </div>
-              <SubmitButton label={`Incluir em ${machine.name}`} pendingLabel="Salvando…" className="quiet" />
+              <SubmitButton label={`Incluir em ${machine.name}`} pendingLabel="Salvando…" className="btn btn-outline" />
             </form>
             </div>
           ))}
@@ -233,12 +233,12 @@ export default async function StartPage({
               <div key={`off-${machine.id}`} className="bos-row">
                 <form action={stopCardAcquirer}>
                   <input type="hidden" name="id" value={machine.id} />
-                  <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="quiet" />
+                  <SubmitButton label={`Desativar ${machine.name}`} pendingLabel="Desativando…" className="btn btn-outline" />
                 </form>
                 {machine.brands.filter((brand) => brand.active).map((brand) => (
                   <form key={`off-brand-${brand.id}`} action={stopCardBrand}>
                     <input type="hidden" name="id" value={brand.id} />
-                    <SubmitButton label={`Desativar ${brand.name}`} pendingLabel="Desativando…" className="quiet" />
+                    <SubmitButton label={`Desativar ${brand.name}`} pendingLabel="Desativando…" className="btn btn-outline" />
                   </form>
                 ))}
               </div>
@@ -283,11 +283,11 @@ export default async function StartPage({
                   .filter(Boolean)
                   .join(" · ");
                 return slot.orderId ? (
-                  <Link key={slot.id} className="chip ok" href={`/comandas/${slot.orderId}`}>
+                  <Link key={slot.id} className="badge bg-green-lt text-green" href={`/comandas/${slot.orderId}`}>
                     {label}
                   </Link>
                 ) : (
-                  <span key={slot.id} className="chip ok">
+                  <span key={slot.id} className="badge bg-green-lt text-green">
                     {label}
                   </span>
                 );
@@ -302,7 +302,7 @@ export default async function StartPage({
                   <strong>{slot.time}</strong>
                   <span>{slot.clientName ?? "Sem nome"}</span>
                   <span>{slot.serviceName ?? "Horário"}</span>
-                  <span className="chip">{APPOINTMENT_STATUS[slot.status as keyof typeof APPOINTMENT_STATUS]?.word ?? slot.status}</span>
+                  <span className="badge bg-secondary-lt">{APPOINTMENT_STATUS[slot.status as keyof typeof APPOINTMENT_STATUS]?.word ?? slot.status}</span>
                   {slot.orderId ? <Link href={`/comandas/${slot.orderId}`}>Comanda</Link> : null}
                 </div>
               ))}
@@ -312,7 +312,7 @@ export default async function StartPage({
             <div className="desk-floor">
               <span className="label">Falta hoje</span>
               {dueOpen.map((row) => (
-                <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
+                <Link key={row.id} className="badge bg-red-lt text-red" href={`/comandas/${row.id}`}>
                   {row.who} · {formatReais(row.gapCents)}
                 </Link>
               ))}
@@ -332,7 +332,7 @@ export default async function StartPage({
             <div className="queue-row" key={row.id}>
               <Link href={`/comandas/${row.id}`}>{formatDay(row.day)}</Link>
               <span>{formatReais(row.totalCents)}</span>
-              {row.paidCents < row.totalCents ? <span className="chip hot">falta {formatReais(row.totalCents - row.paidCents)}</span> : null}
+              {row.paidCents < row.totalCents ? <span className="badge bg-red-lt text-red">falta {formatReais(row.totalCents - row.paidCents)}</span> : null}
             </div>
           ))}
         </div>
@@ -350,9 +350,9 @@ export default async function StartPage({
               <Link href={`/comandas/${row.id}`}>{row.who}</Link>
               {row.phone ? <span>{formatPhone(row.phone)}</span> : null}
               <span>{formatDay(row.day)}</span>
-              <span className="chip warn">falta {formatReais(row.gapCents)}</span>
-              {row.day < today ? <span className="chip hot">atrasada</span> : null}
-              {row.day === today ? <span className="chip">hoje</span> : null}
+              <span className="badge bg-orange-lt text-orange">falta {formatReais(row.gapCents)}</span>
+              {row.day < today ? <span className="badge bg-red-lt text-red">atrasada</span> : null}
+              {row.day === today ? <span className="badge bg-secondary-lt">hoje</span> : null}
             </div>
           ))}
           {receivables.length > 12 ? (
@@ -376,8 +376,8 @@ export default async function StartPage({
               <strong>{row.partyName}</strong>
               <span>{row.description}</span>
               <span>{formatReais(row.amountCents)}</span>
-              {row.dueIso < today ? <span className="chip hot">atrasada</span> : null}
-              {row.dueIso === today ? <span className="chip warn">hoje</span> : null}
+              {row.dueIso < today ? <span className="badge bg-red-lt text-red">atrasada</span> : null}
+              {row.dueIso === today ? <span className="badge bg-orange-lt text-orange">hoje</span> : null}
             </div>
           ))}
         </div>
@@ -395,7 +395,7 @@ export default async function StartPage({
               <Link href={`/pacotes/vendidos/${row.id}`}>{row.clientName}</Link>
               {row.phone ? <span>{formatPhone(row.phone)}</span> : null}
               <span>{row.name}</span>
-              <span className="chip warn">falta {formatReais(row.priceCents - row.paidCents)}</span>
+              <span className="badge bg-orange-lt text-orange">falta {formatReais(row.priceCents - row.paidCents)}</span>
               {row.orderId ? <Link href={`/comandas/${row.orderId}`}>Comanda</Link> : null}
             </div>
           ))}
@@ -411,7 +411,7 @@ export default async function StartPage({
             <div className="queue-row" key={person.id}>
               <Link href={`/clientes/${person.id}`}>{person.name}</Link>
               {person.phone ? <span>{formatPhone(person.phone)}</span> : null}
-              <span className="chip ok">{formatReais(person.creditCents)}</span>
+              <span className="badge bg-green-lt text-green">{formatReais(person.creditCents)}</span>
             </div>
           ))}
         </div>
@@ -468,7 +468,7 @@ export default async function StartPage({
                   <Link href={`/clientes/${person.id}`}>{person.name}</Link>
                   <span>{formatPhone(person.phone)}</span>
                   <span>{person.serviceName}</span>
-                  <span className="chip warn">há {person.lateDays}d</span>
+                  <span className="badge bg-orange-lt text-orange">há {person.lateDays}d</span>
                   <Link href={`/agenda?cliente=${person.id}&servico=${person.serviceId}`}>Agendar</Link>
                 </div>
               ))}

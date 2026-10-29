@@ -22,13 +22,13 @@ export default async function PackagesPage({
       <div className="desk">
       <SavedNote code={query.ok} />
       <div className="desk-bar">
-        <Link className="btn" href="/pacotes/novo">
+        <Link className="btn btn-primary" href="/pacotes/novo">
           Novo pacote
         </Link>
-        <Link className="btn quiet" href="/pacotes/vendidos">
+        <Link className="btn btn-outline" href="/pacotes/vendidos">
           Vendidos
         </Link>
-        <span className="chip">{packages.length}</span>
+        <span className="badge bg-secondary-lt">{packages.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {packages.length === 0 ? <p className="queue-empty">Nenhum pacote ainda.</p> : null}
@@ -62,7 +62,7 @@ export default async function PackagesPage({
                       <SubmitButton
                         label={item.forSale ? "Tirar de venda" : "Colocar à venda"}
                         pendingLabel="Salvando…"
-                        className="quiet"
+                        className="btn btn-outline"
                       />
                     </form>
                   </td>

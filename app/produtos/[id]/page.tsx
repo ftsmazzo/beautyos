@@ -211,10 +211,10 @@ export default async function ProductFormPage({
       {product ? (
         <div className="desk">
           <div className="desk-bar">
-            <span className="chip">Saldo {product.balance}</span>
-            {product.minQty > 0 ? <span className="chip">Mínimo {product.minQty}</span> : null}
-            <span className="chip">Margem {formatReais(product.salePriceCents - product.costCents)}</span>
-            {staffNow != null ? <span className="chip">Consumo {formatReais(staffNow)}</span> : null}
+            <span className="badge bg-secondary-lt">Saldo {product.balance}</span>
+            {product.minQty > 0 ? <span className="badge bg-secondary-lt">Mínimo {product.minQty}</span> : null}
+            <span className="badge bg-secondary-lt">Margem {formatReais(product.salePriceCents - product.costCents)}</span>
+            {staffNow != null ? <span className="badge bg-secondary-lt">Consumo {formatReais(staffNow)}</span> : null}
             <Modal label="Editar" title={`Editar · ${product.name}`} tone="navy">
               {editor}
             </Modal>
@@ -270,7 +270,7 @@ export default async function ProductFormPage({
             {free ? (
               <form action={deleteProduct}>
                 <input type="hidden" name="id" value={product.id} />
-                <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
               </form>
             ) : null}
           </div>

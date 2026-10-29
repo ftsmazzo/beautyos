@@ -40,8 +40,8 @@ export default async function FinanceReportPage({
     <Panel user={user} current="/relatorios" title="Financeiro">
       <div className="desk">
         <ReportPeriod path="/relatorios/financeiro" start={start} end={end} tooLong={tooLong} span={SPAN}>
-          <Link className="btn quiet" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
-          <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
+          <Link className="btn btn-outline" href={`/caixa?de=${start}&ate=${end}`}>Caixa</Link>
+          <Link className="btn btn-outline" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {report && report.cents === 0 ? (

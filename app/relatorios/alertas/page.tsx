@@ -15,9 +15,9 @@ export default async function AlertsPage() {
     <Panel user={user} current="/relatorios" title="Alertas">
       <div className="desk">
         <div className="desk-bar">
-          <Link className="btn quiet" href="/relatorios">Painel</Link>
-          <span className="chip">{formatDay(today)}</span>
-          <span className="chip">{rows.length}</span>
+          <Link className="btn btn-outline" href="/relatorios">Painel</Link>
+          <span className="badge bg-secondary-lt">{formatDay(today)}</span>
+          <span className="badge bg-secondary-lt">{rows.length}</span>
         </div>
         <div className="queue statement-day" style={{ overflowX: "auto" }}>
           {rows.length === 0 ? <p className="queue-empty">Nada para agir agora.</p> : null}

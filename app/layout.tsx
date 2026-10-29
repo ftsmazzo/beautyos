@@ -1,11 +1,10 @@
-import { Source_Sans_3 } from "next/font/google";
+import { Roboto } from "next/font/google";
 import "@tabler/core/dist/css/tabler.min.css";
 import "./globals.css";
 
-/** Source Sans 3 no balcão; tokens de componente vêm do @tabler/core. */
-const sourceSans = Source_Sans_3({
+const roboto = Roboto({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "700"],
   variable: "--font-ui",
 });
 
@@ -22,7 +21,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body className={`${sourceSans.variable} ${sourceSans.className}`}>{children}</body>
+      <body className={`${roboto.variable} ${roboto.className}`}>{children}</body>
     </html>
   );
 }

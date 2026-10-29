@@ -62,12 +62,12 @@ export default async function CardsPage({
         ))}
         {selected ? (
           <>
-            {selected.institution ? <span className="chip">{selected.institution}</span> : null}
-            <span className="chip">Fecha dia {selected.closingDay}</span>
-            <span className="chip">Vence dia {selected.dueDay}</span>
-            <span className="chip">Limite {formatReais(selected.limitCents)}</span>
-            <span className="chip">Disponível {formatReais(selected.limitCents - selected.openCents)}</span>
-            <span className="chip">Fatura {formatReais(selected.openCents)}</span>
+            {selected.institution ? <span className="badge bg-secondary-lt">{selected.institution}</span> : null}
+            <span className="badge bg-secondary-lt">Fecha dia {selected.closingDay}</span>
+            <span className="badge bg-secondary-lt">Vence dia {selected.dueDay}</span>
+            <span className="badge bg-secondary-lt">Limite {formatReais(selected.limitCents)}</span>
+            <span className="badge bg-secondary-lt">Disponível {formatReais(selected.limitCents - selected.openCents)}</span>
+            <span className="badge bg-secondary-lt">Fatura {formatReais(selected.openCents)}</span>
             {selected.openCents > 0 && banks.length > 0 ? (
               <Modal label="Pagar fatura" title={`Pagar · ${selected.name}`} tone="teal">
                 <form action={payCardInvoice}>
@@ -92,7 +92,7 @@ export default async function CardsPage({
             ) : null}
             <form action={deleteCard}>
               <input type="hidden" name="id" value={selected.id} />
-              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
             </form>
           </>
         ) : null}

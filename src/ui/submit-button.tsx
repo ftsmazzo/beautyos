@@ -8,8 +8,9 @@ function toneClass(className?: string) {
   if (className === "amber") return "btn btn-warning";
   if (className === "rose") return "btn btn-danger";
   if (className === "navy") return "btn btn-dark";
+  if (className.includes("btn-outline")) return className.includes("btn ") ? className : `btn ${className}`;
   if (className.includes("btn-")) return className.startsWith("btn ") ? className : `btn ${className}`;
-  return `btn btn-primary ${className}`.trim();
+  return "btn btn-primary";
 }
 
 export function SubmitButton({

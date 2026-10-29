@@ -98,7 +98,7 @@ export function PayableSettle({
               ) : null}
             </>
           )}
-          <SubmitButton label={credit ? "Lançar" : "Baixar"} pendingLabel="Lançando…" className="quiet" />
+          <SubmitButton label={credit ? "Lançar" : "Baixar"} pendingLabel="Lançando…" className="btn btn-outline" />
         </form>
       )}
     </Modal>

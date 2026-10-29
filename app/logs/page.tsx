@@ -52,14 +52,14 @@ export default async function LogsPage({
       <div className="desk-bar">
         {!period ? (
           <>
-            <Link className="btn quiet" href={`/logs?dia=${shiftDay(start, -1)}`}>
+            <Link className="btn btn-outline" href={`/logs?dia=${shiftDay(start, -1)}`}>
               ←
             </Link>
             <span className="day-label">{formatDay(start)}</span>
-            <Link className="btn quiet" href={`/logs?dia=${shiftDay(start, 1)}`}>
+            <Link className="btn btn-outline" href={`/logs?dia=${shiftDay(start, 1)}`}>
               →
             </Link>
-            <Link className="btn quiet" href={`/logs?dia=${today}`}>
+            <Link className="btn btn-outline" href={`/logs?dia=${today}`}>
               Hoje
             </Link>
           </>
@@ -69,19 +69,19 @@ export default async function LogsPage({
               <input name="de" type="date" defaultValue={start} required aria-label="De" />
               <input name="ate" type="date" defaultValue={end} required aria-label="Até" />
               {kind ? <input type="hidden" name="tipo" value={kind} /> : null}
-              <button className="btn" type="submit">
+              <button className="btn btn-primary" type="submit">
                 Ver
               </button>
             </form>
-            <Link className="btn quiet" href={`/logs?dia=${today}`}>
+            <Link className="btn btn-outline" href={`/logs?dia=${today}`}>
               Dia
             </Link>
           </>
         )}
-        <Link className="btn quiet" href={rangeQuery(week.start, today, kind)}>
+        <Link className="btn btn-outline" href={rangeQuery(week.start, today, kind)}>
           Semana
         </Link>
-        <Link className="btn quiet" href={rangeQuery(month.start, today, kind)}>
+        <Link className="btn btn-outline" href={rangeQuery(month.start, today, kind)}>
           Mês
         </Link>
         {KINDS.map((item) => {
@@ -97,7 +97,7 @@ export default async function LogsPage({
             </Link>
           );
         })}
-        <span className="chip">{tooLong ? `máx. ${SPAN}d` : logs.length}</span>
+        <span className="badge bg-secondary-lt">{tooLong ? `máx. ${SPAN}d` : logs.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {tooLong ? <p className="queue-empty">O período fica em até {SPAN} dias.</p> : null}

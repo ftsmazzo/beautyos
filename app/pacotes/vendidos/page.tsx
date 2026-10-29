@@ -128,7 +128,7 @@ export default async function SoldPackagesPage({
           </form>
         </Modal>
       ) : null}
-        <Link className="btn quiet" href="/pacotes/relatorio">
+        <Link className="btn btn-outline" href="/pacotes/relatorio">
           Relatório
         </Link>
         {NOW.map((item) => (
@@ -144,9 +144,9 @@ export default async function SoldPackagesPage({
           ))}
         </Modal>
         {FILE.some((item) => item.id === filter) ? (
-          <span className="chip">{FILE.find((item) => item.id === filter)?.label}</span>
+          <span className="badge bg-secondary-lt">{FILE.find((item) => item.id === filter)?.label}</span>
         ) : null}
-        <span className="chip">{visible.length}</span>
+        <span className="badge bg-secondary-lt">{visible.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {visible.length === 0 ? <p className="queue-empty">Nenhum pacote neste filtro.</p> : null}

@@ -36,7 +36,7 @@ export default async function OrdersReportPage({
     <Panel user={user} current="/relatorios" title="Comandas">
       <div className="desk">
         <ReportPeriod path="/relatorios/comandas" start={start} end={end} tooLong={tooLong} span={SPAN}>
-          <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
+          <Link className="btn btn-outline" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {report && qty === 0 ? (
@@ -70,7 +70,7 @@ export default async function OrdersReportPage({
               <div className="desk-floor">
                 <span className="label">Falta receber</span>
                 {report.gaps.slice(0, 12).map((row) => (
-                  <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
+                  <Link key={row.id} className="badge bg-red-lt text-red" href={`/comandas/${row.id}`}>
                     {row.who} · {formatDay(row.day)} · {formatReais(row.gapCents)}
                   </Link>
                 ))}

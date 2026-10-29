@@ -160,17 +160,17 @@ export default async function ClientFormPage({
   const desk = person && brief ? (
         <div className="desk">
           <div className="desk-bar">
-            <span className="chip">{formatPhone(person.phone)}</span>
+            <span className="badge bg-secondary-lt">{formatPhone(person.phone)}</span>
             {brief.money.dueCents > 0 ? (
-              <Link className="chip hot" href="/financeiro/receber">
+              <Link className="badge bg-red-lt text-red" href="/financeiro/receber">
                 A receber {formatReais(brief.money.dueCents)}
               </Link>
             ) : null}
-            {ledger && ledger.creditCents > 0 ? <span className="chip">Crédito {formatReais(ledger.creditCents)}</span> : null}
-            {person.channel !== "nao_informado" ? <span className="chip">{channel}</span> : null}
-            {person.incomplete ? <span className="chip">Incompleto</span> : null}
-            {person.fromOutside ? <span className="chip">De fora</span> : null}
-            {person.active ? null : <span className="chip">inativo</span>}
+            {ledger && ledger.creditCents > 0 ? <span className="badge bg-secondary-lt">Crédito {formatReais(ledger.creditCents)}</span> : null}
+            {person.channel !== "nao_informado" ? <span className="badge bg-secondary-lt">{channel}</span> : null}
+            {person.incomplete ? <span className="badge bg-secondary-lt">Incompleto</span> : null}
+            {person.fromOutside ? <span className="badge bg-secondary-lt">De fora</span> : null}
+            {person.active ? null : <span className="badge bg-secondary-lt">inativo</span>}
             <Modal label="Editar" title={`Editar · ${person.name}`} tone="navy">
               {editor}
             </Modal>
@@ -257,7 +257,7 @@ export default async function ClientFormPage({
                         </td>
                         <td>{order.status === "fechada" ? "fechada" : "aberta"}</td>
                         <td>
-                          <span className="chip warn">{formatReais(order.totalCents - order.paidCents)}</span>
+                          <span className="badge bg-orange-lt text-orange">{formatReais(order.totalCents - order.paidCents)}</span>
                         </td>
                       </tr>
                     ))}

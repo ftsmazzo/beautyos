@@ -103,7 +103,7 @@ export default async function AccessPage({
             <SubmitButton label="Salvar módulos" pendingLabel="Salvando…" />
           </form>
         </Modal>
-        <span className="chip">{people.length}</span>
+        <span className="badge bg-secondary-lt">{people.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         <table>
@@ -125,7 +125,7 @@ export default async function AccessPage({
                 <td>
                   {ROLES.find((role) => role.value === person.role)?.label ?? person.role}
                   {" "}
-                  <span className="chip">{person.active ? "ativo" : "desativado"}</span>
+                  <span className="badge bg-secondary-lt">{person.active ? "ativo" : "desativado"}</span>
                 </td>
                 <td>
                   {person.professionalId ? (
@@ -180,7 +180,7 @@ export default async function AccessPage({
                       ) : null}
                     </Modal>
                     {person.id === user.id ? (
-                      <span className="chip">Você</span>
+                      <span className="badge bg-secondary-lt">Você</span>
                     ) : (
                       <form action={setAccessActive}>
                         <input type="hidden" name="id" value={person.id} />
@@ -188,7 +188,7 @@ export default async function AccessPage({
                         <SubmitButton
                           label={person.active ? "Desativar" : "Reativar"}
                           pendingLabel="Salvando…"
-                          className="quiet"
+                          className="btn btn-outline"
                         />
                       </form>
                     )}

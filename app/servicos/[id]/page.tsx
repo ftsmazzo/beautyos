@@ -160,7 +160,7 @@ export default async function ServiceFormPage({
           </table>
         ) : null}
         <h2>Próxima troca de preço</h2>
-        {service?.priceChangedOn ? <span className="chip">Avulso desde {formatDay(service.priceChangedOn)}</span> : null}
+        {service?.priceChangedOn ? <span className="badge bg-secondary-lt">Avulso desde {formatDay(service.priceChangedOn)}</span> : null}
         <div className="split">
           <label>
             Novo avulso
@@ -247,16 +247,16 @@ export default async function ServiceFormPage({
       {service ? (
         <div className="desk">
           <div className="desk-bar">
-            <span className="chip">{formatReais(service.priceCents)}</span>
-            <span className="chip">{service.durationMin} min</span>
-            <span className="chip">{service.commissionPercent}%</span>
-            <span className="chip">{service.returnDays == null ? "Sem volta" : `Volta ${service.returnDays} d`}</span>
-            {service.menuGroup ? <span className="chip">{service.menuGroup}</span> : null}
-            {service.active ? null : <span className="chip">inativo</span>}
-            {service.bookable ? null : <span className="chip">Fora da agenda</span>}
-            {service.extrasGoal ? <span className="chip">Extra</span> : null}
+            <span className="badge bg-secondary-lt">{formatReais(service.priceCents)}</span>
+            <span className="badge bg-secondary-lt">{service.durationMin} min</span>
+            <span className="badge bg-secondary-lt">{service.commissionPercent}%</span>
+            <span className="badge bg-secondary-lt">{service.returnDays == null ? "Sem volta" : `Volta ${service.returnDays} d`}</span>
+            {service.menuGroup ? <span className="badge bg-secondary-lt">{service.menuGroup}</span> : null}
+            {service.active ? null : <span className="badge bg-secondary-lt">inativo</span>}
+            {service.bookable ? null : <span className="badge bg-secondary-lt">Fora da agenda</span>}
+            {service.extrasGoal ? <span className="badge bg-secondary-lt">Extra</span> : null}
             {service.nextPriceCents != null && service.nextPriceOn ? (
-              <span className="chip">Próximo {formatReais(service.nextPriceCents)} · {formatDay(service.nextPriceOn)}</span>
+              <span className="badge bg-secondary-lt">Próximo {formatReais(service.nextPriceCents)} · {formatDay(service.nextPriceOn)}</span>
             ) : null}
             <Modal label="Editar" title={`Editar · ${service.name}`} tone="navy">
               {editor}

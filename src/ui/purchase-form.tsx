@@ -109,7 +109,7 @@ export function PurchaseForm({
       {known.length > 0 ? (
         <div className="desk-bar">
           {known.map((item) => (
-            <span className="chip" key={`${item.supplierId}-${item.productId}-${item.label}`}>
+            <span className="badge bg-secondary-lt" key={`${item.supplierId}-${item.productId}-${item.label}`}>
               {item.label} → {item.productName}
             </span>
           ))}
@@ -146,10 +146,10 @@ export function PurchaseForm({
             Custo unitário
             <input name="cost" placeholder="0,00" defaultValue={draft?.lines[row]?.cost ?? ""} />
           </label>
-          {draft?.lines[row]?.barcode ? <span className="chip">{draft.lines[row].barcode}</span> : null}
+          {draft?.lines[row]?.barcode ? <span className="badge bg-secondary-lt">{draft.lines[row].barcode}</span> : null}
         </div>
       ))}
-      <button type="button" className="btn quiet" onClick={() => setRows((current) => [...current, current.length])}>
+      <button type="button" className="btn btn-outline" onClick={() => setRows((current) => [...current, current.length])}>
         Incluir produto
       </button>
       <label className="check">

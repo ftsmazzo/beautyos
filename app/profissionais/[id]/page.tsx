@@ -227,17 +227,17 @@ export default async function ProfessionalFormPage({
       {person ? (
         <div className="desk">
           <div className="desk-bar">
-            {person.nickname ? <span className="chip">{person.nickname}</span> : null}
-            {person.phone ? <span className="chip">{formatPhone(person.phone)}</span> : null}
-            {person.active ? null : <span className="chip">inativo</span>}
-            {person.bookable ? null : <span className="chip">Fora da agenda</span>}
+            {person.nickname ? <span className="badge bg-secondary-lt">{person.nickname}</span> : null}
+            {person.phone ? <span className="badge bg-secondary-lt">{formatPhone(person.phone)}</span> : null}
+            {person.active ? null : <span className="badge bg-secondary-lt">inativo</span>}
+            {person.bookable ? null : <span className="badge bg-secondary-lt">Fora da agenda</span>}
             <Modal label="Editar" title={`Editar · ${person.name}`} tone="navy">
               {editor}
             </Modal>
             {user.role === "administrador" && person.userId && linkedLogin ? (
               <>
-                <span className="chip">{linkedLogin.email}</span>
-                <span className="chip">{linkedLogin.active ? "login ativo" : "login desativado"}</span>
+                <span className="badge bg-secondary-lt">{linkedLogin.email}</span>
+                <span className="badge bg-secondary-lt">{linkedLogin.active ? "login ativo" : "login desativado"}</span>
                 <Modal label="Trocar senha" title={`Senha · ${person.name}`} tone="navy">
                   <form action={setAccessPassword}>
                     <input type="hidden" name="id" value={person.userId} />
@@ -250,7 +250,7 @@ export default async function ProfessionalFormPage({
                     <SubmitButton label="Trocar senha" pendingLabel="Trocando…" />
                   </form>
                 </Modal>
-                {person.userId === user.id ? <span className="chip">Seu acesso</span> : (
+                {person.userId === user.id ? <span className="badge bg-secondary-lt">Seu acesso</span> : (
                   <form action={setAccessActive}>
                     <input type="hidden" name="id" value={person.userId} />
                     <input type="hidden" name="back" value="ficha" />
@@ -259,7 +259,7 @@ export default async function ProfessionalFormPage({
                     <SubmitButton
                       label={linkedLogin.active ? "Desativar login" : "Reativar login"}
                       pendingLabel="Salvando…"
-                      className="quiet"
+                      className="btn btn-outline"
                     />
                   </form>
                 )}
@@ -268,7 +268,7 @@ export default async function ProfessionalFormPage({
             {used.length === 0 ? (
               <form action={deleteProfessional}>
                 <input type="hidden" name="id" value={person.id} />
-                <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
               </form>
             ) : null}
           </div>

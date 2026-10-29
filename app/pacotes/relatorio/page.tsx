@@ -45,21 +45,21 @@ export default async function PackageReportPage({
         <form className="filters" action="/pacotes/relatorio">
           <input type="date" name="de" defaultValue={start} required aria-label="De" />
           <input type="date" name="ate" defaultValue={end} required aria-label="Até" />
-          <button className="btn" type="submit">Ver</button>
+          <button className="btn btn-primary" type="submit">Ver</button>
         </form>
-        <Link className="btn quiet" href={`/pacotes/relatorio?de=${current.start}&ate=${current.end}`}>
+        <Link className="btn btn-outline" href={`/pacotes/relatorio?de=${current.start}&ate=${current.end}`}>
           Este mês
         </Link>
-        <Link className="btn quiet" href={`/pacotes/relatorio?de=${previous.start}&ate=${previous.end}`}>
+        <Link className="btn btn-outline" href={`/pacotes/relatorio?de=${previous.start}&ate=${previous.end}`}>
           Mês passado
         </Link>
-        <Link className="btn quiet" href="/pacotes/vendidos">
+        <Link className="btn btn-outline" href="/pacotes/vendidos">
           Vendidos
         </Link>
-        <span className="chip">{formatDay(start)} – {formatDay(end)}</span>
-        <span className="chip">{soldCount} {soldCount === 1 ? "vendido" : "vendidos"}</span>
-        <span className="chip">{formatReais(soldCents)}</span>
-        <span className="chip">{avulsoCents >= soldCents ? "Abaixo do avulso" : "Acima do avulso"} {formatReais(Math.abs(avulsoCents - soldCents))}</span>
+        <span className="badge bg-secondary-lt">{formatDay(start)} – {formatDay(end)}</span>
+        <span className="badge bg-secondary-lt">{soldCount} {soldCount === 1 ? "vendido" : "vendidos"}</span>
+        <span className="badge bg-secondary-lt">{formatReais(soldCents)}</span>
+        <span className="badge bg-secondary-lt">{avulsoCents >= soldCents ? "Abaixo do avulso" : "Acima do avulso"} {formatReais(Math.abs(avulsoCents - soldCents))}</span>
       </div>
       {report.sales.length === 0 && report.services.length === 0 && report.pardons.times === 0 ? (
         <p className="queue-empty">Nada neste período.</p>
@@ -127,9 +127,9 @@ export default async function PackageReportPage({
         <div className="desk-bar"><span className="day-label">Perdões</span></div>
         {report.pardons.times > 0 ? (
           <div className="desk-bar">
-            <span className="chip">{report.pardons.times} {report.pardons.times === 1 ? "vez" : "vezes"}</span>
-            <span className="chip">{report.pardons.weeks} {weekWord}</span>
-            <span className="chip">{report.pardons.clients} {report.pardons.clients === 1 ? "cliente" : "clientes"}</span>
+            <span className="badge bg-secondary-lt">{report.pardons.times} {report.pardons.times === 1 ? "vez" : "vezes"}</span>
+            <span className="badge bg-secondary-lt">{report.pardons.weeks} {weekWord}</span>
+            <span className="badge bg-secondary-lt">{report.pardons.clients} {report.pardons.clients === 1 ? "cliente" : "clientes"}</span>
           </div>
         ) : null}
         {report.repeats.length > 0 ? (

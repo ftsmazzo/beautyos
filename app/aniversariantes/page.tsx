@@ -15,11 +15,11 @@ export default async function AniversariantesPage() {
     <Panel user={user} current="/aniversariantes" title="Aniversariantes">
       <div className="desk">
       <div className="desk-bar">
-        <span className="chip">30 dias · {rows.length}</span>
-        <Link className="btn quiet" href="/lembretes">
+        <span className="badge bg-secondary-lt">30 dias · {rows.length}</span>
+        <Link className="btn btn-outline" href="/lembretes">
           Lembretes
         </Link>
-        <Link className="btn quiet" href="/clientes">
+        <Link className="btn btn-outline" href="/clientes">
           Clientes
         </Link>
       </div>

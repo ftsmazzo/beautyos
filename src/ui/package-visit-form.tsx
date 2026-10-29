@@ -113,7 +113,7 @@ function RepeatForm({
           <input name="start" type="time" required defaultValue="09:00" />
         </label>
       </div>
-      <SubmitButton label="Repetir" pendingLabel="Repetindo…" className="quiet" />
+      <SubmitButton label="Repetir" pendingLabel="Repetindo…" className="btn btn-outline" />
     </form>
   );
 }

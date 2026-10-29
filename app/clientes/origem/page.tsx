@@ -28,7 +28,7 @@ export default async function OriginPage({
     <Panel user={user} current="/clientes" title="Origem">
       <div className="desk">
       <div className="desk-bar">
-        <Link className="btn quiet" href="/clientes">
+        <Link className="btn btn-outline" href="/clientes">
           Clientes
         </Link>
         <Link className={channel === "" ? "btn" : "btn quiet"} href="/clientes/origem">

@@ -56,11 +56,11 @@ export default async function ConversasAgentePage({
         <span className={`agent-pill ${waOk ? "ok" : "mute"}`}>
           {waOk ? "WhatsApp" : "WhatsApp off"}
         </span>
-        <Link className="btn quiet" href="/agente/config">
+        <Link className="btn btn-outline" href="/agente/config">
           Configurar
         </Link>
         {data.waitlistCount > 0 ? (
-          <Link className="btn quiet" href="/agente/config#espera">
+          <Link className="btn btn-outline" href="/agente/config#espera">
             Espera · {data.waitlistCount}
           </Link>
         ) : null}
@@ -75,10 +75,10 @@ export default async function ConversasAgentePage({
             Humano
           </Link>
         </div>
-        <span className="chip">{data.conversations.length}</span>
+        <span className="badge bg-secondary-lt">{data.conversations.length}</span>
         {isAdmin ? (
           <form action={clearAgentInbox}>
-            <SubmitButton label="Limpar" pendingLabel="Limpando…" className="quiet" />
+            <SubmitButton label="Limpar" pendingLabel="Limpando…" className="btn btn-outline" />
           </form>
         ) : null}
       </div>
@@ -134,7 +134,7 @@ export default async function ConversasAgentePage({
                   {data.selected.phoneLabel}
                 </div>
               </div>
-              <Link className="btn quiet" href={filter === "todas" ? "/agente" : `/agente?filter=${filter}`}>
+              <Link className="btn btn-outline" href={filter === "todas" ? "/agente" : `/agente?filter=${filter}`}>
                 Fechar
               </Link>
             </div>
@@ -167,12 +167,12 @@ export default async function ConversasAgentePage({
               {data.selected.mode === "ai" ? (
                 <form action={takeHumanHandoff}>
                   <input type="hidden" name="conversationId" value={data.selected.id} />
-                  <SubmitButton label="Assumir (humano)" pendingLabel="…" className="quiet" />
+                  <SubmitButton label="Assumir (humano)" pendingLabel="…" className="btn btn-outline" />
                 </form>
               ) : (
                 <form action={returnToAi}>
                   <input type="hidden" name="conversationId" value={data.selected.id} />
-                  <SubmitButton label="Devolver à IA" pendingLabel="…" className="quiet" />
+                  <SubmitButton label="Devolver à IA" pendingLabel="…" className="btn btn-outline" />
                 </form>
               )}
             </div>

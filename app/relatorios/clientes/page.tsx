@@ -51,8 +51,8 @@ export default async function ClientReportPage({
           <Link className={lista === "chamar" ? "btn" : "btn quiet"} href={base("chamar")}>Chamar</Link>
           <Link className={lista === "sumidos" ? "btn" : "btn quiet"} href={base("sumidos")}>Sumidos</Link>
           <Link className={lista === "voltaram" ? "btn" : "btn quiet"} href={base("voltaram")}>Voltaram</Link>
-          <Link className="btn quiet" href="/volta">Volta</Link>
-          <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
+          <Link className="btn btn-outline" href="/volta">Volta</Link>
+          <Link className="btn btn-outline" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {!tooLong ? (

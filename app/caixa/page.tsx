@@ -65,16 +65,16 @@ export default async function CashPage({
             Até
             <input name="ate" type="date" defaultValue={end} required />
           </label>
-          <button className="btn" type="submit">
+          <button className="btn btn-primary" type="submit">
             Ver
           </button>
-          <Link className="btn quiet" href={`/caixa?de=${week.start}&ate=${week.end}`}>
+          <Link className="btn btn-outline" href={`/caixa?de=${week.start}&ate=${week.end}`}>
             Semana
           </Link>
-          <Link className="btn quiet" href={`/caixa?de=${month.start}&ate=${month.end}`}>
+          <Link className="btn btn-outline" href={`/caixa?de=${month.start}&ate=${month.end}`}>
             Mês
           </Link>
-          <Link className="btn quiet" href={`/caixa?dia=${end}`}>
+          <Link className="btn btn-outline" href={`/caixa?dia=${end}`}>
             Dia
           </Link>
         </form>
@@ -162,20 +162,20 @@ export default async function CashPage({
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       <div className="desk-bar">
-        <Link className="btn quiet" href={`/caixa?dia=${shiftDay(day, -1)}`}>
+        <Link className="btn btn-outline" href={`/caixa?dia=${shiftDay(day, -1)}`}>
           ←
         </Link>
         <span className="day-label">{formatDay(day)}</span>
-        <Link className="btn quiet" href={`/caixa?dia=${shiftDay(day, 1)}`}>
+        <Link className="btn btn-outline" href={`/caixa?dia=${shiftDay(day, 1)}`}>
           →
         </Link>
-        <Link className="btn quiet" href={`/caixa?dia=${todaySaoPaulo()}`}>
+        <Link className="btn btn-outline" href={`/caixa?dia=${todaySaoPaulo()}`}>
           Hoje
         </Link>
-        <Link className="btn quiet" href={`/comissao?de=${day}&ate=${day}`}>
+        <Link className="btn btn-outline" href={`/comissao?de=${day}&ate=${day}`}>
           Comissão
         </Link>
-        <Link className="btn quiet" href={`/caixa?de=${monthBounds(day).start}&ate=${day}`}>
+        <Link className="btn btn-outline" href={`/caixa?de=${monthBounds(day).start}&ate=${day}`}>
           Mês
         </Link>
         <Modal label="Sangria / suprimento" title="Gaveta" tone="navy">
@@ -201,19 +201,19 @@ export default async function CashPage({
             <SubmitButton label="Lançar" pendingLabel="Lançando…" />
           </form>
         </Modal>
-        <span className="chip ok">Recebido {formatReais(received)}</span>
-        <span className="chip">Gaveta {formatReais(drawerNet)}</span>
-        <span className="chip">Banco {formatReais(banked)}</span>
-        <span className="chip">Comissão {formatReais(netCommission)}</span>
+        <span className="badge bg-green-lt text-green">Recebido {formatReais(received)}</span>
+        <span className="badge bg-secondary-lt">Gaveta {formatReais(drawerNet)}</span>
+        <span className="badge bg-secondary-lt">Banco {formatReais(banked)}</span>
+        <span className="badge bg-secondary-lt">Comissão {formatReais(netCommission)}</span>
         {openDue > 0 ? (
-          <Link className="chip hot" href="/comandas?lista=abertas&filtro=falta">
+          <Link className="badge bg-red-lt text-red" href="/comandas?lista=abertas&filtro=falta">
             Em aberto {formatReais(openDue)}
           </Link>
         ) : (
-          <span className="chip">Em aberto {formatReais(0)}</span>
+          <span className="badge bg-secondary-lt">Em aberto {formatReais(0)}</span>
         )}
         {cash.byMethod.map((row) => (
-          <span className="chip" key={row.method}>
+          <span className="badge bg-secondary-lt" key={row.method}>
             {methodLabel(row.method)} {formatReais(row.amountCents)}
           </span>
         ))}
@@ -222,7 +222,7 @@ export default async function CashPage({
         <div className="desk-floor">
           <span className="label">Falta hoje</span>
           {cash.openGaps.map((row) => (
-            <Link key={row.id} className="chip hot" href={`/comandas/${row.id}`}>
+            <Link key={row.id} className="badge bg-red-lt text-red" href={`/comandas/${row.id}`}>
               {row.who} · {formatReais(row.gapCents)}
             </Link>
           ))}

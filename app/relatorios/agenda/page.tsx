@@ -42,7 +42,7 @@ export default async function AgendaReportPage({
     <Panel user={user} current="/relatorios" title="Agenda">
       <div className="desk">
         <ReportPeriod path="/relatorios/agenda" start={start} end={end} tooLong={tooLong} span={SPAN}>
-          <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
+          <Link className="btn btn-outline" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {report && qty === 0 ? (

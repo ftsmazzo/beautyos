@@ -76,17 +76,17 @@ export default async function BanksPage({
         ))}
         {selected ? (
           <>
-            {selected.institution ? <span className="chip">{selected.institution}</span> : null}
-            <span className="chip">{KINDS[selected.kind] ?? selected.kind}</span>
-            {selected.code ? <span className="chip">{selected.code}</span> : null}
-            <span className="chip">
+            {selected.institution ? <span className="badge bg-secondary-lt">{selected.institution}</span> : null}
+            <span className="badge bg-secondary-lt">{KINDS[selected.kind] ?? selected.kind}</span>
+            {selected.code ? <span className="badge bg-secondary-lt">{selected.code}</span> : null}
+            <span className="badge bg-secondary-lt">
               Abertura {formatReais(selected.openingCents)}
               {selected.openingOn ? ` · ${selected.openingOn}` : ""}
             </span>
-            <span className="chip ok">Saldo {formatReais(balance)}</span>
+            <span className="badge bg-green-lt text-green">Saldo {formatReais(balance)}</span>
             <form action={deleteBank}>
               <input type="hidden" name="id" value={selected.id} />
-              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+              <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
             </form>
           </>
         ) : null}

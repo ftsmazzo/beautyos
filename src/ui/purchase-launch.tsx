@@ -65,7 +65,7 @@ export function PurchaseLaunch(props: LaunchProps) {
   return (
     <>
       <div className="desk-bar">
-        <Link className="btn quiet" href="/produtos">Produtos</Link>
+        <Link className="btn btn-outline" href="/produtos">Produtos</Link>
         {props.products.length > 0 ? (
           <CouponScan busy={busy} onShot={(shot) => void onShot(shot)} />
         ) : null}
@@ -97,11 +97,11 @@ export function PurchaseLaunch(props: LaunchProps) {
           <Modal label="Lançar nota" title="Lançar nota" tone="teal">{form}</Modal>
         ) : null}
         {(props.lowCount ?? 0) > 0 ? (
-          <Link className="btn quiet" href="/produtos/compra?pedir=1">
+          <Link className="btn btn-outline" href="/produtos/compra?pedir=1">
             Lista de compra · {props.lowCount}
           </Link>
         ) : null}
-        <span className="chip">{props.purchaseCount} notas</span>
+        <span className="badge bg-secondary-lt">{props.purchaseCount} notas</span>
       </div>
       {qrInfo ? <p className="desk-hint">{qrInfo}</p> : null}
       {error ? <p className="desk-alert">{error}</p> : null}

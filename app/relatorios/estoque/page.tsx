@@ -61,14 +61,14 @@ export default async function StockReportPage({
           <Link className={onlyLow ? "btn" : "btn quiet"} href={base({ uso, filtro: onlyLow ? "" : "minimo" })}>
             {onlyLow ? "Todos os saldos" : "No mínimo"}
           </Link>
-          <Link className="btn quiet" href={`/relatorios/compras?de=${start}&ate=${end}`}>Compras</Link>
+          <Link className="btn btn-outline" href={`/relatorios/compras?de=${start}&ate=${end}`}>Compras</Link>
           {low.length > 0 ? (
-            <Link className="btn" href="/produtos/compra?pedir=1">
+            <Link className="btn btn-primary" href="/produtos/compra?pedir=1">
               Montar compra · {low.length}
             </Link>
           ) : null}
-          <Link className="btn quiet" href={`/produtos/movimentos?de=${start}&ate=${end}`}>Movimentos</Link>
-          <Link className="btn quiet" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
+          <Link className="btn btn-outline" href={`/produtos/movimentos?de=${start}&ate=${end}`}>Movimentos</Link>
+          <Link className="btn btn-outline" href={`/relatorios?de=${start}&ate=${end}`}>Painel</Link>
         </ReportPeriod>
         {tooLong ? <p className="desk-alert">Período máximo: {SPAN} dias.</p> : null}
         {!tooLong ? (

@@ -23,23 +23,23 @@ export default async function ClientsPage({
       <div className="desk">
       <SavedNote code={query.ok} />
       <div className="desk-bar">
-        <Link className="btn" href="/clientes/novo">
+        <Link className="btn btn-primary" href="/clientes/novo">
           Novo cliente
         </Link>
-        <Link className="btn quiet" href="/clientes/origem">
+        <Link className="btn btn-outline" href="/clientes/origem">
           Origem
         </Link>
-        <Link className="btn quiet" href={removed ? "/clientes" : "/clientes?estado=removidos"}>
+        <Link className="btn btn-outline" href={removed ? "/clientes" : "/clientes?estado=removidos"}>
           {removed ? "Ativos" : "Removidos"}
         </Link>
         <form className="desk-bar" method="get" style={{ margin: 0, flex: "1 1 220px" }}>
           {removed ? <input type="hidden" name="estado" value="removidos" /> : null}
           <input name="q" defaultValue={query.q ?? ""} placeholder="Nome ou celular" aria-label="Busca" />
-          <button className="btn quiet" type="submit">
+          <button className="btn btn-outline" type="submit">
             Buscar
           </button>
         </form>
-        <span className="chip">{people.length}</span>
+        <span className="badge bg-secondary-lt">{people.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {people.length === 0 ? <p className="queue-empty">{removed ? "Nenhuma pessoa removida." : "Nenhum cliente ainda."}</p> : null}

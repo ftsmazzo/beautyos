@@ -62,7 +62,7 @@ export default async function ChartPage({
         <SubmitButton label="Salvar conta" pendingLabel="Salvando…" />
       </form>
       </Modal>
-      <span className="chip">{rows.length}</span>
+      <span className="badge bg-secondary-lt">{rows.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {rows.length === 0 ? <p className="queue-empty">Nenhuma conta no plano ainda.</p> : null}
@@ -89,7 +89,7 @@ export default async function ChartPage({
                   <td>
                     <form action={deleteChart}>
                       <input type="hidden" name="id" value={row.id} />
-                      <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                      <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
                     </form>
                   </td>
                 </tr>

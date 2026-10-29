@@ -145,7 +145,7 @@ function OrdersTable({
                   <form action={deleteEmptyOrder}>
                     <input type="hidden" name="order" value={order.id} />
                     <input type="hidden" name="back" value={emptyBack} />
-                    <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="quiet" />
+                    <SubmitButton label="Excluir" pendingLabel="Excluindo…" className="btn btn-outline" />
                   </form>
                 ) : null}
               </td>
@@ -246,17 +246,17 @@ export default async function OrdersPage({
           </Link>
           {lista === "dia" ? (
             <>
-              <Link className="btn quiet" href={`/comandas?dia=${shiftDay(day, -1)}`}>
+              <Link className="btn btn-outline" href={`/comandas?dia=${shiftDay(day, -1)}`}>
                 ←
               </Link>
               <span className="day-label">{formatDay(day)}</span>
-              <Link className="btn quiet" href={`/comandas?dia=${shiftDay(day, 1)}`}>
+              <Link className="btn btn-outline" href={`/comandas?dia=${shiftDay(day, 1)}`}>
                 →
               </Link>
-              <Link className="btn quiet" href={`/comandas?dia=${today}`}>
+              <Link className="btn btn-outline" href={`/comandas?dia=${today}`}>
                 Hoje
               </Link>
-              <Link className="btn quiet" href={`/agenda?dia=${day}`}>
+              <Link className="btn btn-outline" href={`/agenda?dia=${day}`}>
                 Agenda
               </Link>
               {operator ? (
@@ -284,7 +284,7 @@ export default async function OrdersPage({
               <form className="desk-bar" action="/comandas" style={{ margin: 0, flex: "1 1 220px" }}>
                 <input type="hidden" name="dia" value={day} />
                 <input name="q" defaultValue={q} placeholder="Nome, celular ou profissional" aria-label="Busca" />
-                <button className="btn quiet" type="submit">
+                <button className="btn btn-outline" type="submit">
                   Buscar
                 </button>
               </form>
@@ -341,17 +341,17 @@ export default async function OrdersPage({
                 ))}
               </Modal>
               {OPEN_MORE.some((item) => item.id === openFilter) ? (
-                <span className="chip">{OPEN_MORE.find((item) => item.id === openFilter)?.label}</span>
+                <span className="badge bg-secondary-lt">{OPEN_MORE.find((item) => item.id === openFilter)?.label}</span>
               ) : null}
               <form className="desk-bar" action="/comandas" style={{ margin: 0, flex: "1 1 200px" }}>
                 <input type="hidden" name="lista" value="abertas" />
                 <input type="hidden" name="filtro" value={openFilter} />
                 <input name="q" defaultValue={q} placeholder="Nome ou celular" aria-label="Busca" />
-                <button className="btn quiet" type="submit">
+                <button className="btn btn-outline" type="submit">
                   Buscar
                 </button>
               </form>
-              <span className="chip">
+              <span className="badge bg-secondary-lt">
                 {openRows.length} · {openDue > 0 ? `a receber ${formatReais(openDue)}` : "em dia"}
               </span>
             </div>
@@ -385,7 +385,7 @@ export default async function OrdersPage({
                 <input name="ate" type="date" defaultValue={end} required />
               </label>
               <input name="q" defaultValue={q} placeholder="Nome ou celular" aria-label="Busca" />
-              <button className="btn" type="submit">
+              <button className="btn btn-primary" type="submit">
                 Ver
               </button>
             </form>

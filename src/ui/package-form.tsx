@@ -156,7 +156,7 @@ export function PackageForm({
             </label>
           ))}
           {groups.length > 1 ? (
-            <button type="button" className="btn quiet" onClick={() => setGroups(groups.filter((_, groupIndex) => groupIndex !== index))}>
+            <button type="button" className="btn btn-outline" onClick={() => setGroups(groups.filter((_, groupIndex) => groupIndex !== index))}>
               Tirar serviço
             </button>
           ) : null}
@@ -164,7 +164,7 @@ export function PackageForm({
       ))}
       <button
         type="button"
-        className="btn quiet"
+        className="btn btn-outline"
         onClick={() => setGroups([...groups, { serviceId: "", prices: [""] }])}
       >
         Incluir serviço
@@ -174,7 +174,7 @@ export function PackageForm({
           Dividir este total entre as idas
           <input value={splitTotal} onChange={(event) => setSplitTotal(event.target.value)} placeholder="0,00" />
         </label>
-        <button type="button" className="btn quiet" onClick={splitEven}>
+        <button type="button" className="btn btn-outline" onClick={splitEven}>
           Dividir
         </button>
       </div>
@@ -227,14 +227,14 @@ export function PackageForm({
           </label>
           <button
             type="button"
-            className="btn quiet"
+            className="btn btn-outline"
             onClick={() => setRows(rows.filter((_, rowIndex) => rowIndex !== index))}
           >
             Tirar
           </button>
         </div>
       ))}
-      <button type="button" className="btn quiet" onClick={() => setRows([...rows, { productId: "", qty: "1", price: "" }])}>
+      <button type="button" className="btn btn-outline" onClick={() => setRows([...rows, { productId: "", qty: "1", price: "" }])}>
         Incluir produto
       </button>
       <p>{summary}</p>

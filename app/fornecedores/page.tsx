@@ -22,16 +22,16 @@ export default async function SuppliersPage({
       <SavedNote code={query.ok} />
       <ErrorNote code={query.erro} />
       <div className="desk-bar">
-        <Link className="btn" href="/fornecedores/novo">
+        <Link className="btn btn-primary" href="/fornecedores/novo">
           Novo fornecedor
         </Link>
-        <Link className="btn quiet" href="/produtos">
+        <Link className="btn btn-outline" href="/produtos">
           Produtos
         </Link>
-        <Link className="btn quiet" href="/produtos/compra">
+        <Link className="btn btn-outline" href="/produtos/compra">
           Compra
         </Link>
-        <span className="chip">{suppliers.length}</span>
+        <span className="badge bg-secondary-lt">{suppliers.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {suppliers.length === 0 ? <p className="queue-empty">Nenhum fornecedor ainda.</p> : null}

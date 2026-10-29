@@ -114,20 +114,20 @@ export default async function AgendaPage({
     <Panel user={user} current="/agenda" title="Agenda">
       <div className="desk">
         <div className="desk-bar">
-          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(day, -1)}`}>
+          <Link className="btn btn-outline" href={`/agenda?dia=${shiftDay(day, -1)}`}>
             ←
           </Link>
           <span className="day-label">{formatDay(day)}</span>
-          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(day, 1)}`}>
+          <Link className="btn btn-outline" href={`/agenda?dia=${shiftDay(day, 1)}`}>
             →
           </Link>
-          <Link className="btn quiet" href="/agenda">
+          <Link className="btn btn-outline" href="/agenda">
             Hoje
           </Link>
-          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, -7)}`}>
+          <Link className="btn btn-outline" href={`/agenda?dia=${shiftDay(week.start, -7)}`}>
             Sem. ant.
           </Link>
-          <Link className="btn quiet" href={`/agenda?dia=${shiftDay(week.start, 7)}`}>
+          <Link className="btn btn-outline" href={`/agenda?dia=${shiftDay(week.start, 7)}`}>
             Próx. sem.
           </Link>
           {bookable.length > 0 ? (
@@ -195,10 +195,10 @@ export default async function AgendaPage({
               </form>
             </Modal>
           ) : null}
-          <Link className="btn quiet" href={`/espera?dia=${day}`}>
+          <Link className="btn btn-outline" href={`/espera?dia=${day}`}>
             Espera
           </Link>
-          <Link className="btn quiet" href={`/lembretes?dia=${day}`}>
+          <Link className="btn btn-outline" href={`/lembretes?dia=${day}`}>
             Lembretes
           </Link>
         </div>
@@ -246,11 +246,11 @@ export default async function AgendaPage({
                     .filter(Boolean)
                     .join(" · ");
                   return item.orderId ? (
-                    <Link key={item.id} className="chip ok" href={`/comandas/${item.orderId}`}>
+                    <Link key={item.id} className="badge bg-green-lt text-green" href={`/comandas/${item.orderId}`}>
                       {label}
                     </Link>
                   ) : (
-                    <span key={item.id} className="chip ok">
+                    <span key={item.id} className="badge bg-green-lt text-green">
                       {label}
                     </span>
                   );
@@ -377,7 +377,7 @@ export default async function AgendaPage({
                   if (bookClient) params.set("cliente", bookClient);
                   if (bookService) params.set("servico", bookService);
                   return (
-                    <Link key={`${gap.professionalId}-${gap.start}`} className="btn quiet" href={`/agenda?${params.toString()}`}>
+                    <Link key={`${gap.professionalId}-${gap.start}`} className="btn btn-outline" href={`/agenda?${params.toString()}`}>
                       {gap.name} {gap.start}–{gap.end}
                     </Link>
                   );
@@ -433,7 +433,7 @@ export default async function AgendaPage({
                         <td>{item.at ?? "—"}</td>
                         <td>
                           {item.orderId ? (
-                            <Link className="btn quiet" href={`/comandas/${item.orderId}`}>
+                            <Link className="btn btn-outline" href={`/comandas/${item.orderId}`}>
                               Comanda
                             </Link>
                           ) : null}

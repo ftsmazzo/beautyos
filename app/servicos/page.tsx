@@ -23,13 +23,13 @@ export default async function ServicesPage({
       <SavedNote code={query.ok} />
       <PriceNotice notices={notices} back="servicos" />
       <div className="desk-bar">
-        <Link className="btn" href="/servicos/novo">
+        <Link className="btn btn-primary" href="/servicos/novo">
           Novo serviço
         </Link>
-        <Link className="btn quiet" href="/servicos/periodo">
+        <Link className="btn btn-outline" href="/servicos/periodo">
           Venda, uso e avulso
         </Link>
-        <span className="chip">{services.length}</span>
+        <span className="badge bg-secondary-lt">{services.length}</span>
       </div>
       <div className="queue" style={{ overflowX: "auto" }}>
         {services.length === 0 ? <p className="queue-empty">Nenhum serviço ainda.</p> : null}

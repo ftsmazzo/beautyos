@@ -22,10 +22,10 @@ export default async function PurchaseDetailPage({
     <Panel user={user} current="/produtos" title={purchase.document}>
       <div className="desk">
         <div className="desk-bar">
-          <Link className="btn quiet" href="/produtos/compra">Notas</Link>
-          <span className="chip">{purchase.supplierName}</span>
-          <span className="chip">{purchase.day}</span>
-          <span className="chip">{formatReais(total)}</span>
+          <Link className="btn btn-outline" href="/produtos/compra">Notas</Link>
+          <span className="badge bg-secondary-lt">{purchase.supplierName}</span>
+          <span className="badge bg-secondary-lt">{purchase.day}</span>
+          <span className="badge bg-secondary-lt">{formatReais(total)}</span>
           {purchase.bills.map((bill) => (
             <span key={`${bill.due}-${bill.amountCents}`} className={bill.paid ? "chip" : "chip warn"}>
               {bill.due} · {formatReais(bill.amountCents)}{bill.paid ? " · pago" : ""}
